@@ -1,11 +1,8 @@
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
+import { currentPrice } from '../lib/pricing'
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(amount)
-}
-
-function currentPrice(variant: VariantWithPricing) {
-  return variant.prices.find((p) => p.price_list.status === 'vigente' && p.status === 'confirmado')
 }
 
 const BRAND_CLASS: Record<string, string> = {
@@ -27,8 +24,11 @@ function PriceTag({ variant }: { variant: VariantWithPricing }) {
         <span className="price pending">Precio pendiente</span>
       )}
       {variant.hasTechnicalDoc && (
-        <span className="doc-badge" title="Ficha técnica disponible">
-          FT
+        <span
+          className="doc-badge tentative"
+          title="Coincidencia por SKU o familia+nombre contra technical_documents, sin vínculo formal todavía — verificar antes de enviar al cliente"
+        >
+          Posible ficha
         </span>
       )}
     </div>

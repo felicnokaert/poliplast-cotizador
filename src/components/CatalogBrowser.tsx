@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
-import type { ProductWithVariants } from '../types/catalog'
+import { filterCatalog, type PriceFilter } from '../lib/filters'
 import { ProductCard } from './ProductCard'
-
-type PriceFilter = 'todos' | 'con_precio' | 'precio_pendiente'
 
 export function CatalogBrowser() {
   const [data, setData] = useState<CatalogData | null>(null)
@@ -34,27 +32,7 @@ export function CatalogBrowser() {
 
   const filtered = useMemo(() => {
     if (!data) return []
-    const term = search.trim().toLowerCase()
-
-    return data.products
-      .filter((p) => p.status === 'vigente')
-      .filter((p) => (family === 'todas' ? true : p.family === family))
-      .filter((p) => (brand === 'todas' ? true : p.brand === brand))
-      .map((product) => filterVariantsByPrice(product, priceFilter))
-      .filter((product): product is ProductWithVariants => product !== null)
-      .filter((product) => {
-        if (!term) return true
-        const haystack = [
-          product.name,
-          product.family,
-          product.subfamily,
-          product.brand,
-          ...product.variants.map((v) => `${v.sku} ${v.name}`),
-        ]
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(term)
-      })
+    return filterCatalog(data.products, { search, family, brand, priceFilter })
   }, [data, search, family, brand, priceFilter])
 
   if (loading) return <div className="centered-page">Cargando catálogo...</div>
@@ -119,14 +97,4 @@ export function CatalogBrowser() {
       )}
     </div>
   )
-}
-
-function filterVariantsByPrice(product: ProductWithVariants, filter: PriceFilter): ProductWithVariants | null {
-  if (filter === 'todos') return product
-  const variants = product.variants.filter((v) => {
-    const hasPrice = v.prices.some((p) => p.price_list.status === 'vigente')
-    return filter === 'con_precio' ? hasPrice : !hasPrice
-  })
-  if (variants.length === 0) return null
-  return { ...product, variants }
 }

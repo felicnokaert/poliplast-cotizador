@@ -14,9 +14,22 @@ export interface CatalogData {
   brands: string[]
 }
 
+export interface RawCatalogRows {
+  products: CatalogProduct[]
+  variants: CatalogVariant[]
+  priceLists: PriceList[]
+  prices: VariantPrice[]
+  docs: TechnicalDocument[]
+}
+
 const VIGENTE_DOC_STATUSES = new Set(['vigente'])
 
-function matchesDocument(doc: TechnicalDocument, variant: CatalogVariant, product: CatalogProduct): boolean {
+/**
+ * Coincidencia heurística por SKU exacto o por familia+nombre de producto.
+ * No hay una tabla de vínculo formal (product_documents) todavía, así que esto
+ * es una sugerencia a validar por el vendedor, nunca un vínculo confirmado.
+ */
+export function matchesDocument(doc: TechnicalDocument, variant: CatalogVariant, product: CatalogProduct): boolean {
   if (!VIGENTE_DOC_STATUSES.has(doc.status)) return false
   const sku = variant.sku.trim().toUpperCase()
   if (doc.sku && doc.sku.trim().toUpperCase() === sku) return true
@@ -28,26 +41,10 @@ function matchesDocument(doc: TechnicalDocument, variant: CatalogVariant, produc
   return false
 }
 
-export async function loadCatalog(): Promise<CatalogData> {
-  const [productsRes, variantsRes, priceListsRes, pricesRes, docsRes] = await Promise.all([
-    supabase.from('catalog_products').select('*').order('family').order('name'),
-    supabase.from('catalog_variants').select('*').order('name'),
-    supabase.from('price_lists').select('*'),
-    supabase.from('variant_prices').select('*'),
-    supabase.from('technical_documents').select('id, title, family, product, sku, status'),
-  ])
-
-  if (productsRes.error) throw productsRes.error
-  if (variantsRes.error) throw variantsRes.error
-  if (priceListsRes.error) throw priceListsRes.error
-  if (pricesRes.error) throw pricesRes.error
-  if (docsRes.error) throw docsRes.error
-
-  const products = (productsRes.data ?? []) as CatalogProduct[]
-  const variants = (variantsRes.data ?? []) as CatalogVariant[]
-  const priceLists = new Map<string, PriceList>((priceListsRes.data ?? []).map((pl: PriceList) => [pl.id, pl]))
-  const prices = (pricesRes.data ?? []) as VariantPrice[]
-  const docs = (docsRes.data ?? []) as TechnicalDocument[]
+/** Ensambla el catálogo navegable a partir de las filas crudas de las tablas. Función pura, sin I/O. */
+export function assembleCatalog(raw: RawCatalogRows): CatalogData {
+  const { products, variants, prices, docs } = raw
+  const priceLists = new Map<string, PriceList>(raw.priceLists.map((pl) => [pl.id, pl]))
 
   const pricesByVariant = new Map<string, VariantPrice[]>()
   for (const price of prices) {
@@ -87,4 +84,28 @@ export async function loadCatalog(): Promise<CatalogData> {
   const brands = Array.from(new Set(products.map((p) => p.brand))).sort()
 
   return { products: result, families, brands }
+}
+
+export async function loadCatalog(): Promise<CatalogData> {
+  const [productsRes, variantsRes, priceListsRes, pricesRes, docsRes] = await Promise.all([
+    supabase.from('catalog_products').select('*').order('family').order('name'),
+    supabase.from('catalog_variants').select('*').order('name'),
+    supabase.from('price_lists').select('*'),
+    supabase.from('variant_prices').select('*'),
+    supabase.from('technical_documents').select('id, title, family, product, sku, status'),
+  ])
+
+  if (productsRes.error) throw productsRes.error
+  if (variantsRes.error) throw variantsRes.error
+  if (priceListsRes.error) throw priceListsRes.error
+  if (pricesRes.error) throw pricesRes.error
+  if (docsRes.error) throw docsRes.error
+
+  return assembleCatalog({
+    products: (productsRes.data ?? []) as CatalogProduct[],
+    variants: (variantsRes.data ?? []) as CatalogVariant[],
+    priceLists: (priceListsRes.data ?? []) as PriceList[],
+    prices: (pricesRes.data ?? []) as VariantPrice[],
+    docs: (docsRes.data ?? []) as TechnicalDocument[],
+  })
 }

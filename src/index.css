@@ -267,10 +267,14 @@ button {
 }
 
 .doc-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 5px;
   border-radius: 4px;
-  padding: 1px 4px;
+}
+
+.doc-badge.tentative {
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  font-style: italic;
 }
