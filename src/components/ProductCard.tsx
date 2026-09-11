@@ -8,42 +8,70 @@ function currentPrice(variant: VariantWithPricing) {
   return variant.prices.find((p) => p.price_list.status === 'vigente' && p.status === 'confirmado')
 }
 
-export function ProductCard({ product }: { product: ProductWithVariants }) {
+const BRAND_CLASS: Record<string, string> = {
+  Resinplast: 'brand-resinplast',
+  Penosil: 'brand-penosil',
+  PURMAC: 'brand-purmac',
+}
+
+function PriceTag({ variant }: { variant: VariantWithPricing }) {
+  const price = currentPrice(variant)
   return (
-    <article className="product-card">
+    <div className="variant-meta">
+      {price ? (
+        <span className="price">
+          {formatMoney(price.amount, price.price_list.currency)}
+          <span className="price-unit"> / {variant.unit}</span>
+        </span>
+      ) : (
+        <span className="price pending">Precio pendiente</span>
+      )}
+      {variant.hasTechnicalDoc && (
+        <span className="doc-badge" title="Ficha técnica disponible">
+          FT
+        </span>
+      )}
+    </div>
+  )
+}
+
+export function ProductCard({ product }: { product: ProductWithVariants }) {
+  const brandClass = BRAND_CLASS[product.brand] ?? 'brand-grupo'
+  // Los productos importados desde una planilla plana traen una sola variante
+  // con el mismo nombre que el producto: mostrarla aparte sería redundante.
+  const isSingleFlatVariant =
+    product.variants.length === 1 && product.variants[0].name === product.name
+
+  return (
+    <article className={`product-card ${brandClass}`}>
       <header>
         <span className="brand-tag">{product.brand}</span>
         <h2>{product.name}</h2>
         <p className="muted">
           {product.family}
-          {product.subfamily ? ` › ${product.subfamily}` : ''}
+          {product.subfamily ? ` › ${product.subfamily}` : ' › Sin subfamilia'}
         </p>
       </header>
-      <ul className="variant-list">
-        {product.variants.map((variant) => {
-          const price = currentPrice(variant)
-          return (
+
+      {isSingleFlatVariant ? (
+        <div className="variant-row single">
+          <span className="variant-sku">{product.variants[0].sku}</span>
+          <PriceTag variant={product.variants[0]} />
+        </div>
+      ) : (
+        <ul className="variant-list">
+          {product.variants.map((variant) => (
             <li key={variant.id} className="variant-row">
               <div className="variant-main">
                 <span className="variant-name">{variant.name}</span>
                 <span className="variant-sku">{variant.sku}</span>
               </div>
-              <div className="variant-meta">
-                {price ? (
-                  <span className="price">
-                    {formatMoney(price.amount, price.price_list.currency)}
-                    <span className="price-unit"> / {variant.unit}</span>
-                  </span>
-                ) : (
-                  <span className="price pending">Precio pendiente</span>
-                )}
-                {variant.hasTechnicalDoc && <span className="doc-badge" title="Ficha técnica disponible">FT</span>}
-              </div>
+              <PriceTag variant={variant} />
             </li>
-          )
-        })}
-        {product.variants.length === 0 && <li className="muted">Sin variantes cargadas</li>}
-      </ul>
+          ))}
+          {product.variants.length === 0 && <li className="muted">Sin variantes cargadas</li>}
+        </ul>
+      )}
     </article>
   )
 }

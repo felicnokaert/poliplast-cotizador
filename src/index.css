@@ -157,11 +157,40 @@ button {
 .product-card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
   border-radius: 12px;
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.product-card.brand-resinplast {
+  border-left-color: #c0392b;
+}
+.product-card.brand-resinplast .brand-tag {
+  color: #c0392b;
+}
+
+.product-card.brand-penosil {
+  border-left-color: #e67e22;
+}
+.product-card.brand-penosil .brand-tag {
+  color: #e67e22;
+}
+
+.product-card.brand-purmac {
+  border-left-color: #2c5f8a;
+}
+.product-card.brand-purmac .brand-tag {
+  color: #2c5f8a;
+}
+
+.variant-row.single {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 
 .product-card h2 {
