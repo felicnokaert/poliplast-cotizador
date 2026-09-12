@@ -60,9 +60,23 @@ function mockCommonLoaders() {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  localStorage.clear()
 })
 
 describe('QuoteWorkspace — reglas comerciales conectadas', () => {
+  it('protege el trabajo actual y lo recupera después de recargar', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+
+    const first = render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    await waitFor(() => expect(screen.getByText(/Borrador protegido automáticamente/)).toBeInTheDocument())
+    first.unmount()
+
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    expect(await screen.findByLabelText('Cantidad')).toHaveValue(1)
+  })
+
   it('con reglas cargadas, agregar 201 almohadas muestra la etiqueta de la regla aplicada', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([almohadasRule])

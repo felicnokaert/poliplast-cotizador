@@ -21,6 +21,7 @@ import { loadCommercialClients, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
+const WORKING_DRAFT_KEY = 'poliplast-cotizador-working-draft-v1'
 
 function money(amount: number, currency: string) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(amount)
@@ -31,6 +32,14 @@ function loadSavedQuotes(): SavedQuote[] {
     const quotes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as SavedQuote[]
     return quotes.map((quote) => ({ ...quote, meta: { ...quote.meta, priceMode: quote.meta.priceMode || 'automatico' } }))
   } catch { return [] }
+}
+
+function loadWorkingDraft(): SavedQuote | null {
+  try {
+    const draft = JSON.parse(localStorage.getItem(WORKING_DRAFT_KEY) || 'null') as SavedQuote | null
+    if (!draft?.meta || !Array.isArray(draft.lines)) return null
+    return { ...draft, meta: { ...draft.meta, priceMode: draft.meta.priceMode || 'automatico' } }
+  } catch { return null }
 }
 
 function newMeta(): QuoteMeta {
@@ -100,8 +109,9 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
 }
 
 export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userId: string }) {
-  const [lines, setLines] = useState<QuoteLine[]>([])
-  const [meta, setMeta] = useState<QuoteMeta>(newMeta)
+  const [initialDraft] = useState(loadWorkingDraft)
+  const [lines, setLines] = useState<QuoteLine[]>(() => initialDraft?.lines ?? [])
+  const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
   const [activeSection, setActiveSection] = useState<'cotizar' | 'historial' | 'administracion'>('cotizar')
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -115,6 +125,10 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
+  useEffect(() => {
+    const updatedAt = new Date().toISOString()
+    localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt }))
+  }, [meta, lines])
   useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
   useEffect(() => {
     // Se carga una sola vez por sesión (no depende de líneas/cantidad/fecha):
@@ -203,7 +217,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             {totals.pendingLines > 0 && <p className="quote-warning">{totals.pendingLines} renglón/es sin precio aplicable para esa cantidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div></div>
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
-            <div className="rail-actions"><button onClick={save}>Guardar borrador</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa / PDF</button></div>
+            <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo</div>
+            <div className="rail-actions"><button onClick={save}>Guardar en historial</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa / PDF</button></div>
           </aside>
         </main>
       )}

@@ -153,6 +153,7 @@ button {
 .commercial-controls { border-top: 1px solid var(--border); padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .commercial-controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .74rem; font-weight: 650; }
 .exchange-source { color: var(--muted); font-weight: 500; line-height: 1.25; }
+.autosave-note { color: #497469; font-size: .75rem; margin: .75rem 0 -.15rem; text-align: center; }
 .commercial-controls .full-field { grid-column: 1 / -1; }
 .quote-totals { border-top: 2px solid var(--text); margin-top: 16px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .quote-totals > div { display: flex; justify-content: space-between; gap: 16px; }
