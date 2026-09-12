@@ -153,8 +153,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     <>
       <nav className="workspace-nav">
         <div className="nav-brand"><BrandMark brand="Grupo Poliplast" /><span>Cotizador comercial</span></div>
-        <div className="nav-tabs"><button className={activeSection === 'cotizar' ? 'active' : ''} onClick={() => setActiveSection('cotizar')}>Nueva cotización</button><button className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}>Guardadas <span>{savedQuotes.length}</span></button><button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}>Administración</button></div>
-        <div className="nav-user"><span>{userEmail}</span><button className="new-quote-button" onClick={startNew}>+ Nueva</button></div>
+        <div className="nav-tabs"><button className={activeSection === 'cotizar' ? 'active' : ''} onClick={() => setActiveSection('cotizar')}><b>＋</b>Nueva cotización</button><button className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>▤</b>Guardadas <span>{savedQuotes.length}</span></button><button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button></div>
+        <div className="nav-user"><span>{userEmail}</span><button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button></div>
       </nav>
 
       {activeSection === 'administracion' ? <AdminPanel /> : activeSection === 'historial' ? (

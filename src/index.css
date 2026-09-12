@@ -467,3 +467,37 @@ button {
   .client-fields { grid-template-columns: 1fr; }
   .product-grid { grid-template-columns: 1fr; }
 }
+
+/* Aplicación operativa: navegación lateral y densidad de tabla tipo ERP. */
+@media (min-width: 981px) {
+  .app-shell { width: 100%; max-width: none; min-height: 100vh; margin: 0; padding: 18px 20px 48px 212px; }
+  .workspace-nav { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 190px; display: flex; flex-direction: column; align-items: stretch; gap: 20px; padding: 21px 13px; margin: 0; border: 0; background: #073f3a; color: white; box-shadow: 2px 0 14px rgba(18,42,39,.14); }
+  .nav-brand { flex-direction: column; align-items: flex-start; gap: 7px; padding: 0 8px 15px; border-bottom: 1px solid rgba(255,255,255,.16); }
+  .nav-brand > span { padding: 0; border: 0; color: rgba(255,255,255,.62); font-size: .7rem; }
+  .nav-brand .brand-mark span, .nav-brand .brand-mark strong { color: white; }
+  .nav-tabs { flex-direction: column; gap: 5px; padding: 0; background: transparent; }
+  .nav-tabs button { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; text-align: left; padding: 9px 10px; color: rgba(255,255,255,.72); font-size: .76rem; }
+  .nav-tabs button b { font-size: .92rem; font-weight: 500; }
+  .nav-tabs button.active { background: rgba(255,255,255,.14); color: white; box-shadow: inset 3px 0 #31c8b3; }
+  .nav-user { margin-top: auto; display: flex; flex-direction: column-reverse; align-items: stretch; gap: 9px; }
+  .nav-user > span { color: rgba(255,255,255,.5); font-size: .62rem; }
+  .nav-user .new-quote-button { width: 100%; background: #13a895; font-size: .74rem; }
+  .quote-layout { grid-template-columns: minmax(0, 1fr) 370px; gap: 18px; padding-top: 34px; }
+}
+
+.client-card { margin: 14px 0 18px; padding: 14px; border-radius: 9px; }
+.products-title { margin: 0 0 7px; pointer-events: none; }
+.quote-rail { border-radius: 9px; padding: 15px; box-shadow: 0 5px 20px rgba(0,0,0,.045); }
+.catalog-header { position: sticky; top: 0; z-index: 8; padding: 5px 0 8px; background: var(--bg); }
+.catalog-header h1 { margin: 0 0 8px; font-size: .98rem; }
+.filters { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, .75fr)); gap: 7px; margin-bottom: 6px; }
+.filters input, .filters select { min-width: 0; padding: 7px 8px; font-size: .76rem; }
+.catalog-row { min-height: 42px; padding: 4px 10px; font-size: .72rem; }
+.catalog-product small, .catalog-price small { color: #777a75; font-size: .6rem; margin-top: 1px; }
+.catalog-family, .catalog-subfamily { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #555852; }
+.catalog-price { display: flex; flex-direction: column; align-items: flex-end; text-align: right; white-space: nowrap; }
+.catalog-price em { color: #8b8d88; font-size: .66rem; }
+
+@media (max-width: 980px) {
+  .filters { grid-template-columns: 1fr 1fr; }
+}
