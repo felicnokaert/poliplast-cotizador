@@ -39,7 +39,8 @@ export interface QuoteMeta {
 export interface SavedQuote { meta: QuoteMeta; lines: QuoteLine[]; updatedAt: string }
 
 export function createQuoteNumber(now = new Date()): string {
-  return `GP-${now.toISOString().replace(/\D/g, '').slice(2, 12)}`
+  const digits = now.toISOString().replace(/\D/g, '')
+  return `GP-${digits.slice(2, 8)}-${digits.slice(8, 14)}-${digits.slice(14, 17)}`
 }
 
 function listMatchesMode(name: string, mode: PriceMode) {
