@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, createQuoteNumber, priceForQuantity, quoteExpiry, quoteTotals, serializeQuoteForWhatsApp } from './quote'
+import { addQuoteLine, createQuoteNumber, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
 const variant = {
@@ -34,14 +34,21 @@ describe('quote', () => {
     expect(priceForQuantity(variant, 12)?.amount).toBe(80)
   })
 
-  it('calcula descuento, recargo, IVA y conversión por separado', () => {
+  it('informa el IVA incluido sin sumarlo por segunda vez', () => {
     const lines = addQuoteLine([], variant, product).map((line) => ({ ...line, quantity: 10 }))
     const totals = quoteTotals(lines, 10, 5, 1000, 'ARS')
     expect(totals.subtotal).toBe(800)
     expect(totals.discount).toBe(80)
     expect(totals.surcharge).toBe(36)
-    expect(totals.vat).toBe(168)
-    expect(totals.convertedTotal).toBe(924000)
+    expect(totals.vat).toBeCloseTo(138.8429, 3)
+    expect(totals.convertedTotal).toBe(756000)
+  })
+
+  it('aplica USD 5,15 más IVA a almohadas cuando supera 200 unidades', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const line = { ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }
+    expect(resolvedLinePrice(line)?.amount).toBeCloseTo(6.2315, 4)
+    expect(resolvedLinePrice(line)?.listName).toContain('+200')
   })
 
   it('calcula vigencia', () => expect(quoteExpiry('2026-09-11T00:00:00Z', 10).toISOString().slice(0, 10)).toBe('2026-09-21'))

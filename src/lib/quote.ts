@@ -4,6 +4,9 @@ export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
 export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
 export type PriceMode = 'automatico' | 'consumidor_final' | 'mayorista'
 export const RESINPLAST_WHOLESALE_THRESHOLD_USD = 1815
+export const PILLOW_WHOLESALE_THRESHOLD = 200
+export const PILLOW_WHOLESALE_NET_USD = 5.15
+export const DEFAULT_VAT_RATE = 0.21
 
 export interface QuoteLine {
   id: string
@@ -53,6 +56,30 @@ export function priceForQuantity(variant: VariantWithPricing, quantity: number, 
   return candidates.find((price) => listMatchesMode(price.price_list.name, mode)) ?? candidates[0]
 }
 
+export function isPillowLine(line: Pick<QuoteLine, 'productName' | 'family'>) {
+  return /almohad/i.test(`${line.family} ${line.productName}`)
+}
+
+export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico') {
+  if (isPillowLine(line) && line.quantity > PILLOW_WHOLESALE_THRESHOLD) {
+    return {
+      amount: PILLOW_WHOLESALE_NET_USD * (1 + DEFAULT_VAT_RATE),
+      currency: 'USD',
+      vatRate: DEFAULT_VAT_RATE,
+      listName: 'Almohadas mayorista +200 u.',
+      specialRule: true,
+    }
+  }
+  const price = priceForQuantity(line.variant, line.quantity, mode)
+  return price ? {
+    amount: price.amount,
+    currency: price.price_list.currency,
+    vatRate: price.price_list.vat_rate ?? DEFAULT_VAT_RATE,
+    listName: price.price_list.name,
+    specialRule: false,
+  } : null
+}
+
 export function resolveAutomaticPriceMode(lines: QuoteLine[]): Exclude<PriceMode, 'automatico'> {
   const resinplast = lines.filter((line) => line.brand.toLowerCase() === 'resinplast' || line.family.toLowerCase() === 'resinplast')
   if (!resinplast.length) return 'consumidor_final'
@@ -98,16 +125,15 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = priceForQuantity(line.variant, line.quantity, appliedPriceMode)
+      const price = resolvedLinePrice(line, appliedPriceMode)
       if (!price) {
         totals.pendingLines += 1
         return totals
       }
-      const net = price.amount * line.quantity
-      const vatRate = price.price_list.vat_rate ?? 0
-      totals.subtotal += net
-      totals.vat += net * vatRate
-      totals.currencies.add(price.price_list.currency)
+      const gross = price.amount * line.quantity
+      totals.subtotal += gross
+      totals.vat += gross * price.vatRate / (1 + price.vatRate)
+      totals.currencies.add(price.currency)
       return totals
     },
     { subtotal: 0, vat: 0, pendingLines: 0, currencies: new Set<string>() },
@@ -115,7 +141,9 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
 
   const discount = raw.subtotal * Math.max(0, discountPercent) / 100
   const surcharge = (raw.subtotal - discount) * Math.max(0, surchargePercent) / 100
-  const total = raw.subtotal - discount + surcharge + raw.vat
+  // Los importes comerciales son finales: el IVA está incluido y se informa,
+  // pero nunca se suma por segunda vez.
+  const total = raw.subtotal - discount + surcharge
   const conversion = outputCurrency === 'ARS' ? Math.max(0, exchangeRate) : 1
   return { ...raw, discount, surcharge, total, convertedTotal: total * conversion, appliedPriceMode }
 }
@@ -132,7 +160,7 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote): string {
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
+    const price = resolvedLinePrice(line, totals.appliedPriceMode)
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}`
   }).join('\n')
   return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}${body}\n\n*Total: ${money(totals.convertedTotal)}*\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`

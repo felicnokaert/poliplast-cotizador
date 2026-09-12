@@ -3,7 +3,7 @@ import { CatalogBrowser } from './CatalogBrowser'
 import {
   addQuoteLine,
   createQuoteNumber,
-  priceForQuantity,
+  resolvedLinePrice,
   quoteExpiry,
   quoteTotals,
   serializeQuoteForWhatsApp,
@@ -73,7 +73,7 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
           <tbody>{quote.lines.map((line) => {
-            const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
+            const price = resolvedLinePrice(line, totals.appliedPriceMode)
             return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}</td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
           })}</tbody>
         </table>
@@ -81,12 +81,14 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
           <div><span>Subtotal</span><strong>{money(totals.subtotal * conversion, quote.meta.outputCurrency)}</strong></div>
           {totals.discount > 0 && <div><span>Descuento ({quote.meta.discountPercent}%)</span><strong>− {money(totals.discount * conversion, quote.meta.outputCurrency)}</strong></div>}
           {totals.surcharge > 0 && <div><span>Financiación/recargo ({quote.meta.surchargePercent}%)</span><strong>{money(totals.surcharge * conversion, quote.meta.outputCurrency)}</strong></div>}
-          <div><span>IVA según lista</span><strong>{money(totals.vat * conversion, quote.meta.outputCurrency)}</strong></div>
+          <div><span>IVA incluido</span><strong>{money(totals.vat * conversion, quote.meta.outputCurrency)}</strong></div>
           <div className="preview-grand"><span>Total</span><strong>{money(totals.convertedTotal, quote.meta.outputCurrency)}</strong></div>
         </div>
         <footer className="preview-footer">
           <p><strong>Condición:</strong> {quote.meta.paymentMethod.replace('_', ' ')} · <strong>Validez:</strong> hasta {expires.toLocaleDateString('es-AR')}</p>
-          {quote.meta.outputCurrency === 'ARS' && <p>Tipo de cambio aplicado: {money(quote.meta.exchangeRate, 'ARS')} por USD.</p>}
+          <p>Todos los precios indicados incluyen IVA.</p>
+          {quote.meta.outputCurrency === 'USD' && <p>Esta cotización está expresada en dólares estadounidenses. Si se cancela en pesos argentinos, el importe se calculará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
+          {quote.meta.outputCurrency === 'ARS' && <p>Equivalencia calculada a un tipo de cambio de {money(quote.meta.exchangeRate, 'ARS')} por USD. El importe definitivo en pesos se determinará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
           {quote.meta.notes && <p><strong>Observaciones:</strong> {quote.meta.notes}</p>}
           <p className="preview-legal">Documento comercial no fiscal. Disponibilidad sujeta a confirmación.</p>
         </footer>
@@ -171,8 +173,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           <aside className="quote-rail">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
-              const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
-              return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {price?.price_list.name || 'Sin lista aplicable'}</div><div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.price_list.currency)} / ${line.variant.unit}` : 'Precio pendiente'}</span><strong className="line-total">{price ? money(price.amount * line.quantity, price.price_list.currency) : '—'}</strong></div></div></div>
+              const price = resolvedLinePrice(line, totals.appliedPriceMode)
+              return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {price?.listName || 'Sin lista aplicable'}</div><div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span><strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div></div>
             })}</div>}
 
             <div className="commercial-controls">
@@ -186,7 +188,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
             {totals.currencies.size > 1 && <p className="quote-warning">Hay precios base en monedas distintas. Separá la cotización o normalizá las listas.</p>}
             {totals.pendingLines > 0 && <p className="quote-warning">{totals.pendingLines} renglón/es sin precio aplicable para esa cantidad.</p>}
-            <div className="quote-totals"><div><span>Subtotal</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA según lista</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div></div>
+            <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div></div>
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
             <div className="rail-actions"><button onClick={save}>Guardar borrador</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa / PDF</button></div>
           </aside>
