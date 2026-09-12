@@ -182,7 +182,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             <CatalogBrowser title="Agregar productos" onAdd={add} />
           </section>
 
-          <aside className="quote-rail">
+          <aside className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
               const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
@@ -207,6 +207,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           </aside>
         </main>
       )}
+
+      {activeSection === 'cotizar' && lines.length > 0 && <button className="mobile-quote-bar" onClick={() => document.getElementById('quote-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong><b>Ver cotización ↑</b></button>}
 
       {previewOpen && <QuotePreview quote={snapshot()} rules={rules} onClose={() => setPreviewOpen(false)} />}
     </>

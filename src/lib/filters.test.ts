@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterCatalog } from './filters'
+import { filterCatalog, paginateCatalog } from './filters'
 import type { ProductWithVariants } from '../types/catalog'
 
 function makeProduct(overrides: Partial<ProductWithVariants> = {}): ProductWithVariants {
@@ -97,5 +97,12 @@ describe('filterCatalog', () => {
   it('precio_pendiente deja solo variantes sin precio vigente', () => {
     const result = filterCatalog(catalog, { search: '', family: 'todas', brand: 'todas', priceFilter: 'precio_pendiente' })
     expect(result.map((p) => p.id)).toEqual(['p3'])
+  })
+})
+
+describe('paginateCatalog', () => {
+  it('renderiza solo la página solicitada y limita páginas fuera de rango', () => {
+    expect(paginateCatalog([1, 2, 3, 4, 5], 2, 2)).toEqual({ items: [3, 4], page: 2, pageCount: 3, total: 5 })
+    expect(paginateCatalog([1, 2, 3], 99, 2).items).toEqual([3])
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
-import { filterCatalog, type PriceFilter } from '../lib/filters'
+import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters'
 import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
@@ -20,6 +20,8 @@ export function CatalogBrowser({
   const [subfamily, setSubfamily] = useState('todas')
   const [brand, setBrand] = useState('todas')
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
+  const [page, setPage] = useState(1)
+  const pageSize = 100
 
   useEffect(() => {
     let cancelled = false
@@ -46,6 +48,7 @@ export function CatalogBrowser({
     if (!data) return []
     return [...new Set(data.products.filter((p) => family === 'todas' || p.family === family).map((p) => p.subfamily).filter(Boolean))].sort()
   }, [data, family])
+  const paginated = useMemo(() => paginateCatalog(filtered, page, pageSize), [filtered, page])
 
   if (loading) return <div className="centered-page">Cargando catálogo...</div>
   if (error) return <div className="centered-page error">Error: {error}</div>
@@ -60,9 +63,9 @@ export function CatalogBrowser({
             type="search"
             placeholder="Buscar por nombre, SKU, familia..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
-          <select value={family} onChange={(e) => { setFamily(e.target.value); setSubfamily('todas') }}>
+          <select value={family} onChange={(e) => { setFamily(e.target.value); setSubfamily('todas'); setPage(1) }}>
             <option value="todas">Todas las familias</option>
             {data.families.map((f) => (
               <option key={f} value={f}>
@@ -70,11 +73,11 @@ export function CatalogBrowser({
               </option>
             ))}
           </select>
-          <select value={subfamily} onChange={(e) => setSubfamily(e.target.value)}>
+          <select value={subfamily} onChange={(e) => { setSubfamily(e.target.value); setPage(1) }}>
             <option value="todas">Todas las subfamilias</option>
             {subfamilies.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+          <select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }}>
             <option value="todas">Todas las marcas</option>
             {data.brands.map((b) => (
               <option key={b} value={b}>
@@ -82,7 +85,7 @@ export function CatalogBrowser({
               </option>
             ))}
           </select>
-          <select value={priceFilter} onChange={(e) => setPriceFilter(e.target.value as PriceFilter)}>
+          <select value={priceFilter} onChange={(e) => { setPriceFilter(e.target.value as PriceFilter); setPage(1) }}>
             <option value="todos">Precio: todos</option>
             <option value="con_precio">Con precio vigente</option>
             <option value="precio_pendiente">Precio pendiente</option>
@@ -109,9 +112,10 @@ export function CatalogBrowser({
           <div className="catalog-table-head">
             <span>Producto</span><span>SKU</span><span>Familia</span><span>Subfamilia</span><span>Consumidor final</span><span>Mayorista</span><span />
           </div>
-          {filtered.map((product) => (
+          {paginated.items.map((product) => (
             <ProductCard key={product.id} product={product} onAdd={onAdd} />
           ))}
+          {paginated.pageCount > 1 && <nav className="catalog-pagination" aria-label="Páginas del catálogo"><span>{(paginated.page - 1) * pageSize + 1}–{Math.min(paginated.page * pageSize, paginated.total)} de {paginated.total}</span><button disabled={paginated.page === 1} onClick={() => setPage((value) => value - 1)}>Anterior</button><strong>{paginated.page} / {paginated.pageCount}</strong><button disabled={paginated.page === paginated.pageCount} onClick={() => setPage((value) => value + 1)}>Siguiente</button></nav>}
         </div>
       )}
     </div>

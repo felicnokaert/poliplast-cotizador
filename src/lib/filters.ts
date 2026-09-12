@@ -48,3 +48,11 @@ export function filterCatalog(products: ProductWithVariants[], filters: CatalogF
     .filter((product): product is ProductWithVariants => product !== null)
     .filter((product) => matchesSearch(product, term))
 }
+
+export function paginateCatalog<T>(items: T[], page: number, pageSize: number) {
+  const safeSize = Math.max(1, Math.floor(pageSize))
+  const pageCount = Math.max(1, Math.ceil(items.length / safeSize))
+  const safePage = Math.min(Math.max(1, Math.floor(page)), pageCount)
+  const start = (safePage - 1) * safeSize
+  return { items: items.slice(start, start + safeSize), page: safePage, pageCount, total: items.length }
+}
