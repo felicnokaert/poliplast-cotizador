@@ -48,7 +48,7 @@ describe('quote', () => {
 
   it('genera texto compartible y trazable', () => {
     const lines = addQuoteLine([], variant, product)
-    const text = serializeQuoteForWhatsApp({ meta: { number: 'GP-1', client: 'Cliente', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-11T00:00:00Z' }, lines, updatedAt: '2026-09-11T00:00:00Z' })
+    const text = serializeQuoteForWhatsApp({ meta: { number: 'GP-1', client: 'Cliente', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-11T00:00:00Z' }, lines, updatedAt: '2026-09-11T00:00:00Z' })
     expect(text).toContain('GP-1')
     expect(text).toContain('SKU-1')
   })

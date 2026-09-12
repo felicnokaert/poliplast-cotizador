@@ -8,12 +8,15 @@ import {
   quoteTotals,
   serializeQuoteForWhatsApp,
   type PaymentMethod,
+  type PriceMode,
   type QuoteLine,
   type QuoteMeta,
   type SavedQuote,
 } from '../lib/quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { AdminPanel } from './AdminPanel'
+import { fetchOfficialDollar } from '../lib/exchange'
+import { loadCommercialClients, type CommercialClient } from '../lib/clients'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
 
@@ -22,14 +25,17 @@ function money(amount: number, currency: string) {
 }
 
 function loadSavedQuotes(): SavedQuote[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as SavedQuote[] } catch { return [] }
+  try {
+    const quotes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as SavedQuote[]
+    return quotes.map((quote) => ({ ...quote, meta: { ...quote.meta, priceMode: quote.meta.priceMode || 'automatico' } }))
+  } catch { return [] }
 }
 
 function newMeta(): QuoteMeta {
   const now = new Date()
   return {
     number: createQuoteNumber(now), client: '', contact: '', phone: '', email: '', notes: '',
-    paymentMethod: 'transferencia', validDays: 7, discountPercent: 0, surchargePercent: 0,
+    paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0,
     exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: now.toISOString(),
   }
 }
@@ -39,7 +45,7 @@ function BrandMark({ brand }: { brand: string }) {
 }
 
 function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => void }) {
-  const totals = quoteTotals(quote.lines, quote.meta.discountPercent, quote.meta.surchargePercent, quote.meta.exchangeRate, quote.meta.outputCurrency)
+  const totals = quoteTotals(quote.lines, quote.meta.discountPercent, quote.meta.surchargePercent, quote.meta.exchangeRate, quote.meta.outputCurrency, quote.meta.priceMode)
   const brands = [...new Set(quote.lines.map((line) => line.brand))]
   const principalBrand = brands.length === 1 ? brands[0] : 'Grupo Poliplast'
   const conversion = quote.meta.outputCurrency === 'ARS' ? quote.meta.exchangeRate : 1
@@ -67,7 +73,7 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
           <tbody>{quote.lines.map((line) => {
-            const price = priceForQuantity(line.variant, line.quantity)
+            const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
             return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}</td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
           })}</tbody>
         </table>
@@ -89,17 +95,27 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
   )
 }
 
-export function QuoteWorkspace({ userEmail }: { userEmail: string }) {
+export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userId: string }) {
   const [lines, setLines] = useState<QuoteLine[]>([])
   const [meta, setMeta] = useState<QuoteMeta>(newMeta)
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
   const [activeSection, setActiveSection] = useState<'cotizar' | 'historial' | 'administracion'>('cotizar')
   const [previewOpen, setPreviewOpen] = useState(false)
-  const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency), [lines, meta])
+  const [clientOpen, setClientOpen] = useState(false)
+  const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
+  const [clients, setClients] = useState<CommercialClient[]>([])
+  const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode), [lines, meta])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
+  useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
+  useEffect(() => {
+    fetchOfficialDollar().then((result) => {
+      setMeta((current) => ({ ...current, exchangeRate: result.rate }))
+      setExchangeInfo({ source: result.source, fetchedAt: result.fetchedAt, loading: false, error: '' })
+    }).catch(() => setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: 'No se pudo actualizar automáticamente' }))
+  }, [])
 
   const add = (variant: VariantWithPricing, product: ProductWithVariants) => setLines((current) => addQuoteLine(current, variant, product))
   const updateMeta = <K extends keyof QuoteMeta>(field: K, value: QuoteMeta[K]) => setMeta((current) => ({ ...current, [field]: value }))
@@ -113,6 +129,11 @@ export function QuoteWorkspace({ userEmail }: { userEmail: string }) {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote))}`, '_blank', 'noopener,noreferrer')
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
+  const selectClient = (clientId: string) => {
+    const client = clients.find((item) => item.id === clientId)
+    if (!client) return
+    setMeta((current) => ({ ...current, client: client.company, contact: client.contact, phone: client.phone, email: client.email }))
+  }
 
   return (
     <>
@@ -131,16 +152,17 @@ export function QuoteWorkspace({ userEmail }: { userEmail: string }) {
         <main className="quote-layout">
           <section className="quote-builder">
             <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>Nueva cotización</h1><p className="muted">Cotizá con el catálogo vigente y conservá el control antes de enviar.</p></div><div className="quote-status">{meta.number}</div></div>
-            <div className="client-card">
-              <div className="section-title"><span>01</span><div><h2>Cliente y condición</h2><p>Datos que aparecerán en la propuesta.</p></div></div>
-              <div className="client-fields">
+            <div className={`client-card ${clientOpen ? 'open' : 'collapsed'}`}>
+              <button className="client-toggle" onClick={() => setClientOpen((value) => !value)}><div className="section-title"><span>01</span><div><h2>{meta.client || 'Cliente opcional'}</h2><p>{clientOpen ? 'Datos que aparecerán en la propuesta.' : 'Podés cotizar sin completar datos.'}</p></div></div><strong>{clientOpen ? 'Ocultar' : 'Agregar datos'}</strong></button>
+              {clientOpen && <div className="client-fields">
+                {clients.length > 0 && <label className="crm-client-picker">Elegir del CRM<select defaultValue="" onChange={(event) => selectClient(event.target.value)}><option value="">Buscar entre {clients.length} empresas…</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.company}{client.contact ? ` · ${client.contact}` : ''}</option>)}</select></label>}
                 <label>Empresa o cliente<input value={meta.client} onChange={(e) => updateMeta('client', e.target.value)} placeholder="Razón social o nombre" /></label>
                 <label>Persona de contacto<input value={meta.contact} onChange={(e) => updateMeta('contact', e.target.value)} placeholder="Nombre y apellido" /></label>
                 <label>WhatsApp<input value={meta.phone} onChange={(e) => updateMeta('phone', e.target.value)} placeholder="54911..." /></label>
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>
                 <label>Condición de pago<select value={meta.paymentMethod} onChange={(e) => updateMeta('paymentMethod', e.target.value as PaymentMethod)}><option value="transferencia">Transferencia</option><option value="contado">Contado</option><option value="cuenta_corriente">Cuenta corriente</option><option value="tarjeta">Tarjeta / cuotas</option></select></label>
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
-              </div>
+              </div>}
             </div>
             <div className="section-title products-title"><span>02</span><div><h2>Productos</h2><p>Buscá por familia, marca, nombre o SKU.</p></div></div>
             <CatalogBrowser title="Agregar productos" onAdd={add} />
@@ -149,13 +171,14 @@ export function QuoteWorkspace({ userEmail }: { userEmail: string }) {
           <aside className="quote-rail">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
-              const price = priceForQuantity(line.variant, line.quantity)
+              const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
               return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {price?.price_list.name || 'Sin lista aplicable'}</div><div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.price_list.currency)} / ${line.variant.unit}` : 'Precio pendiente'}</span><strong className="line-total">{price ? money(price.amount * line.quantity, price.price_list.currency) : '—'}</strong></div></div></div>
             })}</div>}
 
             <div className="commercial-controls">
+              <label>Lista comercial<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Automática por monto</option><option value="consumidor_final">Consumidor final</option><option value="mayorista">Mayorista</option></select><small className="exchange-source">Aplicada: {totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}{meta.priceMode === 'automatico' ? ' · Resinplast cambia desde USD 1.815 si existe lista verificada' : ''}</small></label>
               <label>Moneda de salida<select value={meta.outputCurrency} onChange={(e) => updateMeta('outputCurrency', e.target.value as 'USD' | 'ARS')}><option value="USD">USD</option><option value="ARS">ARS</option></select></label>
-              {meta.outputCurrency === 'ARS' && <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => updateMeta('exchangeRate', Number(e.target.value))} /></label>}
+              {meta.outputCurrency === 'ARS' && <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /><small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${exchangeInfo.source}${exchangeInfo.fetchedAt ? ` · ${new Date(exchangeInfo.fetchedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs` : ''}`}</small></label>}
               <label>Descuento autorizado %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
               <label>Recargo / financiación %<input type="number" min="0" value={meta.surchargePercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('surchargePercent', Number(e.target.value))} /></label>
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>

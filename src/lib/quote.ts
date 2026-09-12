@@ -2,6 +2,8 @@ import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
 export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
+export type PriceMode = 'automatico' | 'consumidor_final' | 'mayorista'
+export const RESINPLAST_WHOLESALE_THRESHOLD_USD = 1815
 
 export interface QuoteLine {
   id: string
@@ -21,6 +23,7 @@ export interface QuoteMeta {
   email: string
   notes: string
   paymentMethod: PaymentMethod
+  priceMode: PriceMode
   validDays: number
   discountPercent: number
   surchargePercent: number
@@ -36,10 +39,29 @@ export function createQuoteNumber(now = new Date()): string {
   return `GP-${now.toISOString().replace(/\D/g, '').slice(2, 12)}`
 }
 
-export function priceForQuantity(variant: VariantWithPricing, quantity: number) {
-  return variant.prices
+function listMatchesMode(name: string, mode: PriceMode) {
+  const normalized = name.toLocaleLowerCase('es-AR')
+  if (mode === 'mayorista') return /mayorista|distribuidor/.test(normalized)
+  if (mode === 'consumidor_final') return /consumidor|\bcf\b|minorista/.test(normalized)
+  return true
+}
+
+export function priceForQuantity(variant: VariantWithPricing, quantity: number, mode: PriceMode = 'automatico') {
+  const candidates = variant.prices
     .filter((price) => price.price_list.status === 'vigente' && price.status === 'confirmado' && quantity >= price.min_quantity && (price.max_quantity == null || quantity <= price.max_quantity))
-    .sort((a, b) => b.min_quantity - a.min_quantity)[0]
+    .sort((a, b) => b.min_quantity - a.min_quantity)
+  return candidates.find((price) => listMatchesMode(price.price_list.name, mode)) ?? candidates[0]
+}
+
+export function resolveAutomaticPriceMode(lines: QuoteLine[]): Exclude<PriceMode, 'automatico'> {
+  const resinplast = lines.filter((line) => line.brand.toLowerCase() === 'resinplast' || line.family.toLowerCase() === 'resinplast')
+  if (!resinplast.length) return 'consumidor_final'
+  const cfTotal = resinplast.reduce((sum, line) => {
+    const price = priceForQuantity(line.variant, line.quantity, 'consumidor_final')
+    return sum + (price?.price_list.currency === 'USD' ? price.amount * line.quantity : 0)
+  }, 0)
+  const wholesaleComplete = resinplast.every((line) => line.variant.prices.some((price) => listMatchesMode(price.price_list.name, 'mayorista')))
+  return cfTotal >= RESINPLAST_WHOLESALE_THRESHOLD_USD && wholesaleComplete ? 'mayorista' : 'consumidor_final'
 }
 
 export function addQuoteLine(
@@ -72,10 +94,11 @@ export function quoteLineNet(line: QuoteLine): number | null {
   return price ? price.amount * line.quantity : null
 }
 
-export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, outputCurrency: 'USD' | 'ARS' = 'USD') {
+export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, outputCurrency: 'USD' | 'ARS' = 'USD', priceMode: PriceMode = 'automatico') {
+  const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = priceForQuantity(line.variant, line.quantity)
+      const price = priceForQuantity(line.variant, line.quantity, appliedPriceMode)
       if (!price) {
         totals.pendingLines += 1
         return totals
@@ -94,7 +117,7 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   const surcharge = (raw.subtotal - discount) * Math.max(0, surchargePercent) / 100
   const total = raw.subtotal - discount + surcharge + raw.vat
   const conversion = outputCurrency === 'ARS' ? Math.max(0, exchangeRate) : 1
-  return { ...raw, discount, surcharge, total, convertedTotal: total * conversion }
+  return { ...raw, discount, surcharge, total, convertedTotal: total * conversion, appliedPriceMode }
 }
 
 export function quoteExpiry(createdAt: string, validDays: number): Date {
@@ -105,11 +128,11 @@ export function quoteExpiry(createdAt: string, validDays: number): Date {
 
 export function serializeQuoteForWhatsApp(quote: SavedQuote): string {
   const { meta, lines } = quote
-  const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency)
+  const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode)
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const price = priceForQuantity(line.variant, line.quantity)
+    const price = priceForQuantity(line.variant, line.quantity, totals.appliedPriceMode)
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}`
   }).join('\n')
   return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}${body}\n\n*Total: ${money(totals.convertedTotal)}*\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`

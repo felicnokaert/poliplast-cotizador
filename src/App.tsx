@@ -13,7 +13,7 @@ function App() {
               Salir
             </button>
           </div>
-          <QuoteWorkspace userEmail={session.user.email || ''} />
+          <QuoteWorkspace userEmail={session.user.email || ''} userId={session.user.id} />
         </div>
       )}
     </AuthGate>

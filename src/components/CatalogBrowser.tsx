@@ -17,6 +17,7 @@ export function CatalogBrowser({
 
   const [search, setSearch] = useState('')
   const [family, setFamily] = useState('todas')
+  const [subfamily, setSubfamily] = useState('todas')
   const [brand, setBrand] = useState('todas')
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
 
@@ -39,8 +40,12 @@ export function CatalogBrowser({
 
   const filtered = useMemo(() => {
     if (!data) return []
-    return filterCatalog(data.products, { search, family, brand, priceFilter })
-  }, [data, search, family, brand, priceFilter])
+    return filterCatalog(data.products, { search, family, subfamily, brand, priceFilter })
+  }, [data, search, family, subfamily, brand, priceFilter])
+  const subfamilies = useMemo(() => {
+    if (!data) return []
+    return [...new Set(data.products.filter((p) => family === 'todas' || p.family === family).map((p) => p.subfamily).filter(Boolean))].sort()
+  }, [data, family])
 
   if (loading) return <div className="centered-page">Cargando catálogo...</div>
   if (error) return <div className="centered-page error">Error: {error}</div>
@@ -57,13 +62,17 @@ export function CatalogBrowser({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <select value={family} onChange={(e) => setFamily(e.target.value)}>
+          <select value={family} onChange={(e) => { setFamily(e.target.value); setSubfamily('todas') }}>
             <option value="todas">Todas las familias</option>
             {data.families.map((f) => (
               <option key={f} value={f}>
                 {f}
               </option>
             ))}
+          </select>
+          <select value={subfamily} onChange={(e) => setSubfamily(e.target.value)}>
+            <option value="todas">Todas las subfamilias</option>
+            {subfamilies.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <select value={brand} onChange={(e) => setBrand(e.target.value)}>
             <option value="todas">Todas las marcas</option>
@@ -96,7 +105,7 @@ export function CatalogBrowser({
           <p>No se encontraron productos con esos filtros.</p>
         </div>
       ) : (
-        <div className="product-grid">
+        <div className="product-list">
           {filtered.map((product) => (
             <ProductCard key={product.id} product={product} onAdd={onAdd} />
           ))}

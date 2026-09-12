@@ -19,6 +19,7 @@ function PriceTag({ variant }: { variant: VariantWithPricing }) {
         <span className="price">
           {formatMoney(price.amount, price.price_list.currency)}
           <span className="price-unit"> / {variant.unit}</span>
+          <small className="price-list-name">{price.price_list.name}</small>
         </span>
       ) : (
         <span className="price pending">Precio pendiente</span>
@@ -49,8 +50,8 @@ export function ProductCard({
     product.variants.length === 1 && product.variants[0].name === product.name
 
   return (
-    <article className={`product-card ${brandClass}`}>
-      <header>
+    <article className={`product-card product-row-card ${brandClass}`}>
+      <header className="product-identity">
         <span className="brand-tag">{product.brand}</span>
         <h2>{product.name}</h2>
         <p className="muted">

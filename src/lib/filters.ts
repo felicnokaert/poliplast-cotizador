@@ -6,6 +6,7 @@ export type PriceFilter = 'todos' | 'con_precio' | 'precio_pendiente'
 export interface CatalogFilters {
   search: string
   family: string
+  subfamily?: string
   brand: string
   priceFilter: PriceFilter
 }
@@ -41,6 +42,7 @@ export function filterCatalog(products: ProductWithVariants[], filters: CatalogF
   return products
     .filter((p) => p.status === 'vigente')
     .filter((p) => (filters.family === 'todas' ? true : p.family === filters.family))
+    .filter((p) => (!filters.subfamily || filters.subfamily === 'todas' ? true : p.subfamily === filters.subfamily))
     .filter((p) => (filters.brand === 'todas' ? true : p.brand === filters.brand))
     .map((product) => filterVariantsByPrice(product, filters.priceFilter))
     .filter((product): product is ProductWithVariants => product !== null)
