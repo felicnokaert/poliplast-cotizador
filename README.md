@@ -20,9 +20,12 @@ Fuentes de diseño (viven en el repo del CRM):
 - recuperación automática de la cotización en curso y guardado deliberado en historial local;
 - cotización vendedor billete del BNA como fuente principal, con respaldo identificado;
 - identidad por marca y co-branding Grupo Poliplast;
-- panel administrativo protegido con exportación completa de precios, costos y stock, más importación CSV en modo vista previa con validación por SKU.
+- panel administrativo protegido con exportación completa de precios, costos y stock;
+- importación CSV validada por SKU y aplicación de costos como revisiones nuevas, con lote auditable y reversión sin borrado;
+- lectura de stock aprobado y advertencia cuando una cotización supera la disponibilidad verificada;
+- fichas técnicas visibles únicamente mediante vínculos formales verificados.
 
-Pendiente para la siguiente capa: persistencia compartida de cotizaciones, vínculo formal con clientes/fichas, editor masivo con vista previa y reglas aprobadas de margen/financiación. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor. Los logos oficiales de Resinplast, Penosil y PURMAC deben incorporarse cuando se disponga de sus archivos aprobados; no se reemplazan por imitaciones.
+La persistencia compartida y la importación reversible de costos ya tienen código y migraciones preparadas en el repo del CRM, pero deben aplicarse al proyecto Supabase antes de considerarlas operativas. Pendiente para la siguiente capa: aplicación masiva de precios mediante listas versionadas, importación de stock mediante conteos por depósito, reglas aprobadas de margen/financiación y vínculos técnicos reales cargados. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor. Los logos oficiales de Resinplast, Penosil y PURMAC deben incorporarse cuando se disponga de sus archivos aprobados; no se reemplazan por imitaciones.
 
 No se modifica el CRM ni se crean tablas nuevas: todo se lee de las tablas ya migradas en el proyecto Supabase `poli crm` (`nghwmtccpovrdtzvllwe`).
 
