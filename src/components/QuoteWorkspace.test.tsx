@@ -64,6 +64,18 @@ afterEach(() => {
 })
 
 describe('QuoteWorkspace — reglas comerciales conectadas', () => {
+  it('avisa sin bloquear cuando la cantidad supera el stock aprobado', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    almohadaVariant.approvedStock = { quantity: 5, unit: 'u', approvedAt: '2026-09-12T00:00:00Z' }
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    fireEvent.change(await screen.findByLabelText('Cantidad'), { target: { value: '6' } })
+    expect(await screen.findByText(/Cantidad supera el último saldo aprobado/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Vista previa / PDF' })).toBeEnabled()
+    delete almohadaVariant.approvedStock
+  })
+
   it('permite registrar el estado comercial de la cotización', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
