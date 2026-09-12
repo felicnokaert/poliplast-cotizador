@@ -111,6 +111,8 @@ function parseLocaleNumber(value: string): number | '' | null {
 export interface AdminImportPreview { row: number; sku: string; status: 'cambio' | 'sin_cambios' | 'error'; changes: string[]; errors: string[]; source: Record<string, string> }
 
 export interface CostImportRow { row_number: number; sku: string; amount: number; currency: 'ARS' | 'USD'; source: string; valid_from: string }
+export type PriceImportKind = 'consumidor_final' | 'mayorista'
+export interface PriceImportRow { row_number: number; sku: string; amount: number; source: string }
 
 export function previewAdminImport(content: string, catalog: AdminCatalogRow[]): AdminImportPreview[] {
   const known = new Map(catalog.map((item) => [item.sku.trim().toUpperCase(), item]))
@@ -150,6 +152,17 @@ export function buildCostImportRows(preview: AdminImportPreview[], validFrom = n
   })
 }
 
+export function buildPriceImportRows(preview: AdminImportPreview[], kind: PriceImportKind): PriceImportRow[] {
+  const field = kind === 'mayorista' ? 'precio_mayorista' : 'precio_consumidor_final'
+  return preview.flatMap((item) => {
+    if (item.status !== 'cambio' || !item.changes.some((change) => change.startsWith(`${field}:`))) return []
+    const amount = parseLocaleNumber(item.source[field] ?? '')
+    const source = (item.source.fuente ?? '').trim()
+    if (amount === '' || amount === null || !source) return []
+    return [{ row_number: item.row, sku: item.sku, amount, source }]
+  })
+}
+
 export async function sha256Text(content: string): Promise<string> {
   const bytes = new TextEncoder().encode(content.replace(/^\uFEFF/, ''))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -171,6 +184,25 @@ export async function applyCostImport(fileName: string, content: string, rows: C
 
 export async function revertCostImport(jobId: string): Promise<number> {
   const { data, error } = await supabase.rpc('revert_catalog_cost_import', { p_job_id: jobId })
+  if (error) throw error
+  return Number(data ?? 0)
+}
+
+export async function applyPriceImport(input: { fileName: string; content: string; rows: PriceImportRow[]; kind: PriceImportKind; listName: string; currency: 'ARS' | 'USD'; vatRate: number; validFrom: string }): Promise<{ job_id: string; price_list_id: string; applied: number }> {
+  if (!input.rows.length) throw new Error('No hay cambios de precio válidos para aplicar.')
+  const { data, error } = await supabase.rpc('apply_catalog_price_import', {
+    p_file_name: input.fileName, p_file_sha256: await sha256Text(input.content), p_rows: input.rows,
+    p_kind: input.kind, p_list_name: input.listName, p_currency: input.currency,
+    p_vat_rate: input.vatRate, p_valid_from: input.validFrom,
+  })
+  if (error) throw error
+  const result = (Array.isArray(data) ? data[0] : data) as { job_id?: string; price_list_id?: string; applied?: number } | null
+  if (!result?.job_id || !result.price_list_id) throw new Error('La importación no devolvió una lista auditable.')
+  return { job_id: result.job_id, price_list_id: result.price_list_id, applied: Number(result.applied ?? input.rows.length) }
+}
+
+export async function revertPriceImport(jobId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('revert_catalog_price_import', { p_job_id: jobId })
   if (error) throw error
   return Number(data ?? 0)
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCostImportRows, csvEscape, parseAdminCsv, previewAdminImport, rowsToCsv, type AdminCatalogRow } from './admin'
+import { buildCostImportRows, buildPriceImportRows, csvEscape, parseAdminCsv, previewAdminImport, rowsToCsv, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -29,5 +29,10 @@ describe('vista previa de importación administrativa', () => {
     const row = previewAdminImport('sku;moneda_costo;fuente\nSKU-1;ARS;Corrección', catalog)[0]
     expect(row.status).toBe('cambio')
     expect(row.changes).toContain('moneda_costo: USD → ARS')
+  })
+  it('separa consumidor final y mayorista en lotes diferentes', () => {
+    const preview = previewAdminImport('sku;precio_consumidor_final;precio_mayorista;fuente\nSKU-1;14;9,5;Lista septiembre', catalog)
+    expect(buildPriceImportRows(preview, 'consumidor_final')).toEqual([{ row_number: 2, sku: 'SKU-1', amount: 14, source: 'Lista septiembre' }])
+    expect(buildPriceImportRows(preview, 'mayorista')).toEqual([{ row_number: 2, sku: 'SKU-1', amount: 9.5, source: 'Lista septiembre' }])
   })
 })
