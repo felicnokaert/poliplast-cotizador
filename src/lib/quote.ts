@@ -51,9 +51,10 @@ function listMatchesMode(name: string, mode: PriceMode) {
 }
 
 export function priceForQuantity(variant: VariantWithPricing, quantity: number, mode: PriceMode = 'automatico') {
+  const today = new Date().toISOString().slice(0, 10)
   const candidates = variant.prices
-    .filter((price) => price.price_list.status === 'vigente' && price.status === 'confirmado' && quantity >= price.min_quantity && (price.max_quantity == null || quantity <= price.max_quantity))
-    .sort((a, b) => b.min_quantity - a.min_quantity)
+    .filter((price) => price.price_list.status === 'vigente' && price.status === 'confirmado' && price.price_list.valid_from <= today && (!price.price_list.valid_until || price.price_list.valid_until >= today) && quantity >= price.min_quantity && (price.max_quantity == null || quantity <= price.max_quantity))
+    .sort((a, b) => b.min_quantity - a.min_quantity || b.price_list.valid_from.localeCompare(a.price_list.valid_from))
   return candidates.find((price) => listMatchesMode(price.price_list.name, mode)) ?? candidates[0]
 }
 

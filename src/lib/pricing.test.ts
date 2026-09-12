@@ -55,6 +55,15 @@ describe('currentPrice', () => {
   it('sin ningún precio cargado, no hay precio vigente', () => {
     expect(currentPrice(variantWith([]))).toBeUndefined()
   })
+
+  it('elige la lista más nueva y respeta vigencias, no el orden de Supabase', () => {
+    const v = variantWith([
+      { id: 'old', price_list_id: 'old-list', variant_id: 'v1', min_quantity: 1, max_quantity: null, amount: 50, status: 'confirmado', price_list: priceList({ id: 'old-list', valid_from: '2026-01-01' }) },
+      { id: 'future', price_list_id: 'future-list', variant_id: 'v1', min_quantity: 1, max_quantity: null, amount: 90, status: 'confirmado', price_list: priceList({ id: 'future-list', valid_from: '2026-10-01' }) },
+      { id: 'new', price_list_id: 'new-list', variant_id: 'v1', min_quantity: 1, max_quantity: null, amount: 60, status: 'confirmado', price_list: priceList({ id: 'new-list', valid_from: '2026-09-01' }) },
+    ])
+    expect(currentPrice(v, '2026-09-12')?.amount).toBe(60)
+  })
 })
 
 describe('hasVigentPrice', () => {
