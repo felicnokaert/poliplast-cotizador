@@ -57,6 +57,10 @@ function mockCommonLoaders() {
   })
 }
 
+function openActiveQuote() {
+  fireEvent.click(screen.getByRole('button', { name: /Cotización 1/ }))
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -70,6 +74,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     almohadaVariant.approvedStock = { quantity: 5, unit: 'u', approvedAt: '2026-09-12T00:00:00Z' }
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    openActiveQuote()
     fireEvent.change(await screen.findByLabelText('Cantidad'), { target: { value: '6' } })
     expect(await screen.findByText(/Cantidad supera el último saldo aprobado/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Vista previa / PDF' })).toBeEnabled()
@@ -80,6 +85,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Cotización 0/ }))
     const status = await screen.findByLabelText('Estado de la cotización')
     fireEvent.change(status, { target: { value: 'enviada' } })
     expect(status).toHaveValue('enviada')
@@ -91,10 +97,12 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
 
     const first = render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    openActiveQuote()
     await waitFor(() => expect(screen.getByText(/Borrador protegido automáticamente/)).toBeInTheDocument())
     first.unmount()
 
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Cotización 1/ }))
     expect(await screen.findByLabelText('Cantidad')).toHaveValue(1)
   })
 
@@ -106,6 +114,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)
+    openActiveQuote()
 
     const quantityInput = await screen.findByLabelText('Cantidad')
     fireEvent.change(quantityInput, { target: { value: '201' } })
@@ -123,6 +132,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)
+    openActiveQuote()
 
     const quantityInput = await screen.findByLabelText('Cantidad')
     fireEvent.change(quantityInput, { target: { value: '200' } })
@@ -139,6 +149,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)
+    openActiveQuote()
 
     const quantityInput = await screen.findByLabelText('Cantidad')
     fireEvent.change(quantityInput, { target: { value: '201' } })

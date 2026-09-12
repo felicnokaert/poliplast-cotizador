@@ -3,7 +3,8 @@ import { supabase } from './supabase'
 export interface AdminOverview {
   isAdmin: boolean
   costs: Array<{ variant_id: string; amount: number; currency: string; valid_from: string; valid_until: string | null; source: string; status: string }>
-  inventory: Array<{ variant_id: string; approved_quantity: number; unit: string; approved_at: string }>
+  inventory: Array<{ location_id: string; variant_id: string; approved_quantity: number; unit: string; approved_at: string }>
+  locations: Array<{ id: string; code: string; name: string; active: boolean }>
   imports: Array<{ id: string; import_type: string; file_name: string; status: string; created_at: string }>
   catalog: AdminCatalogRow[]
 }
@@ -27,11 +28,12 @@ async function fetchAll<T>(query: (from: number, to: number) => PromiseLike<{ da
 
 export async function loadAdminOverview(): Promise<AdminOverview> {
   const { data: isAdmin, error: roleError } = await supabase.rpc('is_poliplast_crm_admin')
-  if (roleError || !isAdmin) return { isAdmin: false, costs: [], inventory: [], imports: [], catalog: [] }
+  if (roleError || !isAdmin) return { isAdmin: false, costs: [], inventory: [], locations: [], imports: [], catalog: [] }
 
-  const [costs, inventory, imports, products, variants, prices, priceLists] = await Promise.all([
+  const [costs, inventory, locations, imports, products, variants, prices, priceLists] = await Promise.all([
     fetchAll<AdminOverview['costs'][number]>((from, to) => supabase.from('catalog_cost_revisions').select('variant_id, amount, currency, valid_from, valid_until, source, status').order('valid_from', { ascending: false }).range(from, to)),
-    fetchAll<AdminOverview['inventory'][number]>((from, to) => supabase.from('inventory_balances').select('variant_id, approved_quantity, unit, approved_at').range(from, to)),
+    fetchAll<AdminOverview['inventory'][number]>((from, to) => supabase.from('inventory_balances').select('location_id, variant_id, approved_quantity, unit, approved_at').range(from, to)),
+    fetchAll<AdminOverview['locations'][number]>((from, to) => supabase.from('inventory_locations').select('id,code,name,active').order('name').range(from, to)),
     supabase.from('catalog_import_jobs').select('id, import_type, file_name, status, created_at').order('created_at', { ascending: false }).limit(20),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_products').select('id,name,brand,family,subfamily,status').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_variants').select('id,product_id,sku,name,unit,active').range(from, to)),
@@ -45,7 +47,11 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
   for (const price of prices) pricesByVariant.set(String(price.variant_id), [...(pricesByVariant.get(String(price.variant_id)) ?? []), price])
   const latestCost = new Map<string, AdminOverview['costs'][number]>()
   for (const cost of costs) if (!latestCost.has(cost.variant_id) && cost.status === 'confirmado') latestCost.set(cost.variant_id, cost)
-  const stockByVariant = new Map(inventory.map((item) => [item.variant_id, item]))
+  const stockByVariant = new Map<string, AdminOverview['inventory'][number]>()
+  for (const item of inventory) {
+    const current = stockByVariant.get(item.variant_id)
+    stockByVariant.set(item.variant_id, current ? { ...current, approved_quantity: Number(current.approved_quantity) + Number(item.approved_quantity) } : item)
+  }
   const catalog = variants.flatMap((variant): AdminCatalogRow[] => {
     const product = productById.get(String(variant.product_id)); if (!product || product.status !== 'vigente' || variant.active === false) return []
     const available = (pricesByVariant.get(String(variant.id)) ?? []).filter((price) => price.status === 'confirmado' && listById.get(String(price.price_list_id))?.status === 'vigente')
@@ -55,7 +61,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     const cost = latestCost.get(String(variant.id)); const stock = stockByVariant.get(String(variant.id)); const price = consumer ?? wholesale
     return [{ sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
   })
-  return { isAdmin: true, costs, inventory, imports: imports.data ?? [], catalog }
+  return { isAdmin: true, costs, inventory, locations, imports: imports.data ?? [], catalog }
 }
 
 export function csvEscape(value: unknown) {

@@ -114,7 +114,9 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [lines, setLines] = useState<QuoteLine[]>(() => initialDraft?.lines ?? [])
   const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
-  const [activeSection, setActiveSection] = useState<'cotizar' | 'historial' | 'administracion'>('cotizar')
+  const [activeSection, setActiveSection] = useState<'catalogo' | 'cotizacion' | 'historial' | 'administracion'>('catalogo')
+  const [productPickerOpen, setProductPickerOpen] = useState(false)
+  const [lastAdded, setLastAdded] = useState('')
   const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
@@ -155,7 +157,11 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     }).catch(() => setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: 'No se pudo actualizar automáticamente' }))
   }, [])
 
-  const add = (variant: VariantWithPricing, product: ProductWithVariants) => setLines((current) => addQuoteLine(current, variant, product))
+  const add = (variant: VariantWithPricing, product: ProductWithVariants) => {
+    setLines((current) => addQuoteLine(current, variant, product))
+    setLastAdded(`${product.name} agregado a la cotización`)
+    window.setTimeout(() => setLastAdded(''), 2200)
+  }
   const updateMeta = <K extends keyof QuoteMeta>(field: K, value: QuoteMeta[K]) => setMeta((current) => ({ ...current, [field]: value }))
   const snapshot = (): SavedQuote => ({ meta, lines, updatedAt: new Date().toISOString() })
   const save = async () => {
@@ -164,8 +170,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     setQuoteSyncStatus('guardando')
     try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido') } catch { setQuoteSyncStatus('local') }
   }
-  const startNew = () => { setMeta(newMeta()); setLines([]); setActiveSection('cotizar') }
-  const loadQuote = (quote: SavedQuote) => { setMeta(quote.meta); setLines(quote.lines); setActiveSection('cotizar') }
+  const startNew = () => { setMeta(newMeta()); setLines([]); setProductPickerOpen(true); setActiveSection('cotizacion') }
+  const loadQuote = (quote: SavedQuote) => { setMeta(quote.meta); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
   const openWhatsApp = () => {
     const quote = snapshot()
     const phone = meta.phone.replace(/\D/g, '')
@@ -182,7 +188,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     <>
       <nav className="workspace-nav">
         <div className="nav-brand"><BrandMark brand="Grupo Poliplast" /><span>Cotizador comercial</span></div>
-        <div className="nav-tabs"><button className={activeSection === 'cotizar' ? 'active' : ''} onClick={() => setActiveSection('cotizar')}><b>＋</b>Nueva cotización</button><button className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>▤</b>Guardadas <span>{savedQuotes.length}</span></button><button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button></div>
+        <div className="nav-tabs"><button className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b>▦</b>Catálogo</button><button className={activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('cotizacion')}><b>▤</b>Cotización <span>{lines.length}</span></button><button className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>◷</b>Guardadas <span>{savedQuotes.length}</span></button><button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button></div>
         <div className="nav-user"><span>{userEmail}</span><button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button></div>
       </nav>
 
@@ -192,8 +198,13 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
           {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Abrir</button></article>)}</div>}
         </main>
+      ) : activeSection === 'catalogo' ? (
+        <main className="catalog-page">
+          <div className="page-intro page-intro-actions"><div><span className="eyebrow">Catálogo comercial</span><h1>Productos</h1><p className="muted">Buscá por nombre, SKU, familia o subfamilia y agregá cada producto a la cotización activa.</p></div><button className="primary-action inline" onClick={() => setActiveSection('cotizacion')}>Ver cotización ({lines.length})</button></div>
+          <CatalogBrowser title="Catálogo Grupo Poliplast" onAdd={add} />
+        </main>
       ) : (
-        <main className="quote-layout">
+        <main className="quote-page">
           <section className="quote-builder">
             <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>Nueva cotización</h1><p className="muted">Cotizá con el catálogo vigente y conservá el control antes de enviar.</p></div><div className="quote-status">{meta.number}</div></div>
             <div className={`client-card ${clientOpen ? 'open' : 'collapsed'}`}>
@@ -208,11 +219,11 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
             </div>
-            <div className="section-title products-title"><span>02</span><div><h2>Productos</h2><p>Buscá por familia, marca, nombre o SKU.</p></div></div>
-            <CatalogBrowser title="Agregar productos" onAdd={add} />
+            <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Editá cantidades y condiciones antes de emitir.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
+            {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} /></section>}
           </section>
 
-          <aside className="quote-rail" id="quote-summary">
+          <section className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
               const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
@@ -238,11 +249,12 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
             <div className="rail-actions"><button onClick={save}>Guardar en historial</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa / PDF</button></div>
-          </aside>
+          </section>
         </main>
       )}
 
-      {activeSection === 'cotizar' && lines.length > 0 && <button className="mobile-quote-bar" onClick={() => document.getElementById('quote-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong><b>Ver cotización ↑</b></button>}
+      {lastAdded && <div className="add-toast" role="status">✓ {lastAdded}</div>}
+      {activeSection === 'catalogo' && lines.length > 0 && <button className="mobile-quote-bar" onClick={() => setActiveSection('cotizacion')}><span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong><b>Ver cotización →</b></button>}
 
       {previewOpen && <QuotePreview quote={snapshot()} rules={rules} onClose={() => setPreviewOpen(false)} />}
     </>
