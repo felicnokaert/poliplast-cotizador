@@ -1,7 +1,16 @@
-# Propuesta: reglas comerciales administrables por SKU/familia
+# Reglas comerciales administrables por SKU/familia
 
-**Estado:** propuesta, no aplicada a Supabase.
-**Fecha:** 12/09/2026
+**Estado:** aplicado a Supabase (`poli crm`, `nghwmtccpovrdtzvllwe`) el 12/09/2026.
+**Fecha de la propuesta original:** 12/09/2026
+
+## Ajustes aprobados sobre la propuesta original
+
+- Comparadores `gt` y `gte` soportados (no solo `gt`).
+- `responsible_user_id` (FK a `auth.users`, nullable) + `responsible_email` (texto, obligatorio si no hay usuario).
+- Sin tabla de historial separada: se agregó `supersedes_rule_id` (autorreferencia) para encadenar reemplazos sobre filas insert-only.
+- Se persisten `net_amount`, `vat_rate` **y** `gross_amount` (precio final con IVA), con un `check` que valida la consistencia entre los tres.
+- Resolución: SKU → familia → (ninguna, cae a `variant_prices`); empate de scope lo resuelve el umbral de cantidad más alto que la cantidad todavía cumple; una regla superseded se ignora si su reemplazo ya es vigente.
+- El cotizador (pendiente, no implementado todavía) deberá mostrar siempre el precio **final con IVA incluido** más la explicación de qué regla se aplicó — la función `resolveCommercialRule` en `src/lib/commercialRules.ts` ya devuelve ambos.
 
 ## Qué ya existe (revisado antes de proponer nada nuevo)
 
@@ -131,10 +140,10 @@ values
 
 `Almohadas` es el valor exacto de `catalog_products.family` ya presente en la base (42 productos, verificado).
 
-## Pendiente de tu aprobación antes de aplicar
+## Regla inicial cargada
 
-1. ¿`quantity_comparator = 'gt'` (estrictamente mayor a 200, como pediste) queda fijo, o alguna regla futura necesitará `>=`? Ya lo dejé soportado en la tabla por las dudas, sin costo extra.
-2. ¿El "responsable" debe ser siempre un usuario con cuenta en el sistema (`responsible_user_id`, con FK a `auth.users`) o alcanza con un email de texto libre para casos donde el responsable no tiene login (por ejemplo, una autorización de Felipe transmitida por WhatsApp)? Dejé ambos campos disponibles (`responsible_user_id` nullable + `responsible_email`) para cubrir los dos casos sin bloquear la carga.
-3. ¿Confirmás que no hace falta una tabla de auditoría/historial separada, dado que el diseño es insert-only (el historial es la tabla misma)?
+`commercial_rules.id = 6d034b0b-10af-4e20-92f5-fc7ad2e70953`: familia `Almohadas`, cantidad `> 200`, USD 5.15 neto, IVA 21%, USD 6.2315 final, `status = 'confirmado'`, responsable `felipe@grupopoliplast.com.ar`.
 
-No toqué Supabase. Avisame y aplico la migración + el caso inicial en el mismo lote auditable que venimos usando.
+## Pendiente
+
+El motor de resolución (`src/lib/commercialRules.ts`, con tests de límite en 200/201 unidades) está listo y probado, pero **todavía no está conectado al frontend del cotizador** — eso queda para el próximo paso, a pedido explícito de Felipe de confirmar primero que migración + resolución + tests funcionan antes de tocar la UI.
