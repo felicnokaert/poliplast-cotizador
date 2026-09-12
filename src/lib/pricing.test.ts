@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentPrice, hasVigentPrice } from './pricing'
+import { commercialPrices, currentPrice, hasVigentPrice } from './pricing'
 import type { VariantWithPricing } from '../types/catalog'
 
 function priceList(overrides: Partial<VariantWithPricing['prices'][number]['price_list']> = {}) {
@@ -67,5 +67,16 @@ describe('hasVigentPrice', () => {
 
   it('es false cuando no hay ninguna lista vigente asociada', () => {
     expect(hasVigentPrice(variantWith([]))).toBe(false)
+  })
+})
+
+describe('commercialPrices', () => {
+  it('separa consumidor final y mayorista sin confundir las listas', () => {
+    const v = variantWith([
+      { id: 'cf', price_list_id: 'cf-list', variant_id: 'v1', min_quantity: 1, max_quantity: null, amount: 10, status: 'confirmado', price_list: priceList({ id: 'cf-list', name: 'Catálogo Maestro' }) },
+      { id: 'may', price_list_id: 'may-list', variant_id: 'v1', min_quantity: 1, max_quantity: null, amount: 7.8, status: 'confirmado', price_list: priceList({ id: 'may-list', name: 'Resinplast Mayorista 2026' }) },
+    ])
+    expect(commercialPrices(v).consumer?.amount).toBe(10)
+    expect(commercialPrices(v).wholesale?.amount).toBe(7.8)
   })
 })

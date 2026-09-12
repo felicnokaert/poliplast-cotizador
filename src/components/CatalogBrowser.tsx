@@ -107,7 +107,7 @@ export function CatalogBrowser({
       ) : (
         <div className="product-list">
           <div className="catalog-table-head">
-            <span>Producto</span><span>SKU</span><span>Familia</span><span>Subfamilia</span><span>Precio final</span><span />
+            <span>Producto</span><span>SKU</span><span>Familia</span><span>Subfamilia</span><span>Consumidor final</span><span>Mayorista</span><span />
           </div>
           {filtered.map((product) => (
             <ProductCard key={product.id} product={product} onAdd={onAdd} />
