@@ -58,6 +58,27 @@ describe('quote', () => {
     expect(priceForQuantity(variant, 12)?.amount).toBe(80)
   })
 
+  it('activa mayorista Resinplast desde USD 1.815 cuando ambas listas existen', () => {
+    const resinVariant = {
+      ...variant,
+      prices: [
+        { ...variant.prices[0], id: 'cf', amount: 10, price_list: { ...variant.prices[0].price_list, id: 'cf-list', name: 'Resinplast CF' } },
+        { ...variant.prices[0], id: 'may', amount: 7.8, price_list: { ...variant.prices[0].price_list, id: 'may-list', name: 'Resinplast Mayorista' } },
+      ],
+    } satisfies VariantWithPricing
+    const resinProduct = { ...product, brand: 'Resinplast', family: 'Resinas y Catalizadores', variants: [resinVariant] }
+    const baseLine = addQuoteLine([], resinVariant, resinProduct)[0]
+    expect(quoteTotals([{ ...baseLine, quantity: 181 }]).appliedPriceMode).toBe('consumidor_final')
+    expect(quoteTotals([{ ...baseLine, quantity: 182 }]).appliedPriceMode).toBe('mayorista')
+    expect(quoteTotals([{ ...baseLine, quantity: 182 }]).subtotal).toBeCloseTo(1419.6, 4)
+  })
+
+  it('no activa mayorista Resinplast si falta una lista mayorista verificada', () => {
+    const resinProduct = { ...product, brand: 'Resinplast', family: 'Resinas y Catalizadores' }
+    const line = { ...addQuoteLine([], variant, resinProduct)[0], quantity: 1000 }
+    expect(quoteTotals([line]).appliedPriceMode).toBe('consumidor_final')
+  })
+
   it('informa el IVA incluido sin sumarlo por segunda vez', () => {
     const lines = addQuoteLine([], variant, product).map((line) => ({ ...line, quantity: 10 }))
     const totals = quoteTotals(lines, 10, 5, 1000, 'ARS')
