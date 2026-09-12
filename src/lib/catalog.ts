@@ -4,6 +4,7 @@ import type {
   CatalogVariant,
   InventoryBalance,
   PriceList,
+  ProductDocumentLink,
   ProductWithVariants,
   TechnicalDocument,
   VariantPrice,
@@ -22,6 +23,7 @@ export interface RawCatalogRows {
   prices: VariantPrice[]
   docs: TechnicalDocument[]
   inventory?: InventoryBalance[]
+  documentLinks?: ProductDocumentLink[]
 }
 
 const VIGENTE_DOC_STATUSES = new Set(['vigente'])
@@ -64,7 +66,7 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
     variantsByProduct.set(variant.product_id, list)
   }
 
-  const productsById = new Map(products.map((p) => [p.id, p]))
+  const documentsById = new Map(docs.filter((doc) => doc.status === 'vigente').map((doc) => [doc.id, doc]))
 
   const result: ProductWithVariants[] = products.map((product) => {
     const productVariants = (variantsByProduct.get(product.id) ?? []).map((variant) => {
@@ -73,10 +75,13 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
         .map((price) => ({ ...price, price_list: priceLists.get(price.price_list_id)! }))
         .sort((a, b) => a.min_quantity - b.min_quantity)
 
-      const hasTechnicalDoc = docs.some((doc) => {
-        const p = productsById.get(product.id)
-        return p ? matchesDocument(doc, variant, p) : false
-      })
+      const technicalDocuments = (raw.documentLinks ?? []).filter((link) => {
+        if (!documentsById.has(link.document_id)) return false
+        if (link.scope_type === 'variant') return link.variant_id === variant.id
+        if (link.scope_type === 'product') return link.product_id === product.id
+        return link.scope_type === 'subfamily' && link.family?.trim().toLowerCase() === product.family.trim().toLowerCase() && link.subfamily?.trim().toLowerCase() === product.subfamily.trim().toLowerCase()
+      }).map((link) => documentsById.get(link.document_id)!).filter((doc, index, all) => all.findIndex((item) => item.id === doc.id) === index)
+      const hasTechnicalDoc = technicalDocuments.length > 0
 
       const balances = inventoryByVariant.get(variant.id) ?? []
       const units = new Set(balances.map((balance) => balance.unit))
@@ -85,7 +90,7 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
         unit: balances[0].unit,
         approvedAt: balances.map((balance) => balance.approved_at).sort().at(-1)!,
       } : null
-      return { ...variant, prices: variantPrices, hasTechnicalDoc, approvedStock }
+      return { ...variant, prices: variantPrices, hasTechnicalDoc, technicalDocuments, approvedStock }
     })
 
     return { ...product, variants: productVariants }
@@ -124,15 +129,22 @@ export async function fetchAll<T>(
 }
 
 export async function loadCatalog(): Promise<CatalogData> {
-  const [products, variants, priceListsRes, prices, docsRes, inventory] = await Promise.all([
+  const linksPromise = (async () => {
+    try {
+      const { data } = await supabase.from('product_document_links').select('document_id,scope_type,product_id,variant_id,family,subfamily')
+      return (data ?? []) as ProductDocumentLink[]
+    } catch { return [] as ProductDocumentLink[] }
+  })()
+  const [products, variants, priceListsRes, prices, docsRes, inventory, documentLinks] = await Promise.all([
     fetchAll<CatalogProduct>((from, to) =>
       supabase.from('catalog_products').select('*').order('family').order('name').range(from, to),
     ),
     fetchAll<CatalogVariant>((from, to) => supabase.from('catalog_variants').select('*').order('name').range(from, to)),
     supabase.from('price_lists').select('*'),
     fetchAll<VariantPrice>((from, to) => supabase.from('variant_prices').select('*').range(from, to)),
-    supabase.from('technical_documents').select('id, title, family, product, sku, status'),
+    supabase.from('technical_documents').select('id, title, family, product, sku, status, source_url, storage_path'),
     fetchAll<InventoryBalance>((from, to) => supabase.from('inventory_balances').select('variant_id, approved_quantity, unit, approved_at').range(from, to)),
+    linksPromise,
   ])
 
   if (priceListsRes.error) throw priceListsRes.error
@@ -145,5 +157,14 @@ export async function loadCatalog(): Promise<CatalogData> {
     prices,
     docs: (docsRes.data ?? []) as TechnicalDocument[],
     inventory,
+    documentLinks,
   })
+}
+
+export async function technicalDocumentUrl(document: TechnicalDocument): Promise<string | null> {
+  if (document.storage_path) {
+    const { data, error } = await supabase.storage.from('technical-documents').createSignedUrl(document.storage_path, 300)
+    if (!error && data?.signedUrl) return data.signedUrl
+  }
+  return document.source_url?.trim() || null
 }

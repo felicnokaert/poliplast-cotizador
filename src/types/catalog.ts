@@ -52,13 +52,18 @@ export interface TechnicalDocument {
   product: string
   sku: string
   status: string
+  source_url?: string
+  storage_path?: string | null
 }
+
+export interface ProductDocumentLink { document_id: string; scope_type: 'product' | 'variant' | 'subfamily'; product_id: string | null; variant_id: string | null; family: string | null; subfamily: string | null }
 
 export interface InventoryBalance { variant_id: string; approved_quantity: number; unit: string; approved_at: string }
 
 export interface VariantWithPricing extends CatalogVariant {
   prices: (VariantPrice & { price_list: PriceList })[]
   hasTechnicalDoc: boolean
+  technicalDocuments?: TechnicalDocument[]
   approvedStock?: { quantity: number; unit: string; approvedAt: string } | null
 }
 

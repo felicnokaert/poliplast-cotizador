@@ -142,6 +142,15 @@ describe('assembleCatalog', () => {
     ] }
     expect(assembleCatalog(raw).products[0].variants[0].approvedStock).toBeNull()
   })
+
+  it('solo confirma una ficha cuando existe un vínculo formal y el documento está vigente', () => {
+    const doc = { id: 'd1', title: 'Ficha', family: 'CARROZADOS', product: 'ADHESIVO POLIURETANICO 1000CC', sku: 'SKU-1', status: 'vigente' }
+    const withoutLink = assembleCatalog({ products: [product()], variants: [variant()], priceLists: [], prices: [], docs: [doc] })
+    expect(withoutLink.products[0].variants[0].hasTechnicalDoc).toBe(false)
+    const linked = assembleCatalog({ products: [product()], variants: [variant()], priceLists: [], prices: [], docs: [doc], documentLinks: [{ document_id: 'd1', scope_type: 'variant', variant_id: 'v1', product_id: null, family: null, subfamily: null }] })
+    expect(linked.products[0].variants[0].hasTechnicalDoc).toBe(true)
+    expect(linked.products[0].variants[0].technicalDocuments?.[0].title).toBe('Ficha')
+  })
 })
 
 describe('fetchAll', () => {
