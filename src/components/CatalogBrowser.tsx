@@ -49,6 +49,8 @@ export function CatalogBrowser({
     return [...new Set(data.products.filter((p) => family === 'todas' || p.family === family).map((p) => p.subfamily).filter(Boolean))].sort()
   }, [data, family])
   const paginated = useMemo(() => paginateCatalog(filtered, page, pageSize), [filtered, page])
+  const hasFilters = Boolean(search) || family !== 'todas' || subfamily !== 'todas' || brand !== 'todas' || priceFilter !== 'todos'
+  const clearFilters = () => { setSearch(''); setFamily('todas'); setSubfamily('todas'); setBrand('todas'); setPriceFilter('todos'); setPage(1) }
 
   if (loading) return <div className="centered-page">Cargando catálogo...</div>
   if (error) return <div className="centered-page error">Error: {error}</div>
@@ -61,11 +63,12 @@ export function CatalogBrowser({
         <div className="filters">
           <input
             type="search"
+            aria-label="Buscar productos"
             placeholder="Buscar por nombre, SKU, familia..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           />
-          <select value={family} onChange={(e) => { setFamily(e.target.value); setSubfamily('todas'); setPage(1) }}>
+          <select aria-label="Filtrar por familia" value={family} onChange={(e) => { setFamily(e.target.value); setSubfamily('todas'); setPage(1) }}>
             <option value="todas">Todas las familias</option>
             {data.families.map((f) => (
               <option key={f} value={f}>
@@ -73,11 +76,11 @@ export function CatalogBrowser({
               </option>
             ))}
           </select>
-          <select value={subfamily} onChange={(e) => { setSubfamily(e.target.value); setPage(1) }}>
+          <select aria-label="Filtrar por subfamilia" value={subfamily} onChange={(e) => { setSubfamily(e.target.value); setPage(1) }}>
             <option value="todas">Todas las subfamilias</option>
             {subfamilies.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }}>
+          <select aria-label="Filtrar por marca" value={brand} onChange={(e) => { setBrand(e.target.value); setPage(1) }}>
             <option value="todas">Todas las marcas</option>
             {data.brands.map((b) => (
               <option key={b} value={b}>
@@ -85,13 +88,14 @@ export function CatalogBrowser({
               </option>
             ))}
           </select>
-          <select value={priceFilter} onChange={(e) => { setPriceFilter(e.target.value as PriceFilter); setPage(1) }}>
+          <select aria-label="Filtrar por disponibilidad de precio" value={priceFilter} onChange={(e) => { setPriceFilter(e.target.value as PriceFilter); setPage(1) }}>
             <option value="todos">Precio: todos</option>
             <option value="con_precio">Con precio vigente</option>
             <option value="precio_pendiente">Precio pendiente</option>
           </select>
+          {hasFilters && <button className="clear-filters" onClick={clearFilters}>Limpiar filtros</button>}
         </div>
-        <p className="muted">
+        <p className="muted" aria-live="polite">
           {filtered.length} producto{filtered.length === 1 ? '' : 's'} · {data.products.length} en el catálogo total
         </p>
       </header>
