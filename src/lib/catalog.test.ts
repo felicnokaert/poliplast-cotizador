@@ -126,6 +126,22 @@ describe('assembleCatalog', () => {
     const result = assembleCatalog(raw)
     expect(result.products[0].variants).toEqual([])
   })
+
+  it('suma únicamente saldos aprobados de la misma unidad y conserva la fecha', () => {
+    const raw = { products: [product()], variants: [variant()], priceLists: [], prices: [], docs: [], inventory: [
+      { variant_id: 'v1', approved_quantity: 4, unit: 'kg', approved_at: '2026-09-10T10:00:00Z' },
+      { variant_id: 'v1', approved_quantity: 6, unit: 'kg', approved_at: '2026-09-11T10:00:00Z' },
+    ] }
+    expect(assembleCatalog(raw).products[0].variants[0].approvedStock).toEqual({ quantity: 10, unit: 'kg', approvedAt: '2026-09-11T10:00:00Z' })
+  })
+
+  it('no inventa un total si dos depósitos usan unidades incompatibles', () => {
+    const raw = { products: [product()], variants: [variant()], priceLists: [], prices: [], docs: [], inventory: [
+      { variant_id: 'v1', approved_quantity: 4, unit: 'kg', approved_at: '2026-09-10T10:00:00Z' },
+      { variant_id: 'v1', approved_quantity: 1, unit: 'unidad', approved_at: '2026-09-11T10:00:00Z' },
+    ] }
+    expect(assembleCatalog(raw).products[0].variants[0].approvedStock).toBeNull()
+  })
 })
 
 describe('fetchAll', () => {

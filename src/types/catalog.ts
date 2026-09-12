@@ -54,9 +54,12 @@ export interface TechnicalDocument {
   status: string
 }
 
+export interface InventoryBalance { variant_id: string; approved_quantity: number; unit: string; approved_at: string }
+
 export interface VariantWithPricing extends CatalogVariant {
   prices: (VariantPrice & { price_list: PriceList })[]
   hasTechnicalDoc: boolean
+  approvedStock?: { quantity: number; unit: string; approvedAt: string } | null
 }
 
 export interface ProductWithVariants extends CatalogProduct {

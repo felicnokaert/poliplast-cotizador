@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type {
   CatalogProduct,
   CatalogVariant,
+  InventoryBalance,
   PriceList,
   ProductWithVariants,
   TechnicalDocument,
@@ -20,6 +21,7 @@ export interface RawCatalogRows {
   priceLists: PriceList[]
   prices: VariantPrice[]
   docs: TechnicalDocument[]
+  inventory?: InventoryBalance[]
 }
 
 const VIGENTE_DOC_STATUSES = new Set(['vigente'])
@@ -45,6 +47,8 @@ export function matchesDocument(doc: TechnicalDocument, variant: CatalogVariant,
 export function assembleCatalog(raw: RawCatalogRows): CatalogData {
   const { products, variants, prices, docs } = raw
   const priceLists = new Map<string, PriceList>(raw.priceLists.map((pl) => [pl.id, pl]))
+  const inventoryByVariant = new Map<string, InventoryBalance[]>()
+  for (const balance of raw.inventory ?? []) inventoryByVariant.set(balance.variant_id, [...(inventoryByVariant.get(balance.variant_id) ?? []), balance])
 
   const pricesByVariant = new Map<string, VariantPrice[]>()
   for (const price of prices) {
@@ -74,7 +78,14 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
         return p ? matchesDocument(doc, variant, p) : false
       })
 
-      return { ...variant, prices: variantPrices, hasTechnicalDoc }
+      const balances = inventoryByVariant.get(variant.id) ?? []
+      const units = new Set(balances.map((balance) => balance.unit))
+      const approvedStock = balances.length && units.size === 1 ? {
+        quantity: balances.reduce((sum, balance) => sum + Number(balance.approved_quantity), 0),
+        unit: balances[0].unit,
+        approvedAt: balances.map((balance) => balance.approved_at).sort().at(-1)!,
+      } : null
+      return { ...variant, prices: variantPrices, hasTechnicalDoc, approvedStock }
     })
 
     return { ...product, variants: productVariants }
@@ -113,7 +124,7 @@ export async function fetchAll<T>(
 }
 
 export async function loadCatalog(): Promise<CatalogData> {
-  const [products, variants, priceListsRes, prices, docsRes] = await Promise.all([
+  const [products, variants, priceListsRes, prices, docsRes, inventory] = await Promise.all([
     fetchAll<CatalogProduct>((from, to) =>
       supabase.from('catalog_products').select('*').order('family').order('name').range(from, to),
     ),
@@ -121,6 +132,7 @@ export async function loadCatalog(): Promise<CatalogData> {
     supabase.from('price_lists').select('*'),
     fetchAll<VariantPrice>((from, to) => supabase.from('variant_prices').select('*').range(from, to)),
     supabase.from('technical_documents').select('id, title, family, product, sku, status'),
+    fetchAll<InventoryBalance>((from, to) => supabase.from('inventory_balances').select('variant_id, approved_quantity, unit, approved_at').range(from, to)),
   ])
 
   if (priceListsRes.error) throw priceListsRes.error
@@ -132,5 +144,6 @@ export async function loadCatalog(): Promise<CatalogData> {
     priceLists: (priceListsRes.data ?? []) as PriceList[],
     prices,
     docs: (docsRes.data ?? []) as TechnicalDocument[],
+    inventory,
   })
 }

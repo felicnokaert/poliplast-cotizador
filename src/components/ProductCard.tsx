@@ -11,7 +11,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
   return (
     <div className="catalog-row">
       <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small></span></div>
-      <span className="variant-sku">{variant.sku}</span>
+      <span className="variant-sku">{variant.sku}<small className={variant.approvedStock ? 'stock-verified' : 'stock-unverified'}>{variant.approvedStock ? `Stock aprobado: ${new Intl.NumberFormat('es-AR').format(variant.approvedStock.quantity)} ${variant.approvedStock.unit}` : 'Stock sin verificar'}</small></span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
       {priceCell(prices.consumer, 'Precio pendiente')}
