@@ -191,6 +191,19 @@ button {
 .admin-section h2, .admin-section p { margin: 0; }
 .admin-section button { border: 0; border-radius: 8px; background: var(--text); color: white; padding: 9px 12px; font-weight: 700; }
 .admin-section button:disabled { opacity: .45; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-section button.secondary { background: #eceeeb; color: var(--text); }
+.csv-drop { display: inline-flex; cursor: pointer; margin-top: 14px; padding: 10px 14px; border: 1px dashed #8aa89f; border-radius: 9px; color: #315f54; font-weight: 750; background: #f4f8f6; }
+.csv-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.import-preview { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px; }
+.import-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+.import-summary span { padding: 4px 8px; border-radius: 999px; background: #eceeeb; font-size: .76rem; }
+.import-summary .change { background: #fff1d6; color: #825617; }
+.import-summary .error { background: #ffe5e5; color: #a12e2e; }
+.preview-rows { display: grid; gap: 5px; max-height: 320px; overflow: auto; margin-top: 10px; }
+.preview-row { display: grid; grid-template-columns: minmax(150px, .35fr) 1fr; gap: 12px; padding: 7px 9px; border-radius: 7px; background: #fafafa; font-size: .76rem; }
+.preview-row.error { border-left: 3px solid #c84949; }
+.preview-row.cambio { border-left: 3px solid #d9992e; }
 .admin-section.stack { display: block; }
 .governance-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .governance-grid span { background: #edf4ee; color: #28633b; border-radius: 99px; padding: 6px 9px; font-size: .75rem; font-weight: 650; }
