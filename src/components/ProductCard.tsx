@@ -10,7 +10,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
   const priceCell = (price: typeof prices.consumer, pending: string) => <span className="catalog-price">{price ? <><strong>{formatMoney(price.amount, price.price_list.currency)}</strong><small>IVA incluido</small></> : <em>{pending}</em>}</span>
   return (
     <div className="catalog-row">
-      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand}</small></span></div>
+      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small></span></div>
       <span className="variant-sku">{variant.sku}</span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
