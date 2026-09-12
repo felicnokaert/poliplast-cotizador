@@ -21,4 +21,9 @@ describe('vista previa de importación administrativa', () => {
     expect(preview[2].errors).toContain('SKU desconocido')
   })
   it('no convierte celdas vacías en cero ni cambio', () => expect(previewAdminImport('sku,costo,fuente\nSKU-1,,', catalog)[0].status).toBe('sin_cambios'))
+  it('detecta un cambio de moneda aunque el importe no cambie', () => {
+    const row = previewAdminImport('sku;moneda_costo;fuente\nSKU-1;ARS;Corrección', catalog)[0]
+    expect(row.status).toBe('cambio')
+    expect(row.changes).toContain('moneda_costo: USD → ARS')
+  })
 })

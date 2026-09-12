@@ -20,7 +20,7 @@ Fuentes de diseño (viven en el repo del CRM):
 - recuperación automática de la cotización en curso y guardado deliberado en historial local;
 - cotización vendedor billete del BNA como fuente principal, con respaldo identificado;
 - identidad por marca y co-branding Grupo Poliplast;
-- panel administrativo protegido para costos, stock, lotes y CSV.
+- panel administrativo protegido con exportación completa de precios, costos y stock, más importación CSV en modo vista previa con validación por SKU.
 
 Pendiente para la siguiente capa: persistencia compartida de cotizaciones, vínculo formal con clientes/fichas, editor masivo con vista previa y reglas aprobadas de margen/financiación. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor. Los logos oficiales de Resinplast, Penosil y PURMAC deben incorporarse cuando se disponga de sus archivos aprobados; no se reemplazan por imitaciones.
 

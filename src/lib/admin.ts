@@ -128,6 +128,10 @@ export function previewAdminImport(content: string, catalog: AdminCatalogRow[]):
     }
     const currency = (source.moneda_precio || source.moneda_costo || '').toUpperCase()
     if (currency && !['ARS', 'USD'].includes(currency)) errors.push('Moneda debe ser ARS o USD')
+    for (const field of ['moneda_precio', 'moneda_costo', 'unidad_stock'] as const) {
+      const incoming = (source[field] ?? '').trim()
+      if (incoming && current && incoming.toUpperCase() !== String(current[field]).toUpperCase()) changes.push(`${field}: ${current[field] || 'vacío'} → ${incoming}`)
+    }
     if (changes.length && !(source.fuente || '').trim()) errors.push('Todo cambio exige fuente')
     return { row: index + 2, sku, status: errors.length ? 'error' : changes.length ? 'cambio' : 'sin_cambios', changes, errors, source }
   })
