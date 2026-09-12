@@ -17,11 +17,12 @@ Fuentes de diseño (viven en el repo del CRM):
 - escalas automáticas por cantidad, moneda, IVA y vigencia;
 - descuento y recargo explícitos sin alterar listas maestras;
 - vista previa, impresión/PDF y texto para WhatsApp;
-- borradores e historial local;
+- recuperación automática de la cotización en curso y guardado deliberado en historial local;
+- cotización vendedor billete del BNA como fuente principal, con respaldo identificado;
 - identidad por marca y co-branding Grupo Poliplast;
 - panel administrativo protegido para costos, stock, lotes y CSV.
 
-Pendiente para la siguiente capa: persistencia compartida de cotizaciones, vínculo formal con clientes/fichas, editor masivo con vista previa y reglas aprobadas de margen/financiación. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor.
+Pendiente para la siguiente capa: persistencia compartida de cotizaciones, vínculo formal con clientes/fichas, editor masivo con vista previa y reglas aprobadas de margen/financiación. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor. Los logos oficiales de Resinplast, Penosil y PURMAC deben incorporarse cuando se disponga de sus archivos aprobados; no se reemplazan por imitaciones.
 
 No se modifica el CRM ni se crean tablas nuevas: todo se lee de las tablas ya migradas en el proyecto Supabase `poli crm` (`nghwmtccpovrdtzvllwe`).
 
