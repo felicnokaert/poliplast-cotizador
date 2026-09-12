@@ -107,6 +107,9 @@ button {
 .brand-mark-resinplast strong { color: #0071bc; }
 .brand-mark-penosil strong { color: #e33b28; }
 .brand-mark-purmac strong { color: #194f7a; }
+.brand-logo { display: block; width: 170px; max-width: 100%; height: auto; object-fit: contain; }
+.nav-brand .brand-logo { width: 150px; filter: grayscale(1) brightness(0) invert(1); }
+.brand-logo { display: block; width: 154px; height: 39px; object-fit: contain; object-position: left center; }
 .nav-tabs { display: flex; padding: 4px; background: #e9eae7; border-radius: 10px; }
 .nav-tabs button { border: 0; background: transparent; color: var(--muted); border-radius: 7px; padding: 8px 13px; font-weight: 650; }
 .nav-tabs button.active { background: white; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.09); }
@@ -197,6 +200,11 @@ button {
 .preview-actions button { border: 1px solid var(--border); border-radius: 7px; background: white; padding: 8px 11px; font-weight: 700; }
 .preview-actions .primary-action.inline { width: auto; margin: 0; color: white; background: var(--preview-accent); border: 0; }
 .preview-header { display: flex; align-items: center; gap: 18px; border-bottom: 3px solid var(--preview-accent); padding-bottom: 22px; }
+.preview-brands { display: flex; align-items: center; gap: 22px; }
+.preview-brands .brand-logo { width: 190px; }
+.preview-brands .brand-mark { min-width: 115px; }
+.preview-brands { display: flex; align-items: center; gap: 18px; }
+.preview-brands .brand-logo { width: 175px; height: 44px; }
 .preview-number { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 2px; }
 .preview-number span, .preview-number small, .preview-client span { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
 .preview-number strong { font-size: 1.2rem; }
@@ -475,6 +483,7 @@ button {
   .nav-brand { flex-direction: column; align-items: flex-start; gap: 7px; padding: 0 8px 15px; border-bottom: 1px solid rgba(255,255,255,.16); }
   .nav-brand > span { padding: 0; border: 0; color: rgba(255,255,255,.62); font-size: .7rem; }
   .nav-brand .brand-mark span, .nav-brand .brand-mark strong { color: white; }
+  .nav-brand .brand-logo { width: 150px; filter: brightness(0) invert(1); }
   .nav-tabs { flex-direction: column; gap: 5px; padding: 0; background: transparent; }
   .nav-tabs button { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; text-align: left; padding: 9px 10px; color: rgba(255,255,255,.72); font-size: .76rem; }
   .nav-tabs button b { font-size: .92rem; font-weight: 500; }

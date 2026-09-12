@@ -43,7 +43,8 @@ function newMeta(): QuoteMeta {
 }
 
 function BrandMark({ brand }: { brand: string }) {
-  return <div className={`brand-mark brand-mark-${brand.toLowerCase().replace(/\W/g, '')}`}><span>grupo</span><strong>{brand === 'Grupo Poliplast' ? 'poliplast' : brand}</strong></div>
+  if (brand === 'Grupo Poliplast') return <img className="brand-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />
+  return <div className={`brand-mark brand-mark-${brand.toLowerCase().replace(/\W/g, '')}`}><span>línea</span><strong>{brand}</strong></div>
 }
 
 function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: CommercialRule[]; onClose: () => void }) {
@@ -62,8 +63,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
           <button className="primary-action inline" onClick={() => window.print()}>Imprimir / Guardar PDF</button>
         </div>
         <header className="preview-header">
-          <BrandMark brand={principalBrand} />
-          {principalBrand !== 'Grupo Poliplast' && <BrandMark brand="Grupo Poliplast" />}
+          <div className="preview-brands"><BrandMark brand={principalBrand} />{principalBrand !== 'Grupo Poliplast' && <BrandMark brand="Grupo Poliplast" />}</div>
           <div className="preview-number"><span>Cotización</span><strong>{quote.meta.number}</strong><small>{new Date(quote.meta.createdAt).toLocaleDateString('es-AR')}</small></div>
         </header>
         <div className="preview-client">
@@ -92,7 +92,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
           {quote.meta.outputCurrency === 'USD' && <p>Esta cotización está expresada en dólares estadounidenses. Si se cancela en pesos argentinos, el importe se calculará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
           {quote.meta.outputCurrency === 'ARS' && <p>Equivalencia calculada a un tipo de cambio de {money(quote.meta.exchangeRate, 'ARS')} por USD. El importe definitivo en pesos se determinará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
           {quote.meta.notes && <p><strong>Observaciones:</strong> {quote.meta.notes}</p>}
-          <p className="preview-legal">Documento comercial no fiscal. Disponibilidad sujeta a confirmación.</p>
+          <p className="preview-legal">Documento comercial no fiscal · Precios y disponibilidad sujetos a confirmación · Grupo Poliplast</p>
         </footer>
       </section>
     </div>
