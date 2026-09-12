@@ -115,6 +115,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
   const [activeSection, setActiveSection] = useState<'cotizar' | 'historial' | 'administracion'>('cotizar')
+  const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
   const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
@@ -125,6 +126,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
+  const visibleQuotes = useMemo(() => historyStatus === 'todas' ? savedQuotes : savedQuotes.filter((quote) => quote.meta.status === historyStatus), [savedQuotes, historyStatus])
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
   useEffect(() => {
@@ -186,7 +188,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
       {activeSection === 'administracion' ? <AdminPanel /> : activeSection === 'historial' ? (
         <main className="history-page">
           <div className="page-intro"><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones guardadas</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial compartido con el equipo y respaldado en este navegador.' : quoteSyncStatus === 'guardando' ? 'Sincronizando con el equipo…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones compartidas…' : 'Modo local: el respaldo está seguro en este navegador; la sincronización remota todavía no está disponible.'}</p></div>
-          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : <div className="history-list">{savedQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Abrir</button></article>)}</div>}
+          {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
+          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Abrir</button></article>)}</div>}
         </main>
       ) : (
         <main className="quote-layout">
@@ -218,6 +221,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             <div className="commercial-controls">
               <label>Lista comercial<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Automática por monto</option><option value="consumidor_final">Consumidor final</option><option value="mayorista">Mayorista</option></select><small className="exchange-source">Aplicada: {totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}{meta.priceMode === 'automatico' ? ' · Resinplast cambia desde USD 1.815 si existe lista verificada' : ''}</small></label>
               <label>Moneda de salida<select value={meta.outputCurrency} onChange={(e) => updateMeta('outputCurrency', e.target.value as 'USD' | 'ARS')}><option value="USD">USD</option><option value="ARS">ARS</option></select></label>
+              <label>Estado de la cotización<select value={meta.status} onChange={(e) => updateMeta('status', e.target.value as QuoteMeta['status'])}><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select></label>
               {meta.outputCurrency === 'ARS' && <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /><small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${exchangeInfo.source}${exchangeInfo.fetchedAt ? ` · ${new Date(exchangeInfo.fetchedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs` : ''}`}</small></label>}
               <label>Descuento autorizado %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
               <label>Recargo / financiación %<input type="number" min="0" value={meta.surchargePercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('surchargePercent', Number(e.target.value))} /></label>

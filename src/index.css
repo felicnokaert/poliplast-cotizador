@@ -172,6 +172,10 @@ button {
 .history-page { max-width: 980px; margin: 0 auto; }
 .page-intro h1 { margin: 4px 0; }
 .history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+.history-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+.history-filters button { border: 1px solid var(--border); background: white; border-radius: 999px; padding: 7px 11px; text-transform: capitalize; color: var(--muted); font-weight: 700; }
+.history-filters button.active { background: var(--text); border-color: var(--text); color: white; }
+.history-filters span { display: inline-flex; justify-content: center; min-width: 18px; margin-left: 4px; padding: 1px 5px; border-radius: 999px; background: rgba(128,128,128,.16); font-size: .7rem; }
 .history-list article { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px; padding: 14px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; }
 .history-list article > div { display: flex; flex-direction: column; gap: 3px; }
 .history-list article span { color: var(--muted); font-size: .77rem; }

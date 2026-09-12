@@ -64,6 +64,15 @@ afterEach(() => {
 })
 
 describe('QuoteWorkspace — reglas comerciales conectadas', () => {
+  it('permite registrar el estado comercial de la cotización', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    const status = await screen.findByLabelText('Estado de la cotización')
+    fireEvent.change(status, { target: { value: 'enviada' } })
+    expect(status).toHaveValue('enviada')
+  })
+
   it('protege el trabajo actual y lo recupera después de recargar', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
