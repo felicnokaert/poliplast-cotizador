@@ -110,6 +110,8 @@ function parseLocaleNumber(value: string): number | '' | null {
 
 export interface AdminImportPreview { row: number; sku: string; status: 'cambio' | 'sin_cambios' | 'error'; changes: string[]; errors: string[]; source: Record<string, string> }
 
+export interface CostImportRow { row_number: number; sku: string; amount: number; currency: 'ARS' | 'USD'; source: string; valid_from: string }
+
 export function previewAdminImport(content: string, catalog: AdminCatalogRow[]): AdminImportPreview[] {
   const known = new Map(catalog.map((item) => [item.sku.trim().toUpperCase(), item]))
   const seen = new Set<string>()
@@ -135,4 +137,40 @@ export function previewAdminImport(content: string, catalog: AdminCatalogRow[]):
     if (changes.length && !(source.fuente || '').trim()) errors.push('Todo cambio exige fuente')
     return { row: index + 2, sku, status: errors.length ? 'error' : changes.length ? 'cambio' : 'sin_cambios', changes, errors, source }
   })
+}
+
+export function buildCostImportRows(preview: AdminImportPreview[], validFrom = new Date().toISOString().slice(0, 10)): CostImportRow[] {
+  return preview.flatMap((item) => {
+    if (item.status !== 'cambio' || !item.changes.some((change) => change.startsWith('costo:'))) return []
+    const amount = parseLocaleNumber(item.source.costo ?? '')
+    const currency = (item.source.moneda_costo ?? '').trim().toUpperCase()
+    const source = (item.source.fuente ?? '').trim()
+    if (amount === '' || amount === null || !['ARS', 'USD'].includes(currency) || !source) return []
+    return [{ row_number: item.row, sku: item.sku, amount, currency: currency as 'ARS' | 'USD', source, valid_from: validFrom }]
+  })
+}
+
+export async function sha256Text(content: string): Promise<string> {
+  const bytes = new TextEncoder().encode(content.replace(/^\uFEFF/, ''))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('')
+}
+
+export async function applyCostImport(fileName: string, content: string, rows: CostImportRow[]): Promise<{ job_id: string; applied: number }> {
+  if (!rows.length) throw new Error('No hay cambios de costo válidos para aplicar.')
+  const { data, error } = await supabase.rpc('apply_catalog_cost_import', {
+    p_file_name: fileName,
+    p_file_sha256: await sha256Text(content),
+    p_rows: rows,
+  })
+  if (error) throw error
+  const result = (Array.isArray(data) ? data[0] : data) as { job_id?: string; applied?: number } | null
+  if (!result?.job_id) throw new Error('La importación no devolvió un lote auditable.')
+  return { job_id: result.job_id, applied: Number(result.applied ?? rows.length) }
+}
+
+export async function revertCostImport(jobId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('revert_catalog_cost_import', { p_job_id: jobId })
+  if (error) throw error
+  return Number(data ?? 0)
 }

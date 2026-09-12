@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { csvEscape, parseAdminCsv, previewAdminImport, rowsToCsv, type AdminCatalogRow } from './admin'
+import { buildCostImportRows, csvEscape, parseAdminCsv, previewAdminImport, rowsToCsv, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -21,6 +21,10 @@ describe('vista previa de importación administrativa', () => {
     expect(preview[2].errors).toContain('SKU desconocido')
   })
   it('no convierte celdas vacías en cero ni cambio', () => expect(previewAdminImport('sku,costo,fuente\nSKU-1,,', catalog)[0].status).toBe('sin_cambios'))
+  it('arma únicamente revisiones de costo completas y conserva el cero', () => {
+    const preview = previewAdminImport('sku;costo;moneda_costo;fuente\nSKU-1;0;USD;Lista septiembre', catalog)
+    expect(buildCostImportRows(preview, '2026-09-12')).toEqual([{ row_number: 2, sku: 'SKU-1', amount: 0, currency: 'USD', source: 'Lista septiembre', valid_from: '2026-09-12' }])
+  })
   it('detecta un cambio de moneda aunque el importe no cambie', () => {
     const row = previewAdminImport('sku;moneda_costo;fuente\nSKU-1;ARS;Corrección', catalog)[0]
     expect(row.status).toBe('cambio')
