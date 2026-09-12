@@ -38,6 +38,14 @@ export interface QuoteMeta {
 
 export interface SavedQuote { meta: QuoteMeta; lines: QuoteLine[]; updatedAt: string }
 
+/** Un SKU puede representar un pack. Evita contar un pack x20 como una unidad física. */
+export function unitsPerSellUnit(line: Pick<QuoteLine, 'productName' | 'family'>): number {
+  if (!/almohadas|baldes/i.test(line.family)) return 1
+  const matches = [...line.productName.matchAll(/(?:\(|\s)X\s*(\d{1,2})\)?(?=\s*(?:\+|$))/gi)]
+  if (!matches.length) return 1
+  return matches.reduce((sum, match) => sum + Math.max(1, Number(match[1]) || 1), 0)
+}
+
 export function createQuoteNumber(now = new Date()): string {
   const digits = now.toISOString().replace(/\D/g, '')
   return `GP-${digits.slice(2, 8)}-${digits.slice(8, 14)}-${digits.slice(14, 17)}`
@@ -65,15 +73,23 @@ export function priceForQuantity(variant: VariantWithPricing, quantity: number, 
  * desde `commercial_rules`; si no llegó ninguna (por ejemplo, falló la carga)
  * la línea usa el precio de lista normal, nunca inventa una condición.
  */
-export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = []) {
-  const ruleMatch = resolveCommercialRule(rules, {
+export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = [], contextLines: QuoteLine[] = [line]) {
+  const skuRule = resolveCommercialRule(rules.filter((rule) => rule.scope_type === 'sku'), {
     variantId: line.variant.id,
     family: line.family,
     quantity: line.quantity,
   })
+  const familyQuantity = contextLines.filter((item) => item.family === line.family).reduce((sum, item) => sum + item.quantity * unitsPerSellUnit(item), 0)
+  const familyRule = resolveCommercialRule(rules.filter((rule) => rule.scope_type === 'family'), {
+    variantId: line.variant.id,
+    family: line.family,
+    quantity: familyQuantity,
+  })
+  const ruleMatch = skuRule ?? familyRule
   if (ruleMatch) {
+    const packUnits = ruleMatch.rule.scope_type === 'family' ? unitsPerSellUnit(line) : 1
     return {
-      amount: ruleMatch.rule.gross_amount,
+      amount: ruleMatch.rule.gross_amount * packUnits,
       currency: ruleMatch.rule.currency,
       vatRate: ruleMatch.rule.vat_rate,
       listName: formatRuleLabel(ruleMatch.rule),
@@ -137,7 +153,7 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = resolvedLinePrice(line, appliedPriceMode, rules)
+      const price = resolvedLinePrice(line, appliedPriceMode, rules, lines)
       if (!price) {
         totals.pendingLines += 1
         return totals
@@ -172,7 +188,7 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+    const price = resolvedLinePrice(line, totals.appliedPriceMode, rules, lines)
     const ruleNote = price?.specialRule ? ` [${price.listName}]` : ''
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}${ruleNote}`
   }).join('\n')

@@ -18,7 +18,7 @@ import type { CommercialRule } from '../types/commercialRules'
 import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { loadCommercialClients, type CommercialClient } from '../lib/clients'
-import { loadCommercialRules } from '../lib/commercialRules'
+import { formatRuleLabel, loadCommercialRules } from '../lib/commercialRules'
 import { loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
@@ -85,7 +85,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
           <tbody>{quote.lines.map((line) => {
-            const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+            const price = resolvedLinePrice(line, totals.appliedPriceMode, rules, quote.lines)
             return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family}</small>{price?.specialRule && <small className="rule-note">{price.listName}</small>}</td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}</td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
           })}</tbody>
         </table>
@@ -226,7 +226,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           <section className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
-              const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+              const price = resolvedLinePrice(line, totals.appliedPriceMode, rules, lines)
               const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
               return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku}{!price?.specialRule ? ` · ${price?.listName || 'Sin lista aplicable'}` : ''}</div>{exceedsApprovedStock && <div className="stock-warning">Cantidad supera el último saldo aprobado ({line.variant.approvedStock!.quantity} {line.variant.approvedStock!.unit}). Confirmar disponibilidad.</div>}<div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span>{price?.specialRule && <span className="rule-note">{price.listName}</span>}<strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div></div>
             })}</div>}
@@ -240,6 +240,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
               <label>Recargo / financiación %<input type="number" min="0" value={meta.surchargePercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('surchargePercent', Number(e.target.value))} /></label>
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>
             </div>
+
+            <div className="pricing-conditions"><strong>Condiciones automáticas vigentes</strong><span>Resinplast: mayorista desde USD 1.815, solo si todos los renglones tienen precio mayorista confirmado.</span>{rules.filter((rule) => rule.status === 'confirmado').map((rule) => <span key={rule.id}>{formatRuleLabel(rule)}</span>)}<small>Penosil y Baldes se mostrarán aquí cuando sus listas y tramos queden vinculados a los SKU correspondientes.</small></div>
 
             {rulesStatus === 'error' && <p className="quote-warning">Reglas comerciales no disponibles</p>}
             {totals.currencies.size > 1 && <p className="quote-warning">Hay precios base en monedas distintas. Separá la cotización o normalizá las listas.</p>}

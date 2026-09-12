@@ -115,6 +115,24 @@ describe('quote', () => {
     expect(price?.listName).toBe('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')
   })
 
+  it('cuenta unidades físicas de packs de almohadas para el umbral y el precio', () => {
+    const packProduct = { ...product, name: 'ALMOHADA VISCOELASTICA RECTA X 2', family: 'Almohadas' }
+    const line = { ...addQuoteLine([], variant, packProduct)[0], quantity: 101 }
+    const price = resolvedLinePrice(line, 'automatico', [almohadasRule], [line])
+    expect(price?.specialRule).toBe(true)
+    expect(price?.amount).toBeCloseTo(6.2315 * 2, 4)
+    expect(quoteTotals([line], 0, 0, 1, 'USD', 'automatico', [almohadasRule]).subtotal).toBeCloseTo(6.2315 * 202, 3)
+  })
+
+  it('suma packs distintos de la misma familia antes de aplicar el umbral', () => {
+    const pack2 = { ...addQuoteLine([], variant, { ...product, id: 'p2', name: 'ALMOHADA X 2', family: 'Almohadas' })[0], id: 'l2', quantity: 50 }
+    const pack4Variant = { ...variant, id: 'v4', sku: 'ALM-4' }
+    const pack4 = { ...addQuoteLine([], pack4Variant, { ...product, id: 'p4', name: 'ALMOHADA X 4', family: 'Almohadas' })[0], quantity: 26 }
+    const lines = [pack2, pack4]
+    expect(resolvedLinePrice(pack2, 'automatico', [almohadasRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(pack4, 'automatico', [almohadasRule], lines)?.amount).toBeCloseTo(6.2315 * 4, 4)
+  })
+
   it('el total de la cotización refleja la regla aplicada (201 almohadas)', () => {
     const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
     const lines = [{ ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }]

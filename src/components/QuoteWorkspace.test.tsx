@@ -120,7 +120,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     fireEvent.change(quantityInput, { target: { value: '201' } })
 
     await waitFor(() => {
-      expect(screen.getByText('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')).toBeInTheDocument()
+      expect(screen.getAllByText('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')).toHaveLength(2)
     })
   })
 
@@ -138,7 +138,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     fireEvent.change(quantityInput, { target: { value: '200' } })
 
     await waitFor(() => expect(quantityInput).toHaveValue(200))
-    expect(screen.queryByText(/Mayorista Almohadas/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/US\$ 6,23 \/ u/)).not.toBeInTheDocument()
   })
 
   it('si falla la carga de reglas, mantiene el precio normal y avisa "Reglas comerciales no disponibles"', async () => {
