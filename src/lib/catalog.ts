@@ -86,26 +86,51 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
   return { products: result, families, brands }
 }
 
+const SUPABASE_PAGE_SIZE = 1000
+
+/**
+ * PostgREST (Supabase) devuelve como máximo ~1000 filas por consulta salvo
+ * que se pagine explícitamente con `.range()`. El catálogo ya superó esa
+ * cifra (1792 productos/variantes, más precios): sin este loop, la carga
+ * se corta en silencio y desaparecen familias enteras (ej. RESINPLAST) sin
+ * ningún error visible. Trae todas las páginas hasta que una vuelve vacía
+ * o más corta que el tamaño de página.
+ */
+export async function fetchAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  let from = 0
+  for (;;) {
+    const { data, error } = await build(from, from + SUPABASE_PAGE_SIZE - 1)
+    if (error) throw error
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < SUPABASE_PAGE_SIZE) break
+    from += SUPABASE_PAGE_SIZE
+  }
+  return rows
+}
+
 export async function loadCatalog(): Promise<CatalogData> {
-  const [productsRes, variantsRes, priceListsRes, pricesRes, docsRes] = await Promise.all([
-    supabase.from('catalog_products').select('*').order('family').order('name'),
-    supabase.from('catalog_variants').select('*').order('name'),
+  const [products, variants, priceListsRes, prices, docsRes] = await Promise.all([
+    fetchAll<CatalogProduct>((from, to) =>
+      supabase.from('catalog_products').select('*').order('family').order('name').range(from, to),
+    ),
+    fetchAll<CatalogVariant>((from, to) => supabase.from('catalog_variants').select('*').order('name').range(from, to)),
     supabase.from('price_lists').select('*'),
-    supabase.from('variant_prices').select('*'),
+    fetchAll<VariantPrice>((from, to) => supabase.from('variant_prices').select('*').range(from, to)),
     supabase.from('technical_documents').select('id, title, family, product, sku, status'),
   ])
 
-  if (productsRes.error) throw productsRes.error
-  if (variantsRes.error) throw variantsRes.error
   if (priceListsRes.error) throw priceListsRes.error
-  if (pricesRes.error) throw pricesRes.error
   if (docsRes.error) throw docsRes.error
 
   return assembleCatalog({
-    products: (productsRes.data ?? []) as CatalogProduct[],
-    variants: (variantsRes.data ?? []) as CatalogVariant[],
+    products,
+    variants,
     priceLists: (priceListsRes.data ?? []) as PriceList[],
-    prices: (pricesRes.data ?? []) as VariantPrice[],
+    prices,
     docs: (docsRes.data ?? []) as TechnicalDocument[],
   })
 }

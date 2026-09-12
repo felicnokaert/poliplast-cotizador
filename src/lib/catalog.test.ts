@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assembleCatalog, matchesDocument } from './catalog'
+import { assembleCatalog, fetchAll, matchesDocument } from './catalog'
 import type { CatalogProduct, CatalogVariant } from '../types/catalog'
 
 function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
@@ -125,5 +125,36 @@ describe('assembleCatalog', () => {
     const raw = { products: [product()], variants: [], priceLists: [], prices: [], docs: [] }
     const result = assembleCatalog(raw)
     expect(result.products[0].variants).toEqual([])
+  })
+})
+
+describe('fetchAll', () => {
+  it('junta todas las páginas hasta que una vuelve más corta que el tamaño de página', async () => {
+    const pageSize = 1000
+    const page1 = Array.from({ length: pageSize }, (_, i) => i)
+    const page2 = Array.from({ length: 50 }, (_, i) => pageSize + i)
+    const calls: [number, number][] = []
+    const build = (from: number, to: number) => {
+      calls.push([from, to])
+      const data = from === 0 ? page1 : page2
+      return Promise.resolve({ data, error: null })
+    }
+    const result = await fetchAll(build)
+    expect(result).toHaveLength(pageSize + 50)
+    expect(calls).toEqual([[0, 999], [1000, 1999]])
+  })
+
+  it('con una sola página corta, no pide una segunda', async () => {
+    const build = (from: number, to: number) => {
+      expect(from).toBe(0)
+      expect(to).toBe(999)
+      return Promise.resolve({ data: [1, 2, 3], error: null })
+    }
+    expect(await fetchAll(build)).toEqual([1, 2, 3])
+  })
+
+  it('propaga el error de una página sin devolver datos parciales', async () => {
+    const build = () => Promise.resolve({ data: null, error: { message: 'boom' } })
+    await expect(fetchAll(build)).rejects.toEqual({ message: 'boom' })
   })
 })
