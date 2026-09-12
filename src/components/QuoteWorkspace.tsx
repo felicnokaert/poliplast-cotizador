@@ -19,6 +19,7 @@ import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { loadCommercialClients, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
+import { loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
 const WORKING_DRAFT_KEY = 'poliplast-cotizador-working-draft-v1'
@@ -120,11 +121,17 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [clients, setClients] = useState<CommercialClient[]>([])
   const [rules, setRules] = useState<CommercialRule[]>([])
   const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
+  const [quoteSyncStatus, setQuoteSyncStatus] = useState<'cargando' | 'compartido' | 'local' | 'guardando'>('cargando')
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
+  useEffect(() => {
+    loadSharedQuotes()
+      .then((remote) => { setSavedQuotes((local) => mergeQuoteHistories(local, remote)); setQuoteSyncStatus('compartido') })
+      .catch(() => setQuoteSyncStatus('local'))
+  }, [])
   useEffect(() => {
     const updatedAt = new Date().toISOString()
     localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt }))
@@ -148,7 +155,12 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const add = (variant: VariantWithPricing, product: ProductWithVariants) => setLines((current) => addQuoteLine(current, variant, product))
   const updateMeta = <K extends keyof QuoteMeta>(field: K, value: QuoteMeta[K]) => setMeta((current) => ({ ...current, [field]: value }))
   const snapshot = (): SavedQuote => ({ meta, lines, updatedAt: new Date().toISOString() })
-  const save = () => setSavedQuotes((current) => [snapshot(), ...current.filter((quote) => quote.meta.number !== meta.number)])
+  const save = async () => {
+    const quote = snapshot()
+    setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
+    setQuoteSyncStatus('guardando')
+    try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido') } catch { setQuoteSyncStatus('local') }
+  }
   const startNew = () => { setMeta(newMeta()); setLines([]); setActiveSection('cotizar') }
   const loadQuote = (quote: SavedQuote) => { setMeta(quote.meta); setLines(quote.lines); setActiveSection('cotizar') }
   const openWhatsApp = () => {
@@ -173,7 +185,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
       {activeSection === 'administracion' ? <AdminPanel /> : activeSection === 'historial' ? (
         <main className="history-page">
-          <div className="page-intro"><span className="eyebrow">Seguimiento local</span><h1>Cotizaciones guardadas</h1><p className="muted">Borradores guardados en este navegador. La sincronización compartida será la próxima capa de backend.</p></div>
+          <div className="page-intro"><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones guardadas</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial compartido con el equipo y respaldado en este navegador.' : quoteSyncStatus === 'guardando' ? 'Sincronizando con el equipo…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones compartidas…' : 'Modo local: el respaldo está seguro en este navegador; la sincronización remota todavía no está disponible.'}</p></div>
           {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : <div className="history-list">{savedQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Abrir</button></article>)}</div>}
         </main>
       ) : (
@@ -217,7 +229,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             {totals.pendingLines > 0 && <p className="quote-warning">{totals.pendingLines} renglón/es sin precio aplicable para esa cantidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div></div>
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
-            <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo</div>
+            <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
             <div className="rail-actions"><button onClick={save}>Guardar en historial</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa / PDF</button></div>
           </aside>
         </main>

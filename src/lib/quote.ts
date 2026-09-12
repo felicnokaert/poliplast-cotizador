@@ -77,6 +77,7 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
       vatRate: ruleMatch.rule.vat_rate,
       listName: formatRuleLabel(ruleMatch.rule),
       specialRule: true,
+      ruleId: ruleMatch.rule.id,
     }
   }
   const price = priceForQuantity(line.variant, line.quantity, mode)
@@ -86,6 +87,7 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
     vatRate: price.price_list.vat_rate ?? DEFAULT_VAT_RATE,
     listName: price.price_list.name,
     specialRule: false,
+    ruleId: null,
   } : null
 }
 
