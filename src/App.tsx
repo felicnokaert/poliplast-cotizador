@@ -1,5 +1,5 @@
 import { AuthGate } from './components/AuthGate'
-import { CatalogBrowser } from './components/CatalogBrowser'
+import { QuoteWorkspace } from './components/QuoteWorkspace'
 import { supabase } from './lib/supabase'
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
               Salir
             </button>
           </div>
-          <CatalogBrowser />
+          <QuoteWorkspace userEmail={session.user.email || ''} />
         </div>
       )}
     </AuthGate>

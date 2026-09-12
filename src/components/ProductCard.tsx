@@ -35,7 +35,13 @@ function PriceTag({ variant }: { variant: VariantWithPricing }) {
   )
 }
 
-export function ProductCard({ product }: { product: ProductWithVariants }) {
+export function ProductCard({
+  product,
+  onAdd,
+}: {
+  product: ProductWithVariants
+  onAdd?: (variant: VariantWithPricing, product: ProductWithVariants) => void
+}) {
   const brandClass = BRAND_CLASS[product.brand] ?? 'brand-grupo'
   // Los productos importados desde una planilla plana traen una sola variante
   // con el mismo nombre que el producto: mostrarla aparte sería redundante.
@@ -57,6 +63,11 @@ export function ProductCard({ product }: { product: ProductWithVariants }) {
         <div className="variant-row single">
           <span className="variant-sku">{product.variants[0].sku}</span>
           <PriceTag variant={product.variants[0]} />
+          {onAdd && (
+            <button className="add-button" onClick={() => onAdd(product.variants[0], product)}>
+              Agregar
+            </button>
+          )}
         </div>
       ) : (
         <ul className="variant-list">
@@ -67,6 +78,11 @@ export function ProductCard({ product }: { product: ProductWithVariants }) {
                 <span className="variant-sku">{variant.sku}</span>
               </div>
               <PriceTag variant={variant} />
+              {onAdd && (
+                <button className="add-button" onClick={() => onAdd(variant, product)}>
+                  Agregar
+                </button>
+              )}
             </li>
           ))}
           {product.variants.length === 0 && <li className="muted">Sin variantes cargadas</li>}

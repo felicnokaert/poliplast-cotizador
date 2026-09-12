@@ -1,6 +1,6 @@
-# Cotizador Grupo Poliplast
+# Cotizador comercial Grupo Poliplast
 
-Catálogo comercial navegable de Grupo Poliplast (Resinplast, Penosil, PURMAC y demás familias). Aplicación separada del CRM (`poliplast-sales-copilot`), que comparte la misma base Supabase y las mismas tablas de catálogo, precios, fichas técnicas e inventario.
+Herramienta interna para que el equipo prepare propuestas de Grupo Poliplast. Es una aplicación separada del CRM (`poliplast-sales-copilot`) que comparte catálogo, precios, fichas técnicas e inventario en Supabase.
 
 Fuentes de diseño (viven en el repo del CRM):
 
@@ -9,18 +9,19 @@ Fuentes de diseño (viven en el repo del CRM):
 - `docs/ADR-002-CATALOGO_PRECIOS_INVENTARIO_COMPARTIDOS.md`
 - `docs/MIGRACION_CATALOGO_COTIZADOR_INVENTARIO.sql`
 
-## Estado de esta primera entrega
+## Funciones operativas
 
-Catálogo navegable con:
+- login corporativo y permisos RLS;
+- catálogo canónico, búsqueda y filtros;
+- cotización numerada con cliente, contacto, productos y cantidades;
+- escalas automáticas por cantidad, moneda, IVA y vigencia;
+- descuento y recargo explícitos sin alterar listas maestras;
+- vista previa, impresión/PDF y texto para WhatsApp;
+- borradores e historial local;
+- identidad por marca y co-branding Grupo Poliplast;
+- panel administrativo protegido para costos, stock, lotes y CSV.
 
-- login con la misma cuenta de Supabase que usa el equipo en el CRM (auth compartida, RLS por rol);
-- búsqueda por nombre, SKU, familia y subfamilia;
-- filtros por familia, marca y disponibilidad de precio vigente;
-- agrupación por producto con sus variantes debajo, cada una con su SKU;
-- precio vigente por variante (o "Precio pendiente" cuando no hay lista aplicable);
-- indicador de ficha técnica disponible por variante (match por SKU o por familia+producto contra `technical_documents`).
-
-Explícitamente fuera de esta entrega: generación de PDF, descuentos, integración con clientes del CRM, envío de cotizaciones, panel administrador de altas/importación masiva. El catálogo se puebla escribiendo directamente en `catalog_products` / `catalog_variants` / `price_lists` / `variant_prices` (Supabase) hasta que exista el importador.
+Pendiente para la siguiente capa: persistencia compartida de cotizaciones, vínculo formal con clientes/fichas, editor masivo con vista previa y reglas aprobadas de margen/financiación. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor.
 
 No se modifica el CRM ni se crean tablas nuevas: todo se lee de las tablas ya migradas en el proyecto Supabase `poli crm` (`nghwmtccpovrdtzvllwe`).
 

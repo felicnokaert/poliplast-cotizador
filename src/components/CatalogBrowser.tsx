@@ -2,8 +2,15 @@ import { useEffect, useMemo, useState } from 'react'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { filterCatalog, type PriceFilter } from '../lib/filters'
 import { ProductCard } from './ProductCard'
+import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
-export function CatalogBrowser() {
+export function CatalogBrowser({
+  onAdd,
+  title = 'Catálogo Grupo Poliplast',
+}: {
+  onAdd?: (variant: VariantWithPricing, product: ProductWithVariants) => void
+  title?: string
+}) {
   const [data, setData] = useState<CatalogData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +49,7 @@ export function CatalogBrowser() {
   return (
     <div className="catalog">
       <header className="catalog-header">
-        <h1>Catálogo Grupo Poliplast</h1>
+        <h1>{title}</h1>
         <div className="filters">
           <input
             type="search"
@@ -91,7 +98,7 @@ export function CatalogBrowser() {
       ) : (
         <div className="product-grid">
           {filtered.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} onAdd={onAdd} />
           ))}
         </div>
       )}
