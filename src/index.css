@@ -145,6 +145,7 @@ button {
 .quote-line-values { display: grid; grid-template-columns: 95px 1fr; align-items: end; gap: 10px; }
 .quote-line-values > div { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .unit-price { color: var(--muted); font-size: .72rem; }
+.rule-note { color: var(--accent); font-size: .7rem; font-weight: 650; }
 .line-total { text-align: right; font-weight: 750; }
 .commercial-controls { border-top: 1px solid var(--border); padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .commercial-controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .74rem; font-weight: 650; }

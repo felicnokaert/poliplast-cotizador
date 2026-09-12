@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import { addQuoteLine, createQuoteNumber, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
+import type { CommercialRule } from '../types/commercialRules'
+
+const almohadasRule: CommercialRule = {
+  id: 'rule-almohadas',
+  scope_type: 'family',
+  family: 'Almohadas',
+  variant_id: null,
+  quantity_comparator: 'gt',
+  min_quantity: 200,
+  net_amount: 5.15,
+  vat_rate: 0.21,
+  gross_amount: 6.2315,
+  currency: 'USD',
+  unit: 'unidad',
+  valid_from: '2026-01-01',
+  valid_until: null,
+  source: 'Confirmado por Felipe Cnokaert, 12/09/2026',
+  status: 'confirmado',
+  override_reason: '',
+  responsible_user_id: null,
+  responsible_email: 'felipe@grupopoliplast.com.ar',
+  supersedes_rule_id: null,
+  notes: '',
+}
 
 const variant = {
   id: 'v1', product_id: 'p1', sku: 'SKU-1', name: 'Producto', unit: 'u', attributes: {}, active: true,
@@ -44,11 +68,64 @@ describe('quote', () => {
     expect(totals.convertedTotal).toBe(756000)
   })
 
-  it('aplica USD 5,15 más IVA a almohadas cuando supera 200 unidades', () => {
+  it('sin reglas comerciales cargadas, usa el precio de lista normal (nunca inventa una condición)', () => {
     const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
     const line = { ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }
-    expect(resolvedLinePrice(line)?.amount).toBeCloseTo(6.2315, 4)
-    expect(resolvedLinePrice(line)?.listName).toContain('+200')
+    expect(resolvedLinePrice(line, 'automatico', [])?.amount).toBe(80)
+  })
+
+  it('con 200 unidades exactas, la regla de Almohadas NO aplica (umbral estrictamente mayor)', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const line = { ...addQuoteLine([], variant, pillowProduct)[0], quantity: 200 }
+    const price = resolvedLinePrice(line, 'automatico', [almohadasRule])
+    expect(price?.specialRule).toBe(false)
+    expect(price?.amount).toBe(80)
+  })
+
+  it('con 201 unidades, aplica la regla de Almohadas: USD 6,2315 final con IVA incluido', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const line = { ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }
+    const price = resolvedLinePrice(line, 'automatico', [almohadasRule])
+    expect(price?.specialRule).toBe(true)
+    expect(price?.amount).toBeCloseTo(6.2315, 4)
+    expect(price?.listName).toBe('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')
+  })
+
+  it('el total de la cotización refleja la regla aplicada (201 almohadas)', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const lines = [{ ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }]
+    const totals = quoteTotals(lines, 0, 0, 1, 'USD', 'automatico', [almohadasRule])
+    expect(totals.subtotal).toBeCloseTo(6.2315 * 201, 3)
+    expect(totals.pendingLines).toBe(0)
+  })
+
+  it('el total con 200 unidades NO refleja la regla (sigue en precio de lista)', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const lines = [{ ...addQuoteLine([], variant, pillowProduct)[0], quantity: 200 }]
+    const totals = quoteTotals(lines, 0, 0, 1, 'USD', 'automatico', [almohadasRule])
+    expect(totals.subtotal).toBe(80 * 200)
+  })
+
+  it('el texto de WhatsApp usa exactamente el mismo precio resuelto que la pantalla (regla aplicada)', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const lines = [{ ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }]
+    const text = serializeQuoteForWhatsApp(
+      { meta: { number: 'GP-2', client: '', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-12T00:00:00Z' }, lines, updatedAt: '2026-09-12T00:00:00Z' },
+      [almohadasRule],
+    )
+    const expectedAmount = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(6.2315 * 201)
+    expect(text).toContain(expectedAmount)
+    expect(text).toContain('Mayorista Almohadas')
+  })
+
+  it('el texto de WhatsApp sin reglas cargadas usa el precio normal (no inventa la condición)', () => {
+    const pillowProduct = { ...product, name: 'Almohada clásica', family: 'Almohadas' }
+    const lines = [{ ...addQuoteLine([], variant, pillowProduct)[0], quantity: 201 }]
+    const text = serializeQuoteForWhatsApp(
+      { meta: { number: 'GP-3', client: '', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-12T00:00:00Z' }, lines, updatedAt: '2026-09-12T00:00:00Z' },
+      [],
+    )
+    expect(text).not.toContain('Mayorista Almohadas')
   })
 
   it('calcula vigencia', () => expect(quoteExpiry('2026-09-11T00:00:00Z', 10).toISOString().slice(0, 10)).toBe('2026-09-21'))

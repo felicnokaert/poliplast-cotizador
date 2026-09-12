@@ -1,11 +1,11 @@
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
+import type { CommercialRule } from '../types/commercialRules'
+import { formatRuleLabel, resolveCommercialRule } from './commercialRules'
 
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
 export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
 export type PriceMode = 'automatico' | 'consumidor_final' | 'mayorista'
 export const RESINPLAST_WHOLESALE_THRESHOLD_USD = 1815
-export const PILLOW_WHOLESALE_THRESHOLD = 200
-export const PILLOW_WHOLESALE_NET_USD = 5.15
 export const DEFAULT_VAT_RATE = 0.21
 
 export interface QuoteLine {
@@ -56,17 +56,25 @@ export function priceForQuantity(variant: VariantWithPricing, quantity: number, 
   return candidates.find((price) => listMatchesMode(price.price_list.name, mode)) ?? candidates[0]
 }
 
-export function isPillowLine(line: Pick<QuoteLine, 'productName' | 'family'>) {
-  return /almohad/i.test(`${line.family} ${line.productName}`)
-}
-
-export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico') {
-  if (isPillowLine(line) && line.quantity > PILLOW_WHOLESALE_THRESHOLD) {
+/**
+ * Precio final de una línea (IVA incluido), resolviendo primero contra las
+ * reglas comerciales vigentes (SKU > familia) y recién si ninguna aplica,
+ * contra las listas de precio normales. `rules` se carga una vez por sesión
+ * desde `commercial_rules`; si no llegó ninguna (por ejemplo, falló la carga)
+ * la línea usa el precio de lista normal, nunca inventa una condición.
+ */
+export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = []) {
+  const ruleMatch = resolveCommercialRule(rules, {
+    variantId: line.variant.id,
+    family: line.family,
+    quantity: line.quantity,
+  })
+  if (ruleMatch) {
     return {
-      amount: PILLOW_WHOLESALE_NET_USD * (1 + DEFAULT_VAT_RATE),
-      currency: 'USD',
-      vatRate: DEFAULT_VAT_RATE,
-      listName: 'Almohadas mayorista +200 u.',
+      amount: ruleMatch.rule.gross_amount,
+      currency: ruleMatch.rule.currency,
+      vatRate: ruleMatch.rule.vat_rate,
+      listName: formatRuleLabel(ruleMatch.rule),
       specialRule: true,
     }
   }
@@ -121,11 +129,11 @@ export function quoteLineNet(line: QuoteLine): number | null {
   return price ? price.amount * line.quantity : null
 }
 
-export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, outputCurrency: 'USD' | 'ARS' = 'USD', priceMode: PriceMode = 'automatico') {
+export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, outputCurrency: 'USD' | 'ARS' = 'USD', priceMode: PriceMode = 'automatico', rules: CommercialRule[] = []) {
   const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = resolvedLinePrice(line, appliedPriceMode)
+      const price = resolvedLinePrice(line, appliedPriceMode, rules)
       if (!price) {
         totals.pendingLines += 1
         return totals
@@ -154,14 +162,15 @@ export function quoteExpiry(createdAt: string, validDays: number): Date {
   return date
 }
 
-export function serializeQuoteForWhatsApp(quote: SavedQuote): string {
+export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRule[] = []): string {
   const { meta, lines } = quote
-  const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode)
+  const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules)
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const price = resolvedLinePrice(line, totals.appliedPriceMode)
-    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}`
+    const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+    const ruleNote = price?.specialRule ? ` [${price.listName}]` : ''
+    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}${ruleNote}`
   }).join('\n')
   return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}${body}\n\n*Total: ${money(totals.convertedTotal)}*\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }

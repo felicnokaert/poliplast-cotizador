@@ -1,3 +1,4 @@
+import { supabase } from './supabase'
 import type { CommercialRule, RuleResolutionInput, RuleResolutionResult } from '../types/commercialRules'
 
 function isoToday(): string {
@@ -79,4 +80,57 @@ export function resolveCommercialRule(
     `= ${rule.currency} ${rule.gross_amount.toFixed(4)} final por ${rule.unit}. Fuente: ${rule.source}.`
 
   return { rule, explanation }
+}
+
+function toNumber(value: unknown): number {
+  return typeof value === 'number' ? value : Number(value)
+}
+
+/** Postgres devuelve los `numeric` como string vía PostgREST; los normalizamos a number. */
+function mapRuleRow(row: Record<string, unknown>): CommercialRule {
+  return {
+    id: row.id as string,
+    scope_type: row.scope_type as CommercialRule['scope_type'],
+    family: (row.family as string | null) ?? null,
+    variant_id: (row.variant_id as string | null) ?? null,
+    quantity_comparator: row.quantity_comparator as CommercialRule['quantity_comparator'],
+    min_quantity: toNumber(row.min_quantity),
+    net_amount: toNumber(row.net_amount),
+    vat_rate: toNumber(row.vat_rate),
+    gross_amount: toNumber(row.gross_amount),
+    currency: row.currency as CommercialRule['currency'],
+    unit: row.unit as string,
+    valid_from: row.valid_from as string,
+    valid_until: (row.valid_until as string | null) ?? null,
+    source: row.source as string,
+    status: row.status as CommercialRule['status'],
+    override_reason: (row.override_reason as string) ?? '',
+    responsible_user_id: (row.responsible_user_id as string | null) ?? null,
+    responsible_email: (row.responsible_email as string) ?? '',
+    supersedes_rule_id: (row.supersedes_rule_id as string | null) ?? null,
+    notes: (row.notes as string) ?? '',
+  }
+}
+
+/** Carga las reglas comerciales vigentes. Pensada para llamarse una sola vez por sesión. */
+export async function loadCommercialRules(): Promise<CommercialRule[]> {
+  const { data, error } = await supabase.from('commercial_rules').select('*')
+  if (error) throw error
+  return (data ?? []).map(mapRuleRow)
+}
+
+function formatQuantityCondition(rule: CommercialRule): string {
+  const qty = Number.isInteger(rule.min_quantity) ? String(rule.min_quantity) : String(rule.min_quantity)
+  return rule.quantity_comparator === 'gt' ? `más de ${qty} unidades` : `desde ${qty} unidades`
+}
+
+const AMOUNT_FORMAT = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })
+
+/**
+ * Etiqueta corta para mostrar debajo del precio en pantalla, PDF y WhatsApp.
+ * Ej: "Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido".
+ */
+export function formatRuleLabel(rule: CommercialRule): string {
+  const scopeLabel = rule.scope_type === 'family' ? `Mayorista ${rule.family}` : 'Precio especial por SKU'
+  return `${scopeLabel} · ${formatQuantityCondition(rule)} · ${rule.currency} ${AMOUNT_FORMAT.format(rule.gross_amount)} final con IVA incluido`
 }

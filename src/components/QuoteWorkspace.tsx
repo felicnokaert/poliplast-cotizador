@@ -14,9 +14,11 @@ import {
   type SavedQuote,
 } from '../lib/quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
+import type { CommercialRule } from '../types/commercialRules'
 import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { loadCommercialClients, type CommercialClient } from '../lib/clients'
+import { loadCommercialRules } from '../lib/commercialRules'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
 
@@ -44,8 +46,8 @@ function BrandMark({ brand }: { brand: string }) {
   return <div className={`brand-mark brand-mark-${brand.toLowerCase().replace(/\W/g, '')}`}><span>grupo</span><strong>{brand === 'Grupo Poliplast' ? 'poliplast' : brand}</strong></div>
 }
 
-function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => void }) {
-  const totals = quoteTotals(quote.lines, quote.meta.discountPercent, quote.meta.surchargePercent, quote.meta.exchangeRate, quote.meta.outputCurrency, quote.meta.priceMode)
+function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: CommercialRule[]; onClose: () => void }) {
+  const totals = quoteTotals(quote.lines, quote.meta.discountPercent, quote.meta.surchargePercent, quote.meta.exchangeRate, quote.meta.outputCurrency, quote.meta.priceMode, rules)
   const brands = [...new Set(quote.lines.map((line) => line.brand))]
   const principalBrand = brands.length === 1 ? brands[0] : 'Grupo Poliplast'
   const conversion = quote.meta.outputCurrency === 'ARS' ? quote.meta.exchangeRate : 1
@@ -56,7 +58,7 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
       <section className={`quote-preview preview-${principalBrand.toLowerCase().replace(/\W/g, '')}`}>
         <div className="preview-actions no-print">
           <button onClick={onClose}>Volver</button>
-          <button onClick={() => navigator.clipboard.writeText(serializeQuoteForWhatsApp(quote))}>Copiar texto</button>
+          <button onClick={() => navigator.clipboard.writeText(serializeQuoteForWhatsApp(quote, rules))}>Copiar texto</button>
           <button className="primary-action inline" onClick={() => window.print()}>Imprimir / Guardar PDF</button>
         </div>
         <header className="preview-header">
@@ -73,8 +75,8 @@ function QuotePreview({ quote, onClose }: { quote: SavedQuote; onClose: () => vo
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
           <tbody>{quote.lines.map((line) => {
-            const price = resolvedLinePrice(line, totals.appliedPriceMode)
-            return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}</td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
+            const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+            return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family}</small>{price?.specialRule && <small className="rule-note">{price.listName}</small>}</td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}</td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
           })}</tbody>
         </table>
         <div className="preview-summary">
@@ -106,12 +108,22 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [clientOpen, setClientOpen] = useState(false)
   const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
   const [clients, setClients] = useState<CommercialClient[]>([])
-  const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode), [lines, meta])
+  const [rules, setRules] = useState<CommercialRule[]>([])
+  const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
+  const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
   useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
+  useEffect(() => {
+    // Se carga una sola vez por sesión (no depende de líneas/cantidad/fecha):
+    // la resolución en sí se recalcula sola porque `totals` y cada llamado a
+    // resolvedLinePrice reevalúan contra `rules` en cada render.
+    loadCommercialRules()
+      .then((result) => { setRules(result); setRulesStatus('ok') })
+      .catch(() => { setRules([]); setRulesStatus('error') })
+  }, [])
   useEffect(() => {
     fetchOfficialDollar().then((result) => {
       setMeta((current) => ({ ...current, exchangeRate: result.rate }))
@@ -128,7 +140,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const openWhatsApp = () => {
     const quote = snapshot()
     const phone = meta.phone.replace(/\D/g, '')
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote))}`, '_blank', 'noopener,noreferrer')
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote, rules))}`, '_blank', 'noopener,noreferrer')
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
   const selectClient = (clientId: string) => {
@@ -173,8 +185,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           <aside className="quote-rail">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
-              const price = resolvedLinePrice(line, totals.appliedPriceMode)
-              return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {price?.listName || 'Sin lista aplicable'}</div><div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span><strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div></div>
+              const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+              return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku}{!price?.specialRule ? ` · ${price?.listName || 'Sin lista aplicable'}` : ''}</div><div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span>{price?.specialRule && <span className="rule-note">{price.listName}</span>}<strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div></div>
             })}</div>}
 
             <div className="commercial-controls">
@@ -186,6 +198,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>
             </div>
 
+            {rulesStatus === 'error' && <p className="quote-warning">Reglas comerciales no disponibles</p>}
             {totals.currencies.size > 1 && <p className="quote-warning">Hay precios base en monedas distintas. Separá la cotización o normalizá las listas.</p>}
             {totals.pendingLines > 0 && <p className="quote-warning">{totals.pendingLines} renglón/es sin precio aplicable para esa cantidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div></div>
@@ -195,7 +208,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
         </main>
       )}
 
-      {previewOpen && <QuotePreview quote={snapshot()} onClose={() => setPreviewOpen(false)} />}
+      {previewOpen && <QuotePreview quote={snapshot()} rules={rules} onClose={() => setPreviewOpen(false)} />}
     </>
   )
 }
