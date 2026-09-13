@@ -35,10 +35,13 @@ select setval(
   coalesce((select max(quote_number::integer) from public.sales_quotes where quote_number ~ '^[0-9]+$'), 0) > 0
 );
 
+grant usage, select, update on sequence public.sales_quote_number_seq to authenticated;
+
 create or replace function public.reserve_sales_quote_number()
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security invoker set search_path = public as $$
 begin
   if not public.is_poliplast_crm_user() then raise exception 'Acceso denegado'; end if;
   return lpad(nextval('public.sales_quote_number_seq')::text, 4, '0');
 end $$;
+revoke all on function public.reserve_sales_quote_number() from public;
 grant execute on function public.reserve_sales_quote_number() to authenticated;
