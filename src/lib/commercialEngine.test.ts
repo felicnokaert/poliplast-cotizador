@@ -53,7 +53,7 @@ function makeProduct(family: string, name: string, overrides: Partial<ProductWit
   }
 }
 
-describe('Motor de precios — Penosil (caja de 12, agregado por pack_group)', () => {
+describe('Motor de precios — Penosil (USD 1.800 netos, mezcla de cajas)', () => {
   const penosilRule = baseRule({
     id: 'penosil-810ml',
     scope_type: 'sku',
@@ -71,54 +71,52 @@ describe('Motor de precios — Penosil (caja de 12, agregado por pack_group)', (
   const unitProduct = makeProduct('PENOSIL', unitVariant.name, { variants: [unitVariant] })
   const boxProduct = makeProduct('PENOSIL', boxVariant.name, { id: 'p12', variants: [boxVariant] })
 
-  it('con 11 unidades físicas del SKU unitario NO aplica', () => {
-    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 11 }
+  it('debajo de USD 1.800 netos NO aplica', () => {
+    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 108 }
     const price = resolvedLinePrice(line, 'automatico', [penosilRule], [line])
     expect(price?.specialRule).toBe(false)
   })
 
-  it('con 12 unidades físicas del SKU unitario SÍ aplica', () => {
-    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 12 }
+  it('desde USD 1.800 netos aplica', () => {
+    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 109 }
     const price = resolvedLinePrice(line, 'automatico', [penosilRule], [line])
     expect(price?.specialRule).toBe(true)
     expect(price?.amount).toBeCloseTo(13.6972, 4)
   })
 
-  it('el SKU explícito x12 cumple la condición con cantidad 1 (1 caja = 12 unidades físicas)', () => {
+  it('una caja aislada no activa el mayorista', () => {
     const line = { ...addQuoteLine([], boxVariant, boxProduct)[0], quantity: 1 }
     const price = resolvedLinePrice(line, 'automatico', [penosilRule], [line])
-    expect(price?.specialRule).toBe(true)
-    // El precio final de la línea es 12 unidades × el precio unitario mayorista.
-    expect(price?.amount).toBeCloseTo(13.6972 * 12, 4)
+    expect(price?.specialRule).toBe(false)
   })
 
-  it('combina SKU unitario + caja del mismo producto para alcanzar las 12 unidades', () => {
-    const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l1', quantity: 6 }
-    // 6 unitarias (6 físicas) + 1 pack x12 no hace falta; probamos 6 + otro producto x6 en pack propio de 1 unidad c/u
-    const otherUnitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l2', quantity: 6 }
+  it('suma renglones Penosil para alcanzar USD 1.800 netos', () => {
+    const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l1', quantity: 60 }
+    const otherUnitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l2', quantity: 49 }
     const lines = [unitLine, otherUnitLine]
-    // 6 + 6 = 12 físicas del mismo pack_group -> aplica a ambas líneas
     expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
     expect(resolvedLinePrice(otherUnitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
   })
 
-  it('combina presentaciones x1 y x6 del mismo pack_group', () => {
+  it('combina cajas de distintas presentaciones', () => {
     const pack6 = makeVariant({ id: 'v-810-6', sku: 'PS-810ML-6', name: 'PACK X 6 EASYSPRAY 810ML', attributes: { units_per_pack: 6, pack_group: 'PS-810ML' } })
     const pack6Product = makeProduct('PENOSIL', pack6.name, { id: 'p6', variants: [pack6] })
-    const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 6 }
+    const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 108 }
     const packLine = { ...addQuoteLine([], pack6, pack6Product)[0], quantity: 1 }
     const lines = [unitLine, packLine]
     expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
     expect(resolvedLinePrice(packLine, 'automatico', [penosilRule], lines)?.amount).toBeCloseTo(13.6972 * 6, 4)
   })
 
-  it('un producto Penosil distinto (otro pack_group) no suma a este umbral', () => {
+  it('otro producto Penosil también suma al umbral general', () => {
     const otherVariant = makeVariant({ id: 'v-other-1', sku: 'PS-ADA10-1', name: 'ADHESIVO ACUOSO A-10', attributes: { units_per_pack: 1, pack_group: 'PS-ADA10' } })
     const otherProduct = makeProduct('PENOSIL', otherVariant.name, { id: 'p-other', variants: [otherVariant] })
-    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 6 }
-    const otherLine = { ...addQuoteLine([], otherVariant, otherProduct)[0], quantity: 6 }
+    const otherRule = { ...penosilRule, id: 'penosil-a10', pack_group: 'PS-ADA10' }
+    const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 60 }
+    const otherLine = { ...addQuoteLine([], otherVariant, otherProduct)[0], quantity: 49 }
     const lines = [line, otherLine]
-    expect(resolvedLinePrice(line, 'automatico', [penosilRule], lines)?.specialRule).toBe(false)
+    expect(resolvedLinePrice(line, 'automatico', [penosilRule, otherRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(otherLine, 'automatico', [penosilRule, otherRule], lines)?.specialRule).toBe(true)
   })
 })
 

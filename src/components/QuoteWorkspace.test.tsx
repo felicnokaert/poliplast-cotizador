@@ -71,6 +71,17 @@ afterEach(() => {
 })
 
 describe('QuoteWorkspace — reglas comerciales conectadas', () => {
+  it('en una cotización no despliega el catálogo hasta escribir tres caracteres', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(screen.getByRole('button', { name: '+ Nueva cotización' }))
+    expect(await screen.findByText(/Escribí al menos 3 caracteres/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Agregar' })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar productos' }), { target: { value: 'alm' } })
+    expect(await screen.findByRole('button', { name: 'Agregar' })).toBeInTheDocument()
+  })
+
   it('avisa sin bloquear cuando la cantidad supera el stock aprobado', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
@@ -80,7 +91,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     openActiveQuote()
     fireEvent.change(await screen.findByLabelText('Cantidad'), { target: { value: '6' } })
     expect(await screen.findByText(/Cantidad supera el último saldo aprobado/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Vista previa / PDF' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Vista previa' })).toBeEnabled()
     delete almohadaVariant.approvedStock
   })
 
@@ -123,7 +134,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     fireEvent.change(quantityInput, { target: { value: '201' } })
 
     await waitFor(() => {
-      expect(screen.getByText('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')).toBeInTheDocument()
+      expect(screen.getByText(/ALM-1.*Mayorista Almohadas/)).toBeInTheDocument()
       expect(screen.getByText(/201 unidades físicas computadas por familia/)).toBeInTheDocument()
     })
   })

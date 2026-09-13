@@ -49,8 +49,8 @@ const product = {
 
 describe('quote', () => {
   it('genera numeración comercial legible e inequívoca', () => {
-    expect(createQuoteNumber(new Date('2026-09-11T12:34:00.125Z'))).toBe('GP-260911-123400-125')
-    expect(createQuoteNumber(new Date('2026-09-11T12:34:01.125Z'))).not.toBe(createQuoteNumber(new Date('2026-09-11T12:34:00.125Z')))
+    expect(createQuoteNumber()).toBe('0001')
+    expect(createQuoteNumber(new Date(), ['0001', '0007'])).toBe('0008')
   })
   it('agrega una variante y acumula la cantidad al repetirla', () => {
     const once = addQuoteLine([], variant, product)

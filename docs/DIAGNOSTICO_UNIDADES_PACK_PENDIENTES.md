@@ -18,3 +18,7 @@ Felipe/Claude Code deben confirmar qué significa “unidad física” para kits
 ## Control positivo
 
 El SKU `ALVEB-CL6035-2` (`ALMOHADA DE VELLON 60 X 35 CLÁSICA X 2`) computó correctamente 2 unidades físicas por presentación. En QA, 100 packs mostraron 200 unidades y faltante de 1 unidad para mayorista; 101 packs mostraron 202 unidades y activaron la regla aprobada de USD 5,15 neto + IVA 21% = USD 6,2315 final por unidad física.
+
+## Penosil observado en el cambio a umbral monetario
+
+El SKU `KT-PS-810ML-12 (ESP+PIST)` no tiene una regla mayorista confirmada vinculable por `pack_group` en los datos cargados. En una mezcla que superó USD 1.800 netos, el motor aplicó mayorista al SKU confirmado `PS-810ML-6` y mantuvo consumidor final para el kit, mostrando “precio mayorista pendiente”. Hace falta confirmar/cargar el precio mayorista del kit antes de que toda la lista Penosil pueda cumplir literalmente la política comercial indicada.

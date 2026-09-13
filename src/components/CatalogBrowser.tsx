@@ -7,9 +7,11 @@ import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 export function CatalogBrowser({
   onAdd,
   title = 'Catálogo Grupo Poliplast',
+  minimumSearchLength = 0,
 }: {
   onAdd?: (variant: VariantWithPricing, product: ProductWithVariants) => void
   title?: string
+  minimumSearchLength?: number
 }) {
   const [data, setData] = useState<CatalogData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -42,8 +44,9 @@ export function CatalogBrowser({
 
   const filtered = useMemo(() => {
     if (!data) return []
+    if (search.trim().length < minimumSearchLength) return []
     return filterCatalog(data.products, { search, family, subfamily, brand, priceFilter })
-  }, [data, search, family, subfamily, brand, priceFilter])
+  }, [data, search, family, subfamily, brand, priceFilter, minimumSearchLength])
   const subfamilies = useMemo(() => {
     if (!data) return []
     return [...new Set(data.products.filter((p) => family === 'todas' || p.family === family).map((p) => p.subfamily).filter(Boolean))].sort()
@@ -95,9 +98,9 @@ export function CatalogBrowser({
           </select>
           {hasFilters && <button className="clear-filters" onClick={clearFilters}>Limpiar filtros</button>}
         </div>
-        <p className="muted" aria-live="polite">
-          {filtered.length} producto{filtered.length === 1 ? '' : 's'} · {data.products.length} en el catálogo total
-        </p>
+        <p className="muted" aria-live="polite">{search.trim().length < minimumSearchLength
+          ? `Escribí al menos ${minimumSearchLength} caracteres del nombre o SKU para buscar.`
+          : `${filtered.length} producto${filtered.length === 1 ? '' : 's'} · ${data.products.length} en el catálogo total`}</p>
       </header>
 
       {data.products.length === 0 ? (
@@ -107,6 +110,8 @@ export function CatalogBrowser({
             Se completa mediante la importación del Catálogo Maestro (ver panel administrador, próxima entrega).
           </p>
         </div>
+      ) : search.trim().length < minimumSearchLength ? (
+        <div className="catalog-search-prompt"><strong>Buscá el producto que querés cotizar</strong><span>Ingresá nombre, SKU, familia, subfamilia o marca.</span></div>
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           <p>No se encontraron productos con esos filtros.</p>

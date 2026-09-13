@@ -7,6 +7,7 @@ export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
 export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
 export type PriceMode = 'automatico' | 'consumidor_final' | 'mayorista'
 export const RESINPLAST_WHOLESALE_THRESHOLD_USD = 1815
+export const PENOSIL_WHOLESALE_THRESHOLD_NET_USD = 1800
 export const DEFAULT_VAT_RATE = 0.21
 
 export interface QuoteLine {
@@ -58,9 +59,24 @@ function sumPhysicalUnits(lines: QuoteLine[]): number {
   return lines.reduce((sum, item) => sum + physicalUnits(item), 0)
 }
 
-export function createQuoteNumber(now = new Date()): string {
-  const digits = now.toISOString().replace(/\D/g, '')
-  return `GP-${digits.slice(2, 8)}-${digits.slice(8, 14)}-${digits.slice(14, 17)}`
+function isPenosil(line: QuoteLine): boolean {
+  return line.brand.toLowerCase() === 'penosil' || line.family.toLowerCase() === 'penosil'
+}
+
+function penosilNetTotal(lines: QuoteLine[]): number {
+  return lines.filter(isPenosil).reduce((sum, line) => {
+    const price = priceForQuantity(line.variant, line.quantity, 'consumidor_final')
+    if (!price || price.price_list.currency !== 'USD') return sum
+    return sum + price.amount * line.quantity / (1 + (price.price_list.vat_rate ?? DEFAULT_VAT_RATE))
+  }, 0)
+}
+
+export function createQuoteNumber(_now = new Date(), existingNumbers: string[] = []): string {
+  const highest = existingNumbers.reduce((max, value) => {
+    const match = value.match(/^(?:GP-)?(\d{1,})$/)
+    return match ? Math.max(max, Number(match[1])) : max
+  }, 0)
+  return String(highest + 1).padStart(4, '0')
 }
 
 function listMatchesMode(name: string, mode: PriceMode) {
@@ -113,11 +129,13 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
   const skuRulesFamilyAgg = rules.filter((r) => r.scope_type === 'sku' && r.aggregate_by_family)
   const familyRules = rules.filter((r) => r.scope_type === 'family')
 
-  const ruleMatch =
-    resolveCommercialRule(skuRulesPlain, { ...input, quantity: physicalUnits(line) }) ??
-    (thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: packGroupPhysical }) : null) ??
-    resolveCommercialRule(skuRulesFamilyAgg, { ...input, quantity: familyPhysical }) ??
-    resolveCommercialRule(familyRules, { ...input, quantity: familyPhysical })
+  const penosilWholesale = isPenosil(line) && (mode === 'mayorista' || (mode === 'automatico' && penosilNetTotal(contextLines) >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD))
+  const ruleMatch = isPenosil(line)
+    ? (penosilWholesale && thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: Number.MAX_SAFE_INTEGER }) : null)
+    : resolveCommercialRule(skuRulesPlain, { ...input, quantity: physicalUnits(line) }) ??
+      (thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: packGroupPhysical }) : null) ??
+      resolveCommercialRule(skuRulesFamilyAgg, { ...input, quantity: familyPhysical }) ??
+      resolveCommercialRule(familyRules, { ...input, quantity: familyPhysical })
 
   if (ruleMatch) {
     return {
@@ -129,7 +147,8 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
       ruleId: ruleMatch.rule.id,
     }
   }
-  const price = priceForQuantity(line.variant, line.quantity, mode)
+  const effectiveMode = mode === 'automatico' ? resolveAutomaticPriceMode(contextLines) : mode
+  const price = priceForQuantity(line.variant, line.quantity, effectiveMode)
   return price ? {
     amount: price.amount,
     currency: price.price_list.currency,
@@ -189,7 +208,7 @@ export function linePricingDetails(
   const groupPhysical = group
     ? sumPhysicalUnits(familyLines.filter((item) => packGroupOf({ name: item.productName, attributes: item.variant.attributes }) === group))
     : linePhysical
-  const applicableRules = rules.filter((rule) => rule.status === 'confirmado' && matchesRuleScope(rule, line))
+  const applicableRules = rules.filter((rule) => rule.status === 'confirmado' && matchesRuleScope(rule, line) && !isPenosil(line))
   const appliedRule = price?.ruleId ? applicableRules.find((rule) => rule.id === price.ruleId) : undefined
   const usesFamilyCount = !!appliedRule?.aggregate_by_family || appliedRule?.scope_type === 'family'
   const usesGroupCount = !!appliedRule?.aggregate_by_pack_group
@@ -198,6 +217,22 @@ export function linePricingDetails(
   const vatRate = price?.vatRate ?? DEFAULT_VAT_RATE
   const grossUnitAmount = price ? price.amount / perPack : null
   const netUnitAmount = grossUnitAmount == null ? null : grossUnitAmount / (1 + vatRate)
+
+  if (price?.ruleId && isPenosil(line)) {
+    const netTotal = penosilNetTotal(contextLines)
+    return {
+      price,
+      physicalUnits: linePhysical,
+      unitsPerPack: perPack,
+      countedUnits: netTotal,
+      countScope: 'producto',
+      priceLabel: 'Mayorista Penosil · mezcla de cajas habilitada',
+      condition: `USD ${netTotal.toFixed(2)} netos de Penosil computados; condición desde USD ${PENOSIL_WHOLESALE_THRESHOLD_NET_USD.toFixed(2)} netos + IVA.`,
+      outcome: 'Mayorista Penosil aplicado.',
+      netUnitAmount,
+      grossUnitAmount,
+    }
+  }
 
   if (appliedRule && price) {
     const nextRule = applicableRules
@@ -236,6 +271,12 @@ export function linePricingDetails(
     const scope = nextRule.rule.aggregate_by_family || nextRule.rule.scope_type === 'family' ? 'familia' : nextRule.rule.aggregate_by_pack_group ? 'producto' : 'renglón'
     condition = `${nextRule.scopeUnits} unidades físicas computadas por ${scope}; condición ${thresholdText(nextRule.rule)}.`
     outcome = `Se usa ${price?.listName ?? 'precio pendiente'}; faltan ${nextRule.missing} unidades físicas para el siguiente precio.`
+  } else if (isPenosil(line) && mode === 'automatico') {
+    const netTotal = penosilNetTotal(contextLines)
+    condition = `Penosil: USD ${netTotal.toFixed(2)} netos computados entre todas las cajas; mayorista desde USD ${PENOSIL_WHOLESALE_THRESHOLD_NET_USD.toFixed(2)} netos + IVA.`
+    outcome = netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD
+      ? `Umbral alcanzado, pero el precio mayorista de este SKU está pendiente; se mantiene ${price?.listName ?? 'precio pendiente'}.`
+      : `Se usa ${price?.listName ?? 'precio pendiente'}; faltan USD ${(PENOSIL_WHOLESALE_THRESHOLD_NET_USD - netTotal).toFixed(2)} netos para mayorista.`
   } else if (isResinplast(line) && mode === 'consumidor_final') {
     const resinLines = contextLines.filter(isResinplast)
     const cfTotal = resinLines.reduce((sum, item) => {
@@ -252,7 +293,16 @@ export function linePricingDetails(
   return { price, physicalUnits: linePhysical, unitsPerPack: perPack, countedUnits: nextRule?.scopeUnits ?? linePhysical, countScope: 'renglón', priceLabel: price?.listName ?? 'Sin precio confirmado', condition, outcome, netUnitAmount, grossUnitAmount }
 }
 
-export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>): string {
+export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>, rules: CommercialRule[] = []): string {
+  const penosilLines = lines.filter(isPenosil)
+  if (penosilLines.length) {
+    const netTotal = penosilNetTotal(lines)
+    const pending = penosilLines.filter((line) => !rules.some((rule) => rule.status === 'confirmado' && rule.aggregate_by_pack_group && matchesRuleScope(rule, line))).length
+    if (netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD && pending > 0) return `Penosil alcanzó USD ${netTotal.toFixed(2)} netos, pero hay ${pending} SKU con precio mayorista pendiente.`
+    return netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD
+      ? `Mayorista Penosil aplicado: USD ${netTotal.toFixed(2)} netos entre todas las cajas mezcladas + IVA.`
+      : `Penosil consumidor final: USD ${netTotal.toFixed(2)} netos entre cajas; faltan USD ${(PENOSIL_WHOLESALE_THRESHOLD_NET_USD - netTotal).toFixed(2)} netos para mayorista.`
+  }
   const resinLines = lines.filter(isResinplast)
   if (!resinLines.length) return 'Cada renglón usa su lista vigente y las reglas confirmadas de cantidad, producto o familia.'
   const cfTotal = resinLines.reduce((sum, line) => {
@@ -310,7 +360,7 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = resolvedLinePrice(line, appliedPriceMode, rules, lines)
+      const price = resolvedLinePrice(line, priceMode, rules, lines)
       if (!price) {
         totals.pendingLines += 1
         return totals
@@ -345,10 +395,13 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const details = linePricingDetails(line, totals.appliedPriceMode, rules, lines)
+    const details = linePricingDetails(line, meta.priceMode, rules, lines)
     const price = details.price
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
   }).join('\n')
-  const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
-  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
+  const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
+  const pesoReference = totals.currencies.size === 1 && totals.currencies.has('USD') && meta.exchangeRate > 0
+    ? `\nEquivalente estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totals.total * meta.exchangeRate)} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(meta.exchangeRate)} por USD).`
+    : ''
+  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${meta.paymentMethod.replace('_', ' ')}.\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }

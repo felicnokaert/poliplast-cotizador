@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { quoteTotals, resolvedLinePrice, type SavedQuote } from './quote'
+import { resolvedLinePrice, type SavedQuote } from './quote'
 import type { CommercialRule } from '../types/commercialRules'
 
 type QuoteRow = Record<string, unknown> & { sales_quote_items?: Array<Record<string, unknown>> }
@@ -15,7 +15,6 @@ export function mergeQuoteHistories(local: SavedQuote[], remote: SavedQuote[]): 
 
 export function quoteToDatabaseRows(quote: SavedQuote, userId: string, rules: CommercialRule[] = []) {
   const { meta, lines } = quote
-  const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules)
   return {
     header: {
       quote_number: meta.number, owner_id: userId, client_name: meta.client, contact_name: meta.contact,
@@ -25,7 +24,7 @@ export function quoteToDatabaseRows(quote: SavedQuote, userId: string, rules: Co
       status: meta.status, issued_at: meta.createdAt, updated_by: userId, updated_at: quote.updatedAt,
     },
     items: lines.map((line) => {
-      const price = resolvedLinePrice(line, totals.appliedPriceMode, rules)
+      const price = resolvedLinePrice(line, meta.priceMode, rules, lines)
       return {
         line_key: line.id, variant_id: line.variant.id, product_id: line.productId, product_name: line.productName,
         sku: line.variant.sku, brand: line.brand, family: line.family, unit: line.variant.unit, quantity: line.quantity,
