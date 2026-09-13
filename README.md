@@ -16,7 +16,7 @@ Fuentes de diseño (viven en el repo del CRM):
 - cotización numerada con cliente, contacto, productos y cantidades;
 - escalas automáticas por cantidad, moneda, IVA y vigencia;
 - descuento y recargo explícitos sin alterar listas maestras;
-- vista previa, impresión/PDF y texto para WhatsApp;
+- vista previa y mensaje comercial para WhatsApp; el comprobante/PDF fiscal se genera luego en Contabilium;
 - recuperación automática de la cotización en curso y guardado deliberado en historial local;
 - cotización vendedor billete del BNA como fuente principal, con respaldo identificado;
 - identidad por marca y co-branding Grupo Poliplast;
@@ -27,7 +27,7 @@ Fuentes de diseño (viven en el repo del CRM):
 
 La persistencia compartida y la importación reversible de costos ya tienen código y migraciones preparadas en el repo del CRM, pero deben aplicarse al proyecto Supabase antes de considerarlas operativas. Pendiente para la siguiente capa: aplicación masiva de precios mediante listas versionadas, importación de stock mediante conteos por depósito, reglas aprobadas de margen/financiación y vínculos técnicos reales cargados. Hasta entonces no se inventan condiciones ni se exponen costos al vendedor. Los logos oficiales de Resinplast, Penosil y PURMAC deben incorporarse cuando se disponga de sus archivos aprobados; no se reemplazan por imitaciones.
 
-No se modifica el CRM ni se crean tablas nuevas: todo se lee de las tablas ya migradas en el proyecto Supabase `poli crm` (`nghwmtccpovrdtzvllwe`).
+La migración `supabase/migrations/20260913_commercial_policies_and_quote_numbers.sql` agrega políticas de pago compartidas y numeración correlativa atómica. Debe aplicarse al proyecto Supabase `poli crm` (`nghwmtccpovrdtzvllwe`) antes de publicar esta versión; el frontend mantiene valores seguros de respaldo si todavía no está aplicada.
 
 ## Desarrollo local
 

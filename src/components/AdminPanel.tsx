@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { applyCostImport, applyPriceImport, buildCostImportRows, buildPriceImportRows, downloadCsv, loadAdminOverview, previewAdminImport, revertCostImport, revertPriceImport, rowsToCsv, type AdminImportPreview, type AdminOverview, type PriceImportKind } from '../lib/admin'
+import { CommercialPolicyAdmin } from './CommercialPolicyAdmin'
 
-export function AdminPanel() {
+export function AdminPanel({ userEmail = '' }: { userEmail?: string }) {
   const [data, setData] = useState<AdminOverview | null>(null)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -55,6 +56,7 @@ export function AdminPanel() {
   return <main className="admin-page">
     <div className="page-intro"><span className="eyebrow">Solo administradores</span><h1>Control comercial</h1><p className="muted"><strong>Los precios se editan acá:</strong> exportá la matriz, modificá consumidor final o mayorista por SKU y volvé a cargarla como una versión auditable. Costos e inventario permanecen separados de la vista del vendedor.</p></div>
     {actionError && <div className="empty-state error"><strong>No se aplicaron cambios.</strong><p>{actionError}</p></div>}
+    <CommercialPolicyAdmin catalog={data.catalog} userEmail={userEmail} />
     <div className="admin-metrics"><article><span>Revisiones de costo</span><strong>{data.costs.length}</strong><small>{currentCosts.length} vigentes/confirmadas</small></article><article><span>SKU con stock aprobado</span><strong>{data.inventory.length}</strong><small>Con fecha de último conteo</small></article><article><span>Últimos lotes</span><strong>{data.imports.length}</strong><small>Trazabilidad de importación</small></article></div>
     <section className="admin-section stack"><div><h2>Stock por depósito</h2><p className="muted">El stock no se edita como un precio: se registra por depósito, se cuenta y luego se aprueba. Una cotización solo consulta disponibilidad; nunca descuenta mercadería.</p></div><div className="location-grid">{data.locations.filter((location) => location.active).length === 0 ? <span className="pending-control">Todavía no hay depósitos activos configurados.</span> : data.locations.filter((location) => location.active).map((location) => { const balances = data.inventory.filter((item) => item.location_id === location.id); return <article key={location.id}><span>{location.code}</span><strong>{location.name}</strong><small>{balances.length} SKU con saldo aprobado</small></article> })}</div><p className="muted">Próximo flujo: exportar plantilla por depósito → cargar conteo → revisar diferencias → aprobar saldo. Villa Domínico y Mar del Plata deben mantenerse separados.</p></section>
     <section className="admin-section"><div><h2>Exportación segura</h2><p className="muted">Descargá una matriz editable por SKU con precios, costos y stock. Solo una cuenta administradora puede verla.</p></div><div className="admin-actions"><button disabled={!data.catalog.length} onClick={() => downloadCsv(`catalogo-admin-poliplast-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(data.catalog))}>Exportar matriz completa</button><button className="secondary" disabled={!data.costs.length} onClick={() => downloadCsv(`costos-poliplast-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(data.costs))}>Solo costos</button></div></section>

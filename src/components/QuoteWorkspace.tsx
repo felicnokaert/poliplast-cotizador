@@ -21,6 +21,7 @@ import { fetchOfficialDollar } from '../lib/exchange'
 import { loadCommercialClients, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 import { loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
+import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, reserveQuoteNumber, type PaymentPolicy } from '../lib/paymentPolicies'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
 const WORKING_DRAFT_KEY = 'poliplast-cotizador-working-draft-v1'
@@ -128,6 +129,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [rules, setRules] = useState<CommercialRule[]>([])
   const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
   const [quoteSyncStatus, setQuoteSyncStatus] = useState<'cargando' | 'compartido' | 'local' | 'guardando'>('cargando')
+  const [paymentPolicies, setPaymentPolicies] = useState<PaymentPolicy[]>(DEFAULT_PAYMENT_POLICIES)
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
@@ -135,6 +137,13 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const visibleQuotes = useMemo(() => historyStatus === 'todas' ? savedQuotes : savedQuotes.filter((quote) => quote.meta.status === historyStatus), [savedQuotes, historyStatus])
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
+  useEffect(() => {
+    if (initialDraft) return
+    const createdAt = meta.createdAt
+    reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number)).then((number) => setMeta((current) => current.createdAt === createdAt ? { ...current, number } : current))
+    // La primera cotización también reserva su número; un borrador recuperado conserva el suyo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     loadSharedQuotes()
       .then((remote) => { setSavedQuotes((local) => mergeQuoteHistories(local, remote)); setQuoteSyncStatus('compartido') })
@@ -145,6 +154,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt }))
   }, [meta, lines])
   useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
+  useEffect(() => { loadPaymentPolicies().then(setPaymentPolicies) }, [])
   useEffect(() => {
     // Se carga una sola vez por sesión (no depende de líneas/cantidad/fecha):
     // la resolución en sí se recalcula sola porque `totals` y cada llamado a
@@ -173,18 +183,27 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     setQuoteSyncStatus('guardando')
     try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido') } catch { setQuoteSyncStatus('local') }
   }
-  const startNew = () => { setMeta(newMeta(savedQuotes)); setLines([]); setProductPickerOpen(true); setActiveSection('cotizacion') }
+  const startNew = async () => {
+    const draft = newMeta(savedQuotes)
+    setMeta(draft); setLines([]); setProductPickerOpen(true); setActiveSection('cotizacion')
+    const number = await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
+    setMeta((current) => current.createdAt === draft.createdAt ? { ...current, number } : current)
+  }
   const loadQuote = (quote: SavedQuote) => { setMeta(quote.meta); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
   const openWhatsApp = () => {
     const quote = snapshot()
     const phone = meta.phone.replace(/\D/g, '')
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote, rules))}`, '_blank', 'noopener,noreferrer')
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod)))}`, '_blank', 'noopener,noreferrer')
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
   const selectClient = (clientId: string) => {
     const client = clients.find((item) => item.id === clientId)
     if (!client) return
     setMeta((current) => ({ ...current, client: client.company, contact: client.contact, phone: client.phone, email: client.email }))
+  }
+  const selectPaymentPolicy = (id: string) => {
+    const policy = paymentPolicies.find((item) => item.id === id)
+    setMeta((current) => ({ ...current, paymentMethod: id, discountPercent: policy?.discountPercent ?? current.discountPercent, surchargePercent: policy?.surchargePercent ?? current.surchargePercent }))
   }
 
   return (
@@ -195,7 +214,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
         <div className="nav-user"><span>{userEmail}</span><button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button></div>
       </nav>
 
-      {activeSection === 'administracion' ? <AdminPanel /> : activeSection === 'historial' ? (
+      {activeSection === 'administracion' ? <AdminPanel userEmail={userEmail} /> : activeSection === 'historial' ? (
         <main className="history-page">
           <div className="page-intro"><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones guardadas</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial compartido con el equipo y respaldado en este navegador.' : quoteSyncStatus === 'guardando' ? 'Sincronizando con el equipo…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones compartidas…' : 'Modo local: el respaldo está seguro en este navegador; la sincronización remota todavía no está disponible.'}</p></div>
           {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
@@ -218,7 +237,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
                 <label>Persona de contacto<input value={meta.contact} onChange={(e) => updateMeta('contact', e.target.value)} placeholder="Nombre y apellido" /></label>
                 <label>WhatsApp<input value={meta.phone} onChange={(e) => updateMeta('phone', e.target.value)} placeholder="54911..." /></label>
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>
-                <label>Condición de pago<select value={meta.paymentMethod} onChange={(e) => updateMeta('paymentMethod', e.target.value as PaymentMethod)}><option value="transferencia">Transferencia</option><option value="contado">Contado</option><option value="cuenta_corriente">Cuenta corriente</option><option value="tarjeta">Tarjeta / cuotas</option></select></label>
+                <label>Condición de pago<select value={meta.paymentMethod} onChange={(e) => selectPaymentPolicy(e.target.value as PaymentMethod)}>{paymentPolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select><small className="exchange-source">{paymentPolicies.find((item) => item.id === meta.paymentMethod)?.customerText}</small></label>
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
             </div>

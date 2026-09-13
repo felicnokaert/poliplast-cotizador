@@ -10,6 +10,7 @@ export interface AdminOverview {
 }
 
 export interface AdminCatalogRow {
+  variant_id?: string
   sku: string; producto: string; variante: string; marca: string; familia: string; subfamilia: string; unidad: string
   precio_consumidor_final: number | ''; precio_mayorista: number | ''; moneda_precio: string
   costo: number | ''; moneda_costo: string; stock: number | ''; unidad_stock: string; fuente: string
@@ -59,7 +60,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     const wholesale = withList.find((price) => /mayorista|distribuidor/i.test(String(price.list.name)))
     const consumer = withList.find((price) => !/mayorista|distribuidor/i.test(String(price.list.name)))
     const cost = latestCost.get(String(variant.id)); const stock = stockByVariant.get(String(variant.id)); const price = consumer ?? wholesale
-    return [{ sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
+    return [{ variant_id: String(variant.id), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
   })
   return { isAdmin: true, costs, inventory, locations, imports: imports.data ?? [], catalog }
 }

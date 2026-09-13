@@ -131,6 +131,17 @@ export async function loadCommercialRules(): Promise<CommercialRule[]> {
   return (data ?? []).map(mapRuleRow)
 }
 
+export type NewCommercialRule = Pick<CommercialRule, 'scope_type' | 'family' | 'variant_id' | 'pack_group' | 'quantity_comparator' | 'min_quantity' | 'net_amount' | 'vat_rate' | 'currency' | 'unit' | 'valid_from' | 'valid_until' | 'source' | 'notes' | 'aggregate_by_family' | 'aggregate_by_pack_group'>
+
+/** Inserta una nueva versión; las reglas existentes nunca se pisan. */
+export async function createCommercialRule(rule: NewCommercialRule, responsibleEmail: string): Promise<void> {
+  const { error } = await supabase.from('commercial_rules').insert({
+    ...rule, gross_amount: rule.net_amount * (1 + rule.vat_rate), status: 'confirmado', override_reason: '',
+    responsible_email: responsibleEmail, created_by_email: responsibleEmail,
+  })
+  if (error) throw error
+}
+
 function formatQuantityCondition(rule: CommercialRule): string {
   const qty = Number.isInteger(rule.min_quantity) ? String(rule.min_quantity) : String(rule.min_quantity)
   return rule.quantity_comparator === 'gt' ? `más de ${qty} unidades` : `desde ${qty} unidades`

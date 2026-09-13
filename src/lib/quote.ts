@@ -1,10 +1,11 @@
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
+import type { PaymentPolicy } from './paymentPolicies'
 import { formatRuleLabel, resolveCommercialRule } from './commercialRules'
 import { packGroupOf, parsePackMultiplierFromName, unitsPerPack } from './packs'
 
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
-export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
+export type PaymentMethod = string
 export type PriceMode = 'automatico' | 'consumidor_final' | 'mayorista'
 export const RESINPLAST_WHOLESALE_THRESHOLD_USD = 1815
 export const PENOSIL_WHOLESALE_THRESHOLD_NET_USD = 1800
@@ -389,7 +390,7 @@ export function quoteExpiry(createdAt: string, validDays: number): Date {
   return date
 }
 
-export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRule[] = []): string {
+export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRule[] = [], paymentPolicy?: PaymentPolicy): string {
   const { meta, lines } = quote
   const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules)
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
@@ -403,5 +404,7 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const pesoReference = totals.currencies.size === 1 && totals.currencies.has('USD') && meta.exchangeRate > 0
     ? `\nEquivalente estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totals.total * meta.exchangeRate)} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(meta.exchangeRate)} por USD).`
     : ''
-  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${meta.paymentMethod.replace('_', ' ')}.\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
+  const paymentName = paymentPolicy?.name ?? meta.paymentMethod.replace('_', ' ')
+  const paymentText = paymentPolicy?.customerText ? ` ${paymentPolicy.customerText}` : ''
+  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${paymentName}.${paymentText}\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }
