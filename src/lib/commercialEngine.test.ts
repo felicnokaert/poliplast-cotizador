@@ -102,6 +102,16 @@ describe('Motor de precios — Penosil (caja de 12, agregado por pack_group)', (
     expect(resolvedLinePrice(otherUnitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
   })
 
+  it('combina presentaciones x1 y x6 del mismo pack_group', () => {
+    const pack6 = makeVariant({ id: 'v-810-6', sku: 'PS-810ML-6', name: 'PACK X 6 EASYSPRAY 810ML', attributes: { units_per_pack: 6, pack_group: 'PS-810ML' } })
+    const pack6Product = makeProduct('PENOSIL', pack6.name, { id: 'p6', variants: [pack6] })
+    const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 6 }
+    const packLine = { ...addQuoteLine([], pack6, pack6Product)[0], quantity: 1 }
+    const lines = [unitLine, packLine]
+    expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(packLine, 'automatico', [penosilRule], lines)?.amount).toBeCloseTo(13.6972 * 6, 4)
+  })
+
   it('un producto Penosil distinto (otro pack_group) no suma a este umbral', () => {
     const otherVariant = makeVariant({ id: 'v-other-1', sku: 'PS-ADA10-1', name: 'ADHESIVO ACUOSO A-10', attributes: { units_per_pack: 1, pack_group: 'PS-ADA10' } })
     const otherProduct = makeProduct('PENOSIL', otherVariant.name, { id: 'p-other', variants: [otherVariant] })

@@ -50,7 +50,7 @@ export function unitsPerSellUnit(line: Pick<QuoteLine, 'productName' | 'family'>
   return parsePackMultiplierFromName(line.productName) ?? 1
 }
 
-function physicalUnits(line: QuoteLine): number {
+export function physicalUnits(line: QuoteLine): number {
   return line.quantity * unitsPerPack({ name: line.productName, attributes: line.variant.attributes })
 }
 
@@ -140,6 +140,131 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
   } : null
 }
 
+export interface LinePricingDetails {
+  price: ReturnType<typeof resolvedLinePrice>
+  physicalUnits: number
+  unitsPerPack: number
+  countedUnits: number
+  countScope: 'renglón' | 'producto' | 'familia'
+  priceLabel: string
+  condition: string
+  outcome: string
+  netUnitAmount: number | null
+  grossUnitAmount: number | null
+}
+
+function isResinplast(line: QuoteLine): boolean {
+  return line.brand.toLowerCase() === 'resinplast' || line.family.toLowerCase() === 'resinplast'
+}
+
+function matchesRuleScope(rule: CommercialRule, line: QuoteLine): boolean {
+  if (rule.scope_type === 'family') return rule.family === line.family
+  if (rule.aggregate_by_pack_group) {
+    const group = packGroupOf({ name: line.productName, attributes: line.variant.attributes })
+    return !!group && rule.pack_group === group
+  }
+  return rule.variant_id === line.variant.id
+}
+
+function thresholdText(rule: CommercialRule): string {
+  return `${rule.quantity_comparator === 'gt' ? 'más de' : 'desde'} ${rule.min_quantity}`
+}
+
+/**
+ * Fuente única de la explicación comercial consumida por pantalla, PDF y WhatsApp.
+ * No decide precios por segunda vez: parte siempre de resolvedLinePrice().
+ */
+export function linePricingDetails(
+  line: QuoteLine,
+  mode: PriceMode = 'automatico',
+  rules: CommercialRule[] = [],
+  contextLines: QuoteLine[] = [line],
+): LinePricingDetails {
+  const price = resolvedLinePrice(line, mode, rules, contextLines)
+  const perPack = unitsPerPack({ name: line.productName, attributes: line.variant.attributes })
+  const linePhysical = physicalUnits(line)
+  const familyLines = contextLines.filter((item) => item.family === line.family)
+  const familyPhysical = sumPhysicalUnits(familyLines)
+  const group = packGroupOf({ name: line.productName, attributes: line.variant.attributes })
+  const groupPhysical = group
+    ? sumPhysicalUnits(familyLines.filter((item) => packGroupOf({ name: item.productName, attributes: item.variant.attributes }) === group))
+    : linePhysical
+  const applicableRules = rules.filter((rule) => rule.status === 'confirmado' && matchesRuleScope(rule, line))
+  const appliedRule = price?.ruleId ? applicableRules.find((rule) => rule.id === price.ruleId) : undefined
+  const usesFamilyCount = !!appliedRule?.aggregate_by_family || appliedRule?.scope_type === 'family'
+  const usesGroupCount = !!appliedRule?.aggregate_by_pack_group
+  const countScope = usesFamilyCount ? 'familia' : usesGroupCount ? 'producto' : 'renglón'
+  const countedUnits = usesFamilyCount ? familyPhysical : usesGroupCount ? groupPhysical : linePhysical
+  const vatRate = price?.vatRate ?? DEFAULT_VAT_RATE
+  const grossUnitAmount = price ? price.amount / perPack : null
+  const netUnitAmount = grossUnitAmount == null ? null : grossUnitAmount / (1 + vatRate)
+
+  if (appliedRule && price) {
+    const nextRule = applicableRules
+      .filter((rule) => rule.min_quantity > appliedRule.min_quantity)
+      .sort((a, b) => a.min_quantity - b.min_quantity)[0]
+    const nextRequired = nextRule ? nextRule.min_quantity + (nextRule.quantity_comparator === 'gt' ? 1 : 0) : 0
+    const nextNote = nextRule && countedUnits < nextRequired
+      ? ` Próximo tramo: faltan ${nextRequired - countedUnits} unidades físicas para ${thresholdText(nextRule)}.`
+      : ''
+    return {
+      price,
+      physicalUnits: linePhysical,
+      unitsPerPack: perPack,
+      countedUnits,
+      countScope,
+      priceLabel: price.listName,
+      condition: `${countedUnits} unidades físicas computadas por ${countScope}; condición ${thresholdText(appliedRule)}.`,
+      outcome: `Regla aplicada.${nextNote}`,
+      netUnitAmount,
+      grossUnitAmount,
+    }
+  }
+
+  const nextRule = applicableRules
+    .map((rule) => {
+      const scopeUnits = rule.aggregate_by_family || rule.scope_type === 'family' ? familyPhysical : rule.aggregate_by_pack_group ? groupPhysical : linePhysical
+      const required = rule.min_quantity + (rule.quantity_comparator === 'gt' ? 1 : 0)
+      return { rule, scopeUnits, required, missing: Math.max(0, required - scopeUnits) }
+    })
+    .filter((candidate) => candidate.missing > 0)
+    .sort((a, b) => a.missing - b.missing)[0]
+
+  let condition = `${linePhysical} unidades físicas en este renglón.`
+  let outcome = price ? `Se usa ${price.listName}; no hay una regla especial aplicable.` : 'Precio pendiente: no hay una lista confirmada aplicable.'
+  if (nextRule) {
+    const scope = nextRule.rule.aggregate_by_family || nextRule.rule.scope_type === 'family' ? 'familia' : nextRule.rule.aggregate_by_pack_group ? 'producto' : 'renglón'
+    condition = `${nextRule.scopeUnits} unidades físicas computadas por ${scope}; condición ${thresholdText(nextRule.rule)}.`
+    outcome = `Se usa ${price?.listName ?? 'precio pendiente'}; faltan ${nextRule.missing} unidades físicas para el siguiente precio.`
+  } else if (isResinplast(line) && mode === 'consumidor_final') {
+    const resinLines = contextLines.filter(isResinplast)
+    const cfTotal = resinLines.reduce((sum, item) => {
+      const cf = priceForQuantity(item.variant, item.quantity, 'consumidor_final')
+      return sum + (cf?.price_list.currency === 'USD' ? cf.amount * item.quantity : 0)
+    }, 0)
+    const missingWholesale = resinLines.filter((item) => !item.variant.prices.some((candidate) => candidate.status === 'confirmado' && listMatchesMode(candidate.price_list.name, 'mayorista')))
+    condition = `Resinplast: USD ${cfTotal.toFixed(2)} computados; mayorista desde USD ${RESINPLAST_WHOLESALE_THRESHOLD_USD.toFixed(2)}.`
+    outcome = missingWholesale.length > 0 && cfTotal >= RESINPLAST_WHOLESALE_THRESHOLD_USD
+      ? `Se usa consumidor final: mayorista pendiente en ${missingWholesale.length} SKU de la cotización.`
+      : `Se usa consumidor final: faltan USD ${Math.max(0, RESINPLAST_WHOLESALE_THRESHOLD_USD - cfTotal).toFixed(2)} para el mínimo mayorista.`
+  }
+
+  return { price, physicalUnits: linePhysical, unitsPerPack: perPack, countedUnits: nextRule?.scopeUnits ?? linePhysical, countScope: 'renglón', priceLabel: price?.listName ?? 'Sin precio confirmado', condition, outcome, netUnitAmount, grossUnitAmount }
+}
+
+export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>): string {
+  const resinLines = lines.filter(isResinplast)
+  if (!resinLines.length) return 'Cada renglón usa su lista vigente y las reglas confirmadas de cantidad, producto o familia.'
+  const cfTotal = resinLines.reduce((sum, line) => {
+    const price = priceForQuantity(line.variant, line.quantity, 'consumidor_final')
+    return sum + (price?.price_list.currency === 'USD' ? price.amount * line.quantity : 0)
+  }, 0)
+  const pending = resinLines.filter((line) => !line.variant.prices.some((price) => price.status === 'confirmado' && listMatchesMode(price.price_list.name, 'mayorista'))).length
+  if (appliedMode === 'mayorista') return `Mayorista Resinplast aplicado: USD ${cfTotal.toFixed(2)} y todos los SKU tienen precio mayorista confirmado.`
+  if (cfTotal < RESINPLAST_WHOLESALE_THRESHOLD_USD) return `Consumidor final Resinplast: USD ${cfTotal.toFixed(2)}; faltan USD ${(RESINPLAST_WHOLESALE_THRESHOLD_USD - cfTotal).toFixed(2)} para llegar a USD ${RESINPLAST_WHOLESALE_THRESHOLD_USD.toFixed(2)}.`
+  return `Consumidor final Resinplast: se alcanzó USD ${RESINPLAST_WHOLESALE_THRESHOLD_USD.toFixed(2)}, pero hay ${pending} SKU con mayorista pendiente.`
+}
+
 export function resolveAutomaticPriceMode(lines: QuoteLine[]): Exclude<PriceMode, 'automatico'> {
   const resinplast = lines.filter((line) => line.brand.toLowerCase() === 'resinplast' || line.family.toLowerCase() === 'resinplast')
   if (!resinplast.length) return 'consumidor_final'
@@ -220,9 +345,10 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
   const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
   const body = lines.map((line) => {
-    const price = resolvedLinePrice(line, totals.appliedPriceMode, rules, lines)
-    const ruleNote = price?.specialRule ? ` [${price.listName}]` : ''
-    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit}: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}${ruleNote}`
+    const details = linePricingDetails(line, totals.appliedPriceMode, rules, lines)
+    const price = details.price
+    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
   }).join('\n')
-  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}${body}\n\n*Total: ${money(totals.convertedTotal)}*\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
+  const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
+  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }

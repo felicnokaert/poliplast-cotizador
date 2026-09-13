@@ -149,8 +149,12 @@ button {
 .quote-line-values { display: grid; grid-template-columns: 95px 1fr; align-items: end; gap: 10px; }
 .quote-line-values > div { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .unit-price { color: var(--muted); font-size: .72rem; }
+.price-trace { color: var(--muted); font-size: .66rem; }
 .rule-note { color: var(--accent); font-size: .7rem; font-weight: 650; }
 .line-total { text-align: right; font-weight: 750; }
+.price-reason { display: grid; grid-template-columns: auto 1fr; gap: 7px; align-items: start; margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: .68rem; line-height: 1.35; }
+.price-reason span { white-space: nowrap; border-radius: 999px; padding: 2px 6px; background: #eeeae7; color: #3d3936; font-weight: 750; }
+.price-reason p { margin: 1px 0 0; color: var(--muted); }
 .commercial-controls { border-top: 1px solid var(--border); padding-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .commercial-controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .74rem; font-weight: 650; }
 .exchange-source { color: var(--muted); font-weight: 500; line-height: 1.25; }
@@ -579,6 +583,9 @@ button {
 .pricing-conditions { display: grid; gap: 5px; margin-top: 12px; padding: 11px 13px; border-left: 3px solid #bd211d; border-radius: 0 7px 7px 0; background: #f7f3f1; color: #4c4743; font-size: .72rem; }
 .pricing-conditions strong { color: #282624; font-size: .76rem; }
 .pricing-conditions small { color: var(--muted); }
+.pricing-conditions details { margin-top: 3px; }
+.pricing-conditions summary { cursor: pointer; color: #8f1714; font-weight: 750; }
+.pricing-conditions details span { display: block; margin-top: 5px; }
 .catalog-row::before { background: #bd211d; }
 
 @media (max-width: 760px) {
@@ -587,6 +594,19 @@ button {
   .quote-page .commercial-controls { grid-template-columns: 1fr; }
   .quote-page .commercial-controls .full-field { grid-column: auto; }
   .quote-page .quote-lines { grid-template-columns: 1fr; }
+  .price-reason { grid-template-columns: 1fr; }
+  .price-reason span { width: fit-content; }
+  .preview-table, .preview-table tbody, .preview-table tr, .preview-table td { display: block; width: 100%; }
+  .preview-table thead { display: none; }
+  .preview-table tr { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .preview-table td { display: grid; grid-template-columns: 78px 1fr; gap: 8px; text-align: left !important; border-bottom: 1px solid var(--border); padding: 8px 10px; }
+  .preview-table td:last-child { border-bottom: 0; }
+  .preview-table td::before { color: var(--muted); font-size: .62rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+  .preview-table td:nth-child(1)::before { content: 'Producto'; }
+  .preview-table td:nth-child(2)::before { content: 'SKU'; }
+  .preview-table td:nth-child(3)::before { content: 'Cantidad'; }
+  .preview-table td:nth-child(4)::before { content: 'Unitario'; }
+  .preview-table td:nth-child(5)::before { content: 'Total'; }
   .add-toast { inset: auto 12px 78px; max-width: none; }
 }
 

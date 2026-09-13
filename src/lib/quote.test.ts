@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, createQuoteNumber, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp } from './quote'
+import { addQuoteLine, automaticPricingSummary, createQuoteNumber, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -107,6 +107,9 @@ describe('quote', () => {
     const price = resolvedLinePrice(line, 'automatico', [almohadasRule])
     expect(price?.specialRule).toBe(false)
     expect(price?.amount).toBe(80)
+    const details = linePricingDetails(line, 'consumidor_final', [almohadasRule], [line])
+    expect(details.physicalUnits).toBe(200)
+    expect(details.outcome).toContain('faltan 1 unidades físicas')
   })
 
   it('con 201 unidades, aplica la regla de Almohadas: USD 6,2315 final con IVA incluido', () => {
@@ -116,6 +119,9 @@ describe('quote', () => {
     expect(price?.specialRule).toBe(true)
     expect(price?.amount).toBeCloseTo(6.2315, 4)
     expect(price?.listName).toBe('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')
+    const details = linePricingDetails(line, 'consumidor_final', [almohadasRule], [line])
+    expect(details.condition).toContain('201 unidades físicas computadas por familia')
+    expect(details.netUnitAmount).toBeCloseTo(5.15, 4)
   })
 
   it('cuenta unidades físicas de packs de almohadas para el umbral y el precio', () => {
@@ -161,6 +167,8 @@ describe('quote', () => {
     const expectedAmount = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(6.2315 * 201)
     expect(text).toContain(expectedAmount)
     expect(text).toContain('Mayorista Almohadas')
+    expect(text).toContain('201 unidades físicas')
+    expect(text).toContain('IVA incluido')
   })
 
   it('el texto de WhatsApp sin reglas cargadas usa el precio normal (no inventa la condición)', () => {
@@ -180,5 +188,16 @@ describe('quote', () => {
     const text = serializeQuoteForWhatsApp({ meta: { number: 'GP-1', client: 'Cliente', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-11T00:00:00Z' }, lines, updatedAt: '2026-09-11T00:00:00Z' })
     expect(text).toContain('GP-1')
     expect(text).toContain('SKU-1')
+    expect(text).toContain('Base')
+  })
+
+  it('explica Resinplast debajo del umbral y con mayorista pendiente', () => {
+    const resinVariant = { ...variant, prices: [{ ...variant.prices[0], amount: 10, price_list: { ...variant.prices[0].price_list, name: 'Resinplast CF' } }] }
+    const resinProduct = { ...product, brand: 'Resinplast', family: 'Resinas y Catalizadores', variants: [resinVariant] }
+    const below = [{ ...addQuoteLine([], resinVariant, resinProduct)[0], quantity: 181 }]
+    expect(automaticPricingSummary(below, 'consumidor_final')).toContain('faltan USD 5.00')
+    const above = [{ ...below[0], quantity: 182 }]
+    expect(automaticPricingSummary(above, 'consumidor_final')).toContain('1 SKU con mayorista pendiente')
+    expect(linePricingDetails(above[0], 'consumidor_final', [], above).outcome).toContain('mayorista pendiente')
   })
 })

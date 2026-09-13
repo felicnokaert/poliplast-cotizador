@@ -123,7 +123,8 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     fireEvent.change(quantityInput, { target: { value: '201' } })
 
     await waitFor(() => {
-      expect(screen.getAllByText('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')).toHaveLength(2)
+      expect(screen.getByText('Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido')).toBeInTheDocument()
+      expect(screen.getByText(/201 unidades físicas computadas por familia/)).toBeInTheDocument()
     })
   })
 
