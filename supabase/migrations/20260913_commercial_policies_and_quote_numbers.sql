@@ -29,11 +29,17 @@ insert into public.payment_policies (id, name, customer_text, sort_order) values
 on conflict (id) do nothing;
 
 create sequence if not exists public.sales_quote_number_seq start 1;
-select setval(
-  'public.sales_quote_number_seq',
-  greatest(coalesce((select max(quote_number::integer) from public.sales_quotes where quote_number ~ '^[0-9]+$'), 0), 1),
-  coalesce((select max(quote_number::integer) from public.sales_quotes where quote_number ~ '^[0-9]+$'), 0) > 0
-);
+do $$
+declare current_max bigint := 0;
+begin
+  -- `sales_quotes` pertenece a una migración anterior que puede no estar
+  -- aplicada todavía. La numeración funciona igual y arranca en 0001.
+  if to_regclass('public.sales_quotes') is not null then
+    execute 'select coalesce(max(quote_number::integer), 0) from public.sales_quotes where quote_number ~ ''^[0-9]+$'''
+      into current_max;
+  end if;
+  perform setval('public.sales_quote_number_seq', greatest(current_max, 1), current_max > 0);
+end $$;
 
 grant usage, select, update on sequence public.sales_quote_number_seq to authenticated;
 
