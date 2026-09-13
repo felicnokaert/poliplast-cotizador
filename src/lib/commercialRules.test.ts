@@ -24,6 +24,9 @@ function baseRule(overrides: Partial<CommercialRule> = {}): CommercialRule {
     responsible_email: 'felipe@grupopoliplast.com.ar',
     supersedes_rule_id: null,
     notes: '',
+  aggregate_by_family: false,
+  aggregate_by_pack_group: false,
+  pack_group: null,
     ...overrides,
   }
 }

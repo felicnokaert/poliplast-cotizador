@@ -1,6 +1,7 @@
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 import { formatRuleLabel, resolveCommercialRule } from './commercialRules'
+import { packGroupOf, parsePackMultiplierFromName, unitsPerPack } from './packs'
 
 export type QuoteStatus = 'borrador' | 'enviada' | 'aceptada' | 'rechazada'
 export type PaymentMethod = 'transferencia' | 'contado' | 'cuenta_corriente' | 'tarjeta'
@@ -38,12 +39,23 @@ export interface QuoteMeta {
 
 export interface SavedQuote { meta: QuoteMeta; lines: QuoteLine[]; updatedAt: string }
 
-/** Un SKU puede representar un pack. Evita contar un pack x20 como una unidad física. */
+/**
+ * Un SKU puede representar un pack. Evita contar un pack x20 como una unidad
+ * física. Fallback por nombre únicamente (sin `attributes.units_per_pack`
+ * persistido) — se mantiene para compatibilidad y para el diagnóstico de
+ * migración; la resolución real de precios usa `unitsPerPack` (packs.ts),
+ * que prioriza el atributo persistido.
+ */
 export function unitsPerSellUnit(line: Pick<QuoteLine, 'productName' | 'family'>): number {
-  if (!/almohadas|baldes/i.test(line.family)) return 1
-  const matches = [...line.productName.matchAll(/(?:\(|\s)X\s*(\d{1,2})\)?(?=\s*(?:\+|$))/gi)]
-  if (!matches.length) return 1
-  return matches.reduce((sum, match) => sum + Math.max(1, Number(match[1]) || 1), 0)
+  return parsePackMultiplierFromName(line.productName) ?? 1
+}
+
+function physicalUnits(line: QuoteLine): number {
+  return line.quantity * unitsPerPack({ name: line.productName, attributes: line.variant.attributes })
+}
+
+function sumPhysicalUnits(lines: QuoteLine[]): number {
+  return lines.reduce((sum, item) => sum + physicalUnits(item), 0)
 }
 
 export function createQuoteNumber(now = new Date()): string {
@@ -68,28 +80,48 @@ export function priceForQuantity(variant: VariantWithPricing, quantity: number, 
 
 /**
  * Precio final de una línea (IVA incluido), resolviendo primero contra las
- * reglas comerciales vigentes (SKU > familia) y recién si ninguna aplica,
- * contra las listas de precio normales. `rules` se carga una vez por sesión
- * desde `commercial_rules`; si no llegó ninguna (por ejemplo, falló la carga)
- * la línea usa el precio de lista normal, nunca inventa una condición.
+ * reglas comerciales vigentes y recién si ninguna aplica, contra las listas
+ * de precio normales. `rules` se carga una vez por sesión desde
+ * `commercial_rules`; si no llegó ninguna (por ejemplo, falló la carga) la
+ * línea usa el precio de lista normal, nunca inventa una condición.
+ *
+ * Cuatro categorías de regla, en este orden de precedencia:
+ * 1. SKU puntual, cantidad propia (`scope_type='sku'`, sin agregación).
+ * 2. SKU puntual, cantidad agregada por presentaciones hermanas del mismo
+ *    producto (`aggregate_by_pack_group`, ej. Penosil x1/x3/x6/x12).
+ * 3. SKU puntual, cantidad agregada por toda la familia (`aggregate_by_family`,
+ *    ej. Baldes: el tramo lo define el total de baldes, el precio es por SKU).
+ * 4. Familia completa, un solo precio para todos los SKU (ej. Almohadas).
+ *
+ * El monto de la regla (`gross_amount`) siempre se interpreta como precio
+ * final por UNIDAD FÍSICA, y se multiplica por las unidades físicas de esta
+ * línea (`unitsPerPack`) — así un pack x4 cobra 4 veces el precio unitario
+ * sin necesidad de una fila de regla por cada tamaño de pack.
  */
 export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = [], contextLines: QuoteLine[] = [line]) {
-  const skuRule = resolveCommercialRule(rules.filter((rule) => rule.scope_type === 'sku'), {
-    variantId: line.variant.id,
-    family: line.family,
-    quantity: line.quantity,
-  })
-  const familyQuantity = contextLines.filter((item) => item.family === line.family).reduce((sum, item) => sum + item.quantity * unitsPerSellUnit(item), 0)
-  const familyRule = resolveCommercialRule(rules.filter((rule) => rule.scope_type === 'family'), {
-    variantId: line.variant.id,
-    family: line.family,
-    quantity: familyQuantity,
-  })
-  const ruleMatch = skuRule ?? familyRule
+  const input = { variantId: line.variant.id, family: line.family }
+  const sameFamily = contextLines.filter((item) => item.family === line.family)
+  const familyPhysical = sumPhysicalUnits(sameFamily)
+
+  const thisPackGroup = packGroupOf({ name: line.productName, attributes: line.variant.attributes })
+  const packGroupPhysical = thisPackGroup
+    ? sumPhysicalUnits(sameFamily.filter((item) => packGroupOf({ name: item.productName, attributes: item.variant.attributes }) === thisPackGroup))
+    : 0
+
+  const skuRulesPlain = rules.filter((r) => r.scope_type === 'sku' && !r.aggregate_by_family && !r.aggregate_by_pack_group)
+  const skuRulesPackGroup = rules.filter((r) => r.scope_type === 'sku' && r.aggregate_by_pack_group)
+  const skuRulesFamilyAgg = rules.filter((r) => r.scope_type === 'sku' && r.aggregate_by_family)
+  const familyRules = rules.filter((r) => r.scope_type === 'family')
+
+  const ruleMatch =
+    resolveCommercialRule(skuRulesPlain, { ...input, quantity: physicalUnits(line) }) ??
+    (thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: packGroupPhysical }) : null) ??
+    resolveCommercialRule(skuRulesFamilyAgg, { ...input, quantity: familyPhysical }) ??
+    resolveCommercialRule(familyRules, { ...input, quantity: familyPhysical })
+
   if (ruleMatch) {
-    const packUnits = ruleMatch.rule.scope_type === 'family' ? unitsPerSellUnit(line) : 1
     return {
-      amount: ruleMatch.rule.gross_amount * packUnits,
+      amount: ruleMatch.rule.gross_amount * unitsPerPack({ name: line.productName, attributes: line.variant.attributes }),
       currency: ruleMatch.rule.currency,
       vatRate: ruleMatch.rule.vat_rate,
       listName: formatRuleLabel(ruleMatch.rule),

@@ -7,6 +7,8 @@ export interface CommercialRule {
   scope_type: RuleScopeType
   family: string | null
   variant_id: string | null
+  /** Solo con scope_type='sku' y aggregate_by_pack_group=true: reemplaza a variant_id como criterio de matching. */
+  pack_group: string | null
   quantity_comparator: QuantityComparator
   min_quantity: number
   net_amount: number
@@ -23,11 +25,17 @@ export interface CommercialRule {
   responsible_email: string
   supersedes_rule_id: string | null
   notes: string
+  /** Solo válido con scope_type='sku': el umbral se evalúa sobre toda la familia (ej. Baldes). */
+  aggregate_by_family: boolean
+  /** Solo válido con scope_type='sku': el umbral se evalúa sobre las presentaciones hermanas del mismo producto (ej. Penosil x1/x3/x6/x12). */
+  aggregate_by_pack_group: boolean
 }
 
 export interface RuleResolutionInput {
   variantId: string
   family: string
+  /** Presente cuando la línea tiene un `pack_group` persistido; habilita el matching de reglas por pack_group. */
+  packGroup?: string | null
   quantity: number
   /** ISO date (YYYY-MM-DD). Por defecto, hoy. */
   today?: string
