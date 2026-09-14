@@ -1,6 +1,6 @@
 # ADR-003: Cotizaciones compartidas con snapshot histórico
 
-**Estado:** Implementado y verificado en Supabase  
+**Estado:** Implementado y verificado en Supabase
 **Fecha:** 12/09/2026  
 **Decisores:** Felipe / Codex
 
