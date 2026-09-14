@@ -135,6 +135,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
   const visibleQuotes = useMemo(() => historyStatus === 'todas' ? savedQuotes : savedQuotes.filter((quote) => quote.meta.status === historyStatus), [savedQuotes, historyStatus])
+  const editingSavedQuote = savedQuotes.some((quote) => quote.meta.number === meta.number)
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
   useEffect(() => {
@@ -218,7 +219,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
         <main className="history-page">
           <div className="page-intro"><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones guardadas</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial compartido con el equipo y respaldado en este navegador.' : quoteSyncStatus === 'guardando' ? 'Sincronizando con el equipo…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones compartidas…' : 'Modo local: el respaldo está seguro en este navegador; la sincronización remota todavía no está disponible.'}</p></div>
           {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
-          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Abrir</button></article>)}</div>}
+          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button></article>)}</div>}
         </main>
       ) : activeSection === 'catalogo' ? (
         <main className="catalog-page">
@@ -228,7 +229,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
       ) : (
         <main className="quote-page">
           <section className="quote-builder">
-            <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>Nueva cotización</h1><p className="muted">Cotizá con el catálogo vigente y conservá el control antes de enviar.</p></div><div className="quote-status">{meta.number}</div></div>
+            <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>{editingSavedQuote ? `Editando cotización ${meta.number}` : 'Nueva cotización'}</h1><p className="muted">{editingSavedQuote ? 'Los cambios conservarán el mismo número y quedarán disponibles para todo el equipo.' : 'Cotizá con el catálogo vigente y conservá el control antes de enviar.'}</p></div><div className="quote-status">{meta.number}</div></div>
             <div className={`client-card ${clientOpen ? 'open' : 'collapsed'}`}>
               <button className="client-toggle" onClick={() => setClientOpen((value) => !value)}><div className="section-title"><span>01</span><div><h2>{meta.client || 'Cliente opcional'}</h2><p>{clientOpen ? 'Datos que aparecerán en la propuesta.' : 'Podés cotizar sin completar datos.'}</p></div></div><strong>{clientOpen ? 'Ocultar' : 'Agregar datos'}</strong></button>
               {clientOpen && <div className="client-fields">
@@ -271,7 +272,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div>{sourceCurrency === 'USD' && meta.exchangeRate > 0 && <><div className="peso-equivalent"><span>Equivalente estimado en pesos</span><strong>{money(totals.total * meta.exchangeRate, 'ARS')}</strong></div><small className="exchange-legend">USD {money(totals.total, 'USD')} × {money(meta.exchangeRate, 'ARS')} por dólar. {exchangeInfo.loading ? 'Actualizando cotización…' : exchangeInfo.error || exchangeInfo.source}.</small></>}</div>
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
-            <div className="rail-actions"><button onClick={save}>Guardar en historial</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button></div>
+            <div className="rail-actions"><button onClick={save}>{editingSavedQuote ? 'Guardar cambios' : 'Guardar en historial'}</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button></div>
           </section>
         </main>
       )}
