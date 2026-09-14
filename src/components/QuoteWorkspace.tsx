@@ -61,6 +61,7 @@ function BrandMark({ brand }: { brand: string }) {
 }
 
 function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: CommercialRule[]; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
   const totals = quoteTotals(quote.lines, quote.meta.discountPercent, quote.meta.surchargePercent, quote.meta.exchangeRate, quote.meta.outputCurrency, quote.meta.priceMode, rules)
   const brands = [...new Set(quote.lines.map((line) => line.brand))]
   const principalBrand = brands.length === 1 ? brands[0] : 'Grupo Poliplast'
@@ -72,7 +73,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
       <section className={`quote-preview preview-${principalBrand.toLowerCase().replace(/\W/g, '')}`}>
         <div className="preview-actions no-print">
           <button onClick={onClose}>Volver</button>
-          <button className="primary-action inline" onClick={() => navigator.clipboard.writeText(serializeQuoteForWhatsApp(quote, rules))}>Copiar mensaje</button>
+          <button className="primary-action inline" onClick={async () => { await navigator.clipboard.writeText(serializeQuoteForWhatsApp(quote, rules)); setCopied(true); window.setTimeout(() => setCopied(false), 1800) }}>{copied ? 'Copiado ✓' : 'Copiar mensaje'}</button>
         </div>
         <header className="preview-header">
           <div className="preview-brands"><BrandMark brand={principalBrand} />{principalBrand !== 'Grupo Poliplast' && <BrandMark brand="Grupo Poliplast" />}</div>
@@ -123,6 +124,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [lastAdded, setLastAdded] = useState('')
   const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
+  const [historySearch, setHistorySearch] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
   const [whatsappOpen, setWhatsappOpen] = useState(false)
@@ -140,7 +142,13 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
   const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
-  const visibleQuotes = useMemo(() => historyStatus === 'todas' ? savedQuotes : savedQuotes.filter((quote) => quote.meta.status === historyStatus), [savedQuotes, historyStatus])
+  const visibleQuotes = useMemo(() => {
+    const needle = historySearch.trim().toLocaleLowerCase('es-AR')
+    return savedQuotes
+      .filter((quote) => historyStatus === 'todas' || quote.meta.status === historyStatus)
+      .filter((quote) => !needle || [quote.meta.number, quote.meta.client, quote.meta.contact, quote.meta.email, ...quote.lines.flatMap((line) => [line.productName, line.variant.sku])].some((value) => String(value).toLocaleLowerCase('es-AR').includes(needle)))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  }, [savedQuotes, historyStatus, historySearch])
   const editingSavedQuote = savedQuotes.some((quote) => quote.meta.number === meta.number)
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
@@ -197,7 +205,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     const quote = snapshot()
     setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
     setQuoteSyncStatus('guardando')
-    try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido') } catch { setQuoteSyncStatus('local') }
+    try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
+    window.setTimeout(() => setLastAdded(''), 2400)
   }
   const startNew = async () => {
     const draft = newMeta(savedQuotes)
@@ -210,6 +219,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const sendWhatsApp = (phone = whatsappPhone) => {
     const quote = snapshot()
     const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
+    void save()
     window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
     setWhatsappOpen(false)
   }
@@ -218,10 +228,16 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const openWhatsApp = () => { setWhatsappPhone(availablePhones[0] ?? ''); setNewWhatsappPhone(''); setWhatsappOpen(true) }
   const saveNewPhone = async () => {
     if (!matchingClient) return
-    await addCommercialClientPhone(matchingClient.id, newWhatsappPhone, userId)
-    const normalized = newWhatsappPhone.replace(/\D/g, '')
-    setClients((current) => current.map((client) => client.id === matchingClient.id ? { ...client, phones: [...new Set([...client.phones, normalized])], phone: client.phone || normalized } : client))
-    setWhatsappPhone(normalized); setNewWhatsappPhone('')
+    try {
+      await addCommercialClientPhone(matchingClient.id, newWhatsappPhone, userId)
+      const normalized = newWhatsappPhone.replace(/\D/g, '')
+      setClients((current) => current.map((client) => client.id === matchingClient.id ? { ...client, phones: [...new Set([...client.phones, normalized])], phone: client.phone || normalized } : client))
+      setWhatsappPhone(normalized); setNewWhatsappPhone(''); setLastAdded('Número agregado a la ficha compartida del cliente')
+      window.setTimeout(() => setLastAdded(''), 2200)
+    } catch {
+      setLastAdded('No se pudo guardar el número. Revisá la conexión e intentá otra vez.')
+      window.setTimeout(() => setLastAdded(''), 3000)
+    }
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
   const selectClient = (clientId: string) => {
@@ -245,8 +261,8 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
       {activeSection === 'administracion' ? <AdminPanel userEmail={userEmail} /> : activeSection === 'historial' ? (
         <main className="history-page">
           <div className="page-intro page-intro-actions"><div><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial sincronizado en todas tus computadoras.' : quoteSyncStatus === 'guardando' ? 'Sincronizando…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones…' : 'Modo local: la sincronización todavía no está disponible.'}</p></div><div className="history-actions">{lines.length > 0 && <button className="secondary-action" onClick={() => setActiveSection('cotizacion')}>Continuar borrador {meta.number}</button>}<button className="primary-action inline" onClick={startNew}>+ Nueva cotización</button></div></div>
-          {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
-          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button></article>)}</div>}
+          {savedQuotes.length > 0 && <div className="history-toolbar"><input type="search" aria-label="Buscar cotizaciones" placeholder="Buscar número, cliente, contacto, producto o SKU" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} /><div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div></div>}
+          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button></article>)}</div>}
         </main>
       ) : activeSection === 'catalogo' ? (
         <main className="catalog-page">

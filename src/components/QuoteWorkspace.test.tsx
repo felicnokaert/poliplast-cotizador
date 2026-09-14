@@ -5,6 +5,7 @@ import * as commercialRulesLib from '../lib/commercialRules'
 import * as catalogLib from '../lib/catalog'
 import * as clientsLib from '../lib/clients'
 import * as exchangeLib from '../lib/exchange'
+import * as sharedQuotesLib from '../lib/sharedQuotes'
 import type { CommercialRule } from '../types/commercialRules'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
@@ -73,6 +74,38 @@ afterEach(() => {
 })
 
 describe('QuoteWorkspace — reglas comerciales conectadas', () => {
+  it('busca el historial por cliente, número, producto o SKU', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    localStorage.setItem('poliplast-cotizador-quotes-v1', JSON.stringify([
+      { meta: { number: '0001', client: 'Cliente Alfa', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-14T10:00:00Z' }, lines: [{ id: 'l1', productId: 'p-almohada', productName: 'Almohada clásica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: almohadaVariant, quantity: 1 }], updatedAt: '2026-09-14T10:00:00Z' },
+      { meta: { number: '0002', client: 'Cliente Beta', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'enviada', createdAt: '2026-09-14T11:00:00Z' }, lines: [], updatedAt: '2026-09-14T11:00:00Z' },
+    ]))
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    const search = screen.getByRole('searchbox', { name: 'Buscar cotizaciones' })
+    fireEvent.change(search, { target: { value: 'ALM-1' } })
+    expect(screen.getByText('Cliente Alfa')).toBeInTheDocument()
+    expect(screen.queryByText('Cliente Beta')).not.toBeInTheDocument()
+  })
+
+  it('protege la cotización antes de abrir WhatsApp', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([{ id: 'c1', company: 'Cliente Alfa', legalName: 'Cliente Alfa SA', cuit: '', contact: '', phone: '5491155551234', phones: ['5491155551234'], email: '' }])
+    const saveShared = vi.spyOn(sharedQuotesLib, 'saveSharedQuote').mockResolvedValue()
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
+    fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    openActiveQuote()
+    fireEvent.click(screen.getByRole('button', { name: /Agregar datos/ }))
+    fireEvent.change(await screen.findByLabelText('Elegir del CRM'), { target: { value: 'c1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Continuar a WhatsApp' }))
+    await waitFor(() => expect(saveShared).toHaveBeenCalled())
+    expect(open).toHaveBeenCalledWith(expect.stringContaining('wa.me/5491155551234'), '_blank', 'noopener,noreferrer')
+  })
+
   it('en una cotización no despliega el catálogo hasta escribir tres caracteres', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])

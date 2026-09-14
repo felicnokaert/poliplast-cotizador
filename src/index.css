@@ -26,7 +26,9 @@ body {
 button {
   font-family: inherit;
   cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .12s ease;
 }
+button:active:not(:disabled) { transform: translateY(1px); }
 
 .centered-page {
   min-height: 100vh;
@@ -635,7 +637,10 @@ button {
 .quote-page .policy-note, .quote-page .autosave-note { max-width: 720px; margin-left: auto; }
 .quote-page .autosave-note { margin-top: 6px; font-size: .68rem; text-align: right; }
 .quote-page .rail-actions { justify-content: flex-end; }
-.add-toast { position: fixed; right: 22px; bottom: 22px; z-index: 80; max-width: 390px; padding: 11px 15px; border-radius: 8px; background: #272625; color: white; box-shadow: 0 10px 30px rgba(0,0,0,.24); font-size: .82rem; font-weight: 750; }
+.add-toast { position: fixed; right: 22px; bottom: 22px; z-index: 80; max-width: 390px; padding: 11px 15px; border-radius: 8px; background: #272625; color: white; box-shadow: 0 10px 30px rgba(0,0,0,.24); font-size: .82rem; font-weight: 750; animation: toast-in .18s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.history-toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) auto; align-items: center; gap: 10px; margin-bottom: 12px; }
+.history-toolbar > input { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; background: white; font-size: .78rem; }
 .location-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; width: 100%; }
 .location-grid article { display: flex; flex-direction: column; gap: 4px; padding: 13px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
 .location-grid article > span { color: #a71915; font-size: .65rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
@@ -699,6 +704,12 @@ button {
 .danger-outline { border-color: #d8aaa7 !important; color: #9c2520 !important; background: #fff7f6 !important; }
 
 @media (max-width: 760px) {
+  .history-toolbar { grid-template-columns: 1fr; }
+  .history-filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 3px; }
+  .history-list article { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+  .history-list article > div { min-width: 0; }
+  .history-list article > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .history-list article button { grid-column: 1 / -1; width: 100%; }
   .catalog-admin-search { align-items: stretch; flex-direction: column; }
   .catalog-admin-list article { grid-template-columns: 1fr 1fr; }
   .catalog-admin-identity { grid-column: 1 / -1; }
@@ -725,6 +736,10 @@ button {
   .preview-table td:nth-child(4)::before { content: 'Unitario'; }
   .preview-table td:nth-child(5)::before { content: 'Total'; }
   .add-toast { inset: auto 12px 78px; max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
 .client-card { margin: 14px 0 18px; padding: 14px; border-radius: 9px; }
