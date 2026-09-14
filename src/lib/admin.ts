@@ -10,7 +10,7 @@ export interface AdminOverview {
 }
 
 export interface AdminCatalogRow {
-  variant_id?: string
+  product_id: string; variant_id: string; active: boolean; product_status: string
   sku: string; producto: string; variante: string; marca: string; familia: string; subfamilia: string; unidad: string
   precio_consumidor_final: number | ''; precio_mayorista: number | ''; moneda_precio: string
   costo: number | ''; moneda_costo: string; stock: number | ''; unidad_stock: string; fuente: string
@@ -54,15 +54,29 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     stockByVariant.set(item.variant_id, current ? { ...current, approved_quantity: Number(current.approved_quantity) + Number(item.approved_quantity) } : item)
   }
   const catalog = variants.flatMap((variant): AdminCatalogRow[] => {
-    const product = productById.get(String(variant.product_id)); if (!product || product.status !== 'vigente' || variant.active === false) return []
+    const product = productById.get(String(variant.product_id)); if (!product) return []
     const available = (pricesByVariant.get(String(variant.id)) ?? []).filter((price) => price.status === 'confirmado' && listById.get(String(price.price_list_id))?.status === 'vigente')
     const withList: Array<Record<string, unknown> & { list: Record<string, unknown> }> = available.map((price) => ({ ...price, list: listById.get(String(price.price_list_id))! }))
     const wholesale = withList.find((price) => /mayorista|distribuidor/i.test(String(price.list.name)))
     const consumer = withList.find((price) => !/mayorista|distribuidor/i.test(String(price.list.name)))
     const cost = latestCost.get(String(variant.id)); const stock = stockByVariant.get(String(variant.id)); const price = consumer ?? wholesale
-    return [{ variant_id: String(variant.id), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
+    return [{ product_id: String(product.id), variant_id: String(variant.id), active: variant.active !== false, product_status: String(product.status), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
   })
   return { isAdmin: true, costs, inventory, locations, imports: imports.data ?? [], catalog }
+}
+
+export async function updateCatalogClassification(productId: string, family: string, subfamily: string) {
+  const cleanFamily = family.trim(); const cleanSubfamily = subfamily.trim()
+  if (!cleanFamily) throw new Error('La familia no puede quedar vacía.')
+  const { data, error } = await supabase.from('catalog_products').update({ family: cleanFamily, subfamily: cleanSubfamily, updated_at: new Date().toISOString() }).eq('id', productId).select('id').single()
+  if (error) throw error
+  return data
+}
+
+export async function setCatalogVariantActive(variantId: string, active: boolean) {
+  const { data, error } = await supabase.from('catalog_variants').update({ active, updated_at: new Date().toISOString() }).eq('id', variantId).select('id,active').single()
+  if (error) throw error
+  return data
 }
 
 export function csvEscape(value: unknown) {

@@ -7,7 +7,7 @@ describe('CSV administrativo', () => {
   it('tolera lotes vacíos', () => expect(rowsToCsv([])).toBe(''))
 })
 
-const catalog: AdminCatalogRow[] = [{ sku: 'SKU-1', producto: 'Producto', variante: '', marca: 'Poliplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 12, precio_mayorista: '', moneda_precio: 'USD', costo: 8, moneda_costo: 'USD', stock: 10, unidad_stock: 'kg', fuente: 'Catálogo' }]
+const catalog: AdminCatalogRow[] = [{ product_id: 'p1', variant_id: 'v1', active: true, product_status: 'vigente', sku: 'SKU-1', producto: 'Producto', variante: '', marca: 'Poliplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 12, precio_mayorista: '', moneda_precio: 'USD', costo: 8, moneda_costo: 'USD', stock: 10, unidad_stock: 'kg', fuente: 'Catálogo' }]
 
 describe('vista previa de importación administrativa', () => {
   it('lee CSV de Excel argentino con punto decimal o coma decimal', () => {
