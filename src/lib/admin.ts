@@ -79,6 +79,14 @@ export async function setCatalogVariantActive(variantId: string, active: boolean
   return data
 }
 
+export async function setCatalogVariantPrice(variantId: string, kind: PriceImportKind, amount: number, currency: 'USD' | 'ARS', reason: string) {
+  if (!Number.isFinite(amount) || amount < 0) throw new Error('Ingresá un precio válido.')
+  if (reason.trim().length < 3) throw new Error('Indicá la fuente o motivo del cambio.')
+  const { data, error } = await supabase.rpc('admin_set_variant_price', { p_variant_id: variantId, p_kind: kind, p_amount: amount, p_currency: currency, p_reason: reason.trim() })
+  if (error) throw error
+  return data as string
+}
+
 export function csvEscape(value: unknown) {
   const text = String(value ?? '')
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text

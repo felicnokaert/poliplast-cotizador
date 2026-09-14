@@ -131,7 +131,7 @@ export async function loadCommercialRules(): Promise<CommercialRule[]> {
   return (data ?? []).map(mapRuleRow)
 }
 
-export type NewCommercialRule = Pick<CommercialRule, 'scope_type' | 'family' | 'variant_id' | 'pack_group' | 'quantity_comparator' | 'min_quantity' | 'net_amount' | 'vat_rate' | 'currency' | 'unit' | 'valid_from' | 'valid_until' | 'source' | 'notes' | 'aggregate_by_family' | 'aggregate_by_pack_group'>
+export type NewCommercialRule = Pick<CommercialRule, 'scope_type' | 'family' | 'variant_id' | 'pack_group' | 'quantity_comparator' | 'min_quantity' | 'net_amount' | 'vat_rate' | 'currency' | 'unit' | 'valid_from' | 'valid_until' | 'source' | 'notes' | 'aggregate_by_family' | 'aggregate_by_pack_group'> & { supersedes_rule_id?: string | null }
 
 /** Inserta una nueva versión; las reglas existentes nunca se pisan. */
 export async function createCommercialRule(rule: NewCommercialRule, responsibleEmail: string): Promise<void> {
@@ -139,6 +139,12 @@ export async function createCommercialRule(rule: NewCommercialRule, responsibleE
     ...rule, gross_amount: rule.net_amount * (1 + rule.vat_rate), status: 'confirmado', override_reason: '',
     responsible_email: responsibleEmail, created_by_email: responsibleEmail,
   })
+  if (error) throw error
+}
+
+export async function retireCommercialRule(ruleId: string, reason: string): Promise<void> {
+  if (reason.trim().length < 3) throw new Error('Indicá el motivo de la baja.')
+  const { error } = await supabase.from('commercial_rules').update({ status: 'vencido', valid_until: isoToday(), override_reason: reason.trim() }).eq('id', ruleId)
   if (error) throw error
 }
 

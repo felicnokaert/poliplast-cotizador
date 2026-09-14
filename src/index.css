@@ -671,19 +671,28 @@ button {
 .catalog-admin-search > input { flex: 1; min-width: 240px; }
 .catalog-admin-search label { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: .75rem; }
 .catalog-admin-list { display: grid; gap: 6px; max-height: 520px; overflow: auto; }
-.catalog-admin-list article { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(130px, .7fr) minmax(130px, .7fr) auto auto; align-items: end; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: white; }
+.catalog-admin-list article { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(125px, .7fr) minmax(125px, .7fr) auto auto auto; align-items: end; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: white; }
 .catalog-admin-list article.inactive { opacity: .65; background: #f3f3f2; }
 .catalog-admin-list label { display: grid; gap: 3px; color: var(--muted); font-size: .66rem; font-weight: 700; }
 .catalog-admin-list input, .catalog-admin-search input { border: 1px solid var(--border); border-radius: 6px; padding: 6px 7px; }
 .catalog-admin-identity { display: grid; gap: 2px; min-width: 0; }
 .catalog-admin-identity strong, .catalog-admin-identity span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .catalog-admin-identity span { color: var(--muted); font-size: .7rem; }
+.catalog-admin-identity small { color: #555; font-size: .66rem; }
+.catalog-price-editor { grid-column: 1 / -1; display: grid; grid-template-columns: 150px 150px 100px minmax(240px, 1fr) auto; align-items: end; gap: 6px; padding-top: 7px; border-top: 1px solid var(--border); }
+.commercial-rule-list { display: grid; gap: 5px; max-height: 360px; overflow: auto; }
+.commercial-rule-list article { display: flex; align-items: center; gap: 6px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 7px; background: white; }
+.commercial-rule-list article > div { display: grid; flex: 1; gap: 2px; }
+.commercial-rule-list small { color: var(--muted); }
 .danger-outline { border-color: #d8aaa7 !important; color: #9c2520 !important; background: #fff7f6 !important; }
 
 @media (max-width: 760px) {
   .catalog-admin-search { align-items: stretch; flex-direction: column; }
   .catalog-admin-list article { grid-template-columns: 1fr 1fr; }
   .catalog-admin-identity { grid-column: 1 / -1; }
+  .catalog-price-editor { grid-template-columns: 1fr 1fr; }
+  .catalog-price-editor .price-reason-field { grid-column: 1 / -1; }
+  .commercial-rule-list article { align-items: stretch; flex-wrap: wrap; }
   .page-intro-actions, .quote-items-heading { align-items: stretch; flex-direction: column; }
   .page-intro-actions button, .quote-items-heading button { width: 100%; }
   .quote-page .commercial-controls > label { width: 100%; max-width: none; }
