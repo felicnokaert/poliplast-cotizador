@@ -129,6 +129,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [whatsappPhone, setWhatsappPhone] = useState('')
   const [newWhatsappPhone, setNewWhatsappPhone] = useState('')
   const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
+  const [exchangeMode, setExchangeMode] = useState<'automatico' | 'manual'>('automatico')
   const [clients, setClients] = useState<CommercialClient[]>([])
   const [rules, setRules] = useState<CommercialRule[]>([])
   const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
@@ -149,6 +150,15 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     // La primera cotización también reserva su número; un borrador recuperado conserva el suyo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const refreshAutomaticExchange = () => {
+    setExchangeMode('automatico')
+    setExchangeInfo((current) => ({ ...current, loading: true, error: '' }))
+    fetchOfficialDollar().then((result) => {
+      setMeta((current) => ({ ...current, exchangeRate: result.rate }))
+      setExchangeInfo({ source: result.source, fetchedAt: result.fetchedAt, loading: false, error: '' })
+    }).catch(() => setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: 'No se pudo actualizar automáticamente' }))
+  }
   useEffect(() => {
     loadSharedQuotes()
       .then((remote) => { setSavedQuotes((local) => mergeQuoteHistories(local, remote)); setQuoteSyncStatus('compartido') })
@@ -254,7 +264,6 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
                 <label>Persona de contacto<input value={meta.contact} onChange={(e) => updateMeta('contact', e.target.value)} placeholder="Nombre y apellido" /></label>
                 <label>WhatsApp<input value={meta.phone} onChange={(e) => updateMeta('phone', e.target.value)} placeholder="54911..." /></label>
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>
-                <label>Condición de pago<select value={meta.paymentMethod} onChange={(e) => selectPaymentPolicy(e.target.value as PaymentMethod)}>{paymentPolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select><small className="exchange-source">{paymentPolicies.find((item) => item.id === meta.paymentMethod)?.customerText}</small></label>
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
             </div>
@@ -273,11 +282,10 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
             <div className="commercial-controls">
               <label>Política de precios<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Reglas comerciales automáticas</option><option value="consumidor_final">Forzar consumidor final</option><option value="mayorista">Forzar mayorista</option></select><small className="exchange-source">{meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Aplicada: ${totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}`}</small></label>
-              <label>Moneda de la cotización<input value="USD" disabled /><small className="exchange-source">El total equivalente se informa debajo en pesos.</small></label>
+              <label>Forma de pago<select value={meta.paymentMethod} onChange={(e) => selectPaymentPolicy(e.target.value as PaymentMethod)}>{paymentPolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select><small className="exchange-source">{paymentPolicies.find((item) => item.id === meta.paymentMethod)?.customerText}</small></label>
               <label>Estado de la cotización<select value={meta.status} onChange={(e) => updateMeta('status', e.target.value as QuoteMeta['status'])}><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select></label>
-              <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /><small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${exchangeInfo.source}${exchangeInfo.fetchedAt ? ` · ${new Date(exchangeInfo.fetchedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs` : ''}`}</small></label>
-              <label>Descuento autorizado %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
-              <label>Recargo / financiación %<input type="number" min="0" value={meta.surchargePercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('surchargePercent', Number(e.target.value))} /></label>
+              <label>Tipo de cambio<select value={exchangeMode} onChange={(e) => e.target.value === 'automatico' ? refreshAutomaticExchange() : setExchangeMode('manual')}><option value="automatico">Automático · BNA vendedor</option><option value="manual">Manual</option></select>{exchangeMode === 'manual' && <input aria-label="Tipo de cambio manual ARS/USD" type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} />}<small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${money(meta.exchangeRate, 'ARS')} por USD · ${exchangeInfo.source}`}</small></label>
+              <label>Descuento %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>
             </div>
 
@@ -286,7 +294,6 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             {totals.pendingLines > 0 && <p className="quote-warning">{totals.pendingLines} renglón/es sin precio aplicable para esa cantidad.</p>}
             {stockWarnings.length > 0 && <p className="quote-warning">{stockWarnings.length} renglón/es superan el último stock aprobado. La cotización puede continuar, pero hay que confirmar disponibilidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div>{sourceCurrency === 'USD' && meta.exchangeRate > 0 && <><div className="peso-equivalent"><span>Equivalente estimado en pesos</span><strong>{money(totals.total * meta.exchangeRate, 'ARS')}</strong></div><small className="exchange-legend">USD {money(totals.total, 'USD')} × {money(meta.exchangeRate, 'ARS')} por dólar. {exchangeInfo.loading ? 'Actualizando cotización…' : exchangeInfo.error || exchangeInfo.source}.</small></>}</div>
-            <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
             <div className="rail-actions"><button onClick={save}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear otra' : 'Guardar y crear otra'}</button></div>
           </section>

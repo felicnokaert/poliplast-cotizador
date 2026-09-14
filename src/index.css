@@ -565,7 +565,10 @@ button {
 .page-intro-actions h1 { margin-bottom: 3px; }
 .quote-page { display: grid; gap: 16px; max-width: 1440px; margin: 0 auto; }
 .quote-page .quote-builder { min-width: 0; }
-.quote-page .quote-rail { position: static; max-height: none; overflow: visible; width: 100%; }
+.quote-page .quote-rail { position: static; max-height: none; overflow: visible; width: 100%; padding: 10px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.quote-page .rail-title { margin-bottom: 7px; }
+.quote-page .rail-title h2 { margin: 1px 0 0; font-size: 1rem; }
+.quote-page .rail-title .eyebrow { font-size: .62rem; }
 .quote-items-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 10px; }
 .quote-items-heading .products-title { margin: 0; }
 .secondary-action { border: 1px solid #c9c5c1; border-radius: 8px; padding: 9px 13px; background: white; color: #292725; font-weight: 750; }
@@ -574,10 +577,16 @@ button {
 .quote-product-picker .catalog-header { position: static; background: transparent; }
 .quote-page .quote-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 9px; }
 .quote-page .quote-line { margin: 0; border: 1px solid var(--border); border-radius: 8px; padding: 11px; background: #fff; }
-.quote-page .commercial-controls { margin-top: 18px; grid-template-columns: repeat(3, minmax(180px, 1fr)); }
+.quote-page .commercial-controls { margin-top: 10px; padding-top: 10px; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 7px; }
+.quote-page .commercial-controls input, .quote-page .commercial-controls select, .quote-page .commercial-controls textarea { padding: 7px 8px; font-size: .8rem; }
+.quote-page .commercial-controls textarea { min-height: 52px; resize: vertical; }
 .quote-page .commercial-controls .full-field { grid-column: span 3; }
-.quote-page .quote-totals { width: min(100%, 520px); margin: 18px 0 0 auto; }
+.quote-page .quote-totals { width: min(100%, 440px); margin: 10px 0 0 auto; padding-top: 7px; gap: 4px; font-size: .78rem; }
+.quote-page .quote-totals .grand-total { padding-top: 4px; font-size: 1rem; }
+.quote-page .peso-equivalent { font-size: .86rem; }
+.quote-page .exchange-legend { font-size: .66rem; }
 .quote-page .policy-note, .quote-page .autosave-note { max-width: 720px; margin-left: auto; }
+.quote-page .autosave-note { margin-top: 6px; font-size: .68rem; text-align: right; }
 .quote-page .rail-actions { justify-content: flex-end; }
 .add-toast { position: fixed; right: 22px; bottom: 22px; z-index: 80; max-width: 390px; padding: 11px 15px; border-radius: 8px; background: #272625; color: white; box-shadow: 0 10px 30px rgba(0,0,0,.24); font-size: .82rem; font-weight: 750; }
 .location-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; width: 100%; }
