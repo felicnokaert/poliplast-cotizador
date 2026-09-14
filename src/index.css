@@ -179,9 +179,9 @@ button {
 .primary-action { width: 100%; margin-top: 10px; }
 .primary-action:disabled { opacity: .45; cursor: not-allowed; }
 .add-button { padding: 6px 9px; font-size: .78rem; }
-.rail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.rail-actions button { border: 1px solid var(--border); background: white; border-radius: 8px; padding: 9px; font-weight: 700; }
-.rail-actions .primary-action { grid-column: 1 / -1; border: 0; background: var(--accent); }
+.rail-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.rail-actions button { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 38px; border: 1px solid var(--border); background: white; border-radius: 8px; padding: 6px 8px; font-size: .72rem; line-height: 1.15; font-weight: 700; text-align: center; }
+.rail-actions .primary-action { grid-column: auto; width: auto; margin: 0; border: 0; background: var(--accent); }
 .rail-actions button:disabled { opacity: .45; cursor: not-allowed; }
 
 .history-page { max-width: 980px; margin: 0 auto; }
@@ -523,6 +523,7 @@ button {
   .admin-metrics { grid-template-columns: 1fr; }
   .admin-section { align-items: flex-start; flex-direction: column; }
   .price-import-settings { grid-template-columns: 1fr 1fr; }
+  .rail-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media print {
