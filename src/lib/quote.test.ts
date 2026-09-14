@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, automaticPricingSummary, createQuoteNumber, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp } from './quote'
+import { addQuoteLine, automaticPricingSummary, createQuoteNumber, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -48,6 +48,12 @@ const product = {
 } satisfies ProductWithVariants
 
 describe('quote', () => {
+  it('arma WhatsApp con o sin teléfono y normaliza números argentinos', () => {
+    expect(whatsappUrl('', 'Hola mundo')).toBe('https://api.whatsapp.com/send?text=Hola%20mundo')
+    expect(whatsappUrl('11 5555-1234', 'Hola')).toBe('https://wa.me/541155551234?text=Hola')
+    expect(whatsappUrl('+54 9 11 5555-1234', 'Hola')).toBe('https://wa.me/5491155551234?text=Hola')
+  })
+
   it('genera numeración comercial legible e inequívoca', () => {
     expect(createQuoteNumber()).toBe('0001')
     expect(createQuoteNumber(new Date(), ['0001', '0007'])).toBe('0008')
@@ -92,7 +98,7 @@ describe('quote', () => {
     expect(totals.discount).toBe(80)
     expect(totals.surcharge).toBe(36)
     expect(totals.vat).toBeCloseTo(138.8429, 3)
-    expect(totals.convertedTotal).toBe(756000)
+    expect(totals.convertedTotal).toBe(756)
   })
 
   it('sin reglas comerciales cargadas, usa el precio de lista normal (nunca inventa una condición)', () => {

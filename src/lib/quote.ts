@@ -41,6 +41,15 @@ export interface QuoteMeta {
 
 export interface SavedQuote { meta: QuoteMeta; lines: QuoteLine[]; updatedAt: string }
 
+export function whatsappUrl(phone: string, message: string): string {
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = digits.slice(1)
+  if (digits.startsWith('15')) digits = digits.slice(2)
+  if (digits && !digits.startsWith('54')) digits = `54${digits}`
+  const query = `text=${encodeURIComponent(message)}`
+  return digits ? `https://wa.me/${digits}?${query}` : `https://api.whatsapp.com/send?${query}`
+}
+
 /**
  * Un SKU puede representar un pack. Evita contar un pack x20 como una unidad
  * física. Fallback por nombre únicamente (sin `attributes.units_per_pack`
@@ -115,7 +124,7 @@ export function priceForQuantity(variant: VariantWithPricing, quantity: number, 
  * línea (`unitsPerPack`) — así un pack x4 cobra 4 veces el precio unitario
  * sin necesidad de una fila de regla por cada tamaño de pack.
  */
-export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = [], contextLines: QuoteLine[] = [line]) {
+export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico', rules: CommercialRule[] = [], contextLines: QuoteLine[] = [line], exchangeRate = 1) {
   const input = { variantId: line.variant.id, family: line.family }
   const sameFamily = contextLines.filter((item) => item.family === line.family)
   const familyPhysical = sumPhysicalUnits(sameFamily)
@@ -139,20 +148,22 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
       resolveCommercialRule(familyRules, { ...input, quantity: familyPhysical })
 
   if (ruleMatch) {
+    if (ruleMatch.rule.currency === 'ARS' && exchangeRate <= 0) return null
     return {
-      amount: ruleMatch.rule.gross_amount * unitsPerPack({ name: line.productName, attributes: line.variant.attributes }),
-      currency: ruleMatch.rule.currency,
+      amount: ruleMatch.rule.gross_amount * unitsPerPack({ name: line.productName, attributes: line.variant.attributes }) / (ruleMatch.rule.currency === 'ARS' ? exchangeRate : 1),
+      currency: 'USD' as const,
       vatRate: ruleMatch.rule.vat_rate,
-      listName: formatRuleLabel(ruleMatch.rule),
+      listName: formatRuleLabel(ruleMatch.rule, 'USD', ruleMatch.rule.gross_amount / (ruleMatch.rule.currency === 'ARS' ? exchangeRate : 1)),
       specialRule: true,
       ruleId: ruleMatch.rule.id,
     }
   }
   const effectiveMode = mode === 'automatico' ? resolveAutomaticPriceMode(contextLines) : mode
   const price = priceForQuantity(line.variant, line.quantity, effectiveMode)
+  if (price?.price_list.currency === 'ARS' && exchangeRate <= 0) return null
   return price ? {
-    amount: price.amount,
-    currency: price.price_list.currency,
+    amount: price.amount / (price.price_list.currency === 'ARS' ? exchangeRate : 1),
+    currency: 'USD' as const,
     vatRate: price.price_list.vat_rate ?? DEFAULT_VAT_RATE,
     listName: price.price_list.name,
     specialRule: false,
@@ -199,8 +210,9 @@ export function linePricingDetails(
   mode: PriceMode = 'automatico',
   rules: CommercialRule[] = [],
   contextLines: QuoteLine[] = [line],
+  exchangeRate = 0,
 ): LinePricingDetails {
-  const price = resolvedLinePrice(line, mode, rules, contextLines)
+  const price = resolvedLinePrice(line, mode, rules, contextLines, exchangeRate)
   const perPack = unitsPerPack({ name: line.productName, attributes: line.variant.attributes })
   const linePhysical = physicalUnits(line)
   const familyLines = contextLines.filter((item) => item.family === line.family)
@@ -357,11 +369,11 @@ export function quoteLineNet(line: QuoteLine): number | null {
   return price ? price.amount * line.quantity : null
 }
 
-export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, outputCurrency: 'USD' | 'ARS' = 'USD', priceMode: PriceMode = 'automatico', rules: CommercialRule[] = []) {
+export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePercent = 0, exchangeRate = 1, _outputCurrency: 'USD' | 'ARS' = 'USD', priceMode: PriceMode = 'automatico', rules: CommercialRule[] = []) {
   const appliedPriceMode = priceMode === 'automatico' ? resolveAutomaticPriceMode(lines) : priceMode
   const raw = lines.reduce(
     (totals, line) => {
-      const price = resolvedLinePrice(line, priceMode, rules, lines)
+      const price = resolvedLinePrice(line, priceMode, rules, lines, exchangeRate)
       if (!price) {
         totals.pendingLines += 1
         return totals
@@ -380,8 +392,7 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   // Los importes comerciales son finales: el IVA está incluido y se informa,
   // pero nunca se suma por segunda vez.
   const total = raw.subtotal - discount + surcharge
-  const conversion = outputCurrency === 'ARS' ? Math.max(0, exchangeRate) : 1
-  return { ...raw, discount, surcharge, total, convertedTotal: total * conversion, appliedPriceMode }
+  return { ...raw, discount, surcharge, total, convertedTotal: total, appliedPriceMode }
 }
 
 export function quoteExpiry(createdAt: string, validDays: number): Date {
@@ -394,9 +405,9 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const { meta, lines } = quote
   const totals = quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules)
   const money = (amount: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: meta.outputCurrency }).format(amount)
-  const conversion = meta.outputCurrency === 'ARS' ? meta.exchangeRate : 1
+  const conversion = 1
   const body = lines.map((line) => {
-    const details = linePricingDetails(line, meta.priceMode, rules, lines)
+    const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
     const price = details.price
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
   }).join('\n')

@@ -8,6 +8,7 @@ import {
   quoteExpiry,
   quoteTotals,
   serializeQuoteForWhatsApp,
+  whatsappUrl,
   type PaymentMethod,
   type PriceMode,
   type QuoteLine,
@@ -33,7 +34,7 @@ function money(amount: number, currency: string) {
 function loadSavedQuotes(): SavedQuote[] {
   try {
     const quotes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as SavedQuote[]
-    return quotes.map((quote) => ({ ...quote, meta: { ...quote.meta, priceMode: quote.meta.priceMode || 'automatico' } }))
+    return quotes.map((quote) => ({ ...quote, meta: { ...quote.meta, priceMode: quote.meta.priceMode || 'automatico', outputCurrency: 'USD' } }))
   } catch { return [] }
 }
 
@@ -41,7 +42,7 @@ function loadWorkingDraft(): SavedQuote | null {
   try {
     const draft = JSON.parse(localStorage.getItem(WORKING_DRAFT_KEY) || 'null') as SavedQuote | null
     if (!draft?.meta || !Array.isArray(draft.lines)) return null
-    return { ...draft, meta: { ...draft.meta, priceMode: draft.meta.priceMode || 'automatico' } }
+    return { ...draft, meta: { ...draft.meta, priceMode: draft.meta.priceMode || 'automatico', outputCurrency: 'USD' } }
   } catch { return null }
 }
 
@@ -86,7 +87,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
           <tbody>{quote.lines.map((line) => {
-            const details = linePricingDetails(line, quote.meta.priceMode, rules, quote.lines)
+            const details = linePricingDetails(line, quote.meta.priceMode, rules, quote.lines, quote.meta.exchangeRate)
             const price = details.price
             return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family} · {details.priceLabel}</small><small className="rule-note">{details.condition} {details.outcome}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}<small>{details.physicalUnits} u. físicas</small></td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack * conversion, quote.meta.outputCurrency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
           })}</tbody>
@@ -190,11 +191,11 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     const number = await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
     setMeta((current) => current.createdAt === draft.createdAt ? { ...current, number } : current)
   }
-  const loadQuote = (quote: SavedQuote) => { setMeta(quote.meta); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
+  const loadQuote = (quote: SavedQuote) => { setMeta({ ...quote.meta, outputCurrency: 'USD' }); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
   const openWhatsApp = () => {
     const quote = snapshot()
-    const phone = meta.phone.replace(/\D/g, '')
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod)))}`, '_blank', 'noopener,noreferrer')
+    const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
+    window.open(whatsappUrl(meta.phone, message), '_blank', 'noopener,noreferrer')
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
   const selectClient = (clientId: string) => {
@@ -249,7 +250,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
           <section className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
             {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
-              const details = linePricingDetails(line, meta.priceMode, rules, lines)
+              const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
               const price = details.price
               const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
               return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {details.priceLabel}</div>{exceedsApprovedStock && <div className="stock-warning">Cantidad supera el último saldo aprobado ({line.variant.approvedStock!.quantity} {line.variant.approvedStock!.unit}). Confirmar disponibilidad.</div>}<div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span>{price && <span className="price-trace">Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack, price.currency)} + IVA {(price.vatRate * 100).toFixed(0)}%</span>}<strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div><div className="price-reason"><span>{details.physicalUnits} unidades físicas</span><p>{details.condition} {details.outcome}</p></div></div>
@@ -257,9 +258,9 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
             <div className="commercial-controls">
               <label>Política de precios<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Reglas comerciales automáticas</option><option value="consumidor_final">Forzar consumidor final</option><option value="mayorista">Forzar mayorista</option></select><small className="exchange-source">{meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Aplicada: ${totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}`}</small></label>
-              <label>Moneda de salida<select value={meta.outputCurrency} onChange={(e) => updateMeta('outputCurrency', e.target.value as 'USD' | 'ARS')}><option value="USD">USD</option><option value="ARS">ARS</option></select></label>
+              <label>Moneda de la cotización<input value="USD" disabled /><small className="exchange-source">El total equivalente se informa debajo en pesos.</small></label>
               <label>Estado de la cotización<select value={meta.status} onChange={(e) => updateMeta('status', e.target.value as QuoteMeta['status'])}><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select></label>
-              {meta.outputCurrency === 'ARS' && <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /><small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${exchangeInfo.source}${exchangeInfo.fetchedAt ? ` · ${new Date(exchangeInfo.fetchedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs` : ''}`}</small></label>}
+              <label>Tipo de cambio ARS/USD<input type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /><small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${exchangeInfo.source}${exchangeInfo.fetchedAt ? ` · ${new Date(exchangeInfo.fetchedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs` : ''}`}</small></label>
               <label>Descuento autorizado %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
               <label>Recargo / financiación %<input type="number" min="0" value={meta.surchargePercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('surchargePercent', Number(e.target.value))} /></label>
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>

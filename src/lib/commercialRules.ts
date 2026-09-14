@@ -153,7 +153,7 @@ const AMOUNT_FORMAT = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 4,
  * Etiqueta corta para mostrar debajo del precio en pantalla, PDF y WhatsApp.
  * Ej: "Mayorista Almohadas · más de 200 unidades · USD 6,2315 final con IVA incluido".
  */
-export function formatRuleLabel(rule: CommercialRule): string {
+export function formatRuleLabel(rule: CommercialRule, currency = rule.currency, grossAmount = rule.gross_amount): string {
   const scopeLabel =
     rule.scope_type === 'family'
       ? `Mayorista ${rule.family}`
@@ -162,5 +162,5 @@ export function formatRuleLabel(rule: CommercialRule): string {
         : rule.aggregate_by_family
           ? `Mayorista ${rule.family} por tramo`
           : 'Precio especial por SKU'
-  return `${scopeLabel} · ${formatQuantityCondition(rule)} · ${rule.currency} ${AMOUNT_FORMAT.format(rule.gross_amount)} final con IVA incluido`
+  return `${scopeLabel} · ${formatQuantityCondition(rule)} · ${currency} ${AMOUNT_FORMAT.format(grossAmount)} final con IVA incluido`
 }

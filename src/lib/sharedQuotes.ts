@@ -24,7 +24,7 @@ export function quoteToDatabaseRows(quote: SavedQuote, userId: string, rules: Co
       status: meta.status, issued_at: meta.createdAt, updated_by: userId, updated_at: quote.updatedAt,
     },
     items: lines.map((line) => {
-      const price = resolvedLinePrice(line, meta.priceMode, rules, lines)
+      const price = resolvedLinePrice(line, meta.priceMode, rules, lines, meta.exchangeRate)
       return {
         line_key: line.id, variant_id: line.variant.id, product_id: line.productId, product_name: line.productName,
         sku: line.variant.sku, brand: line.brand, family: line.family, unit: line.variant.unit, quantity: line.quantity,
@@ -48,7 +48,7 @@ export function databaseRowToQuote(row: QuoteRow): SavedQuote | null {
       priceMode: String(row.price_mode ?? 'automatico') as SavedQuote['meta']['priceMode'],
       validDays: Number(row.valid_days ?? 7), discountPercent: Number(row.discount_percent ?? 0),
       surchargePercent: Number(row.surcharge_percent ?? 0), exchangeRate: Number(row.exchange_rate ?? 1),
-      outputCurrency: String(row.output_currency ?? 'USD') as SavedQuote['meta']['outputCurrency'],
+      outputCurrency: 'USD',
       status: String(row.status ?? 'borrador') as SavedQuote['meta']['status'], createdAt: String(row.issued_at),
     },
     lines,
