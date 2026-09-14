@@ -552,6 +552,7 @@ button {
   .print-family-brand.brand-penosil { color: #e33b28; }
   .print-family-brand.brand-purmac { color: #194f7a; }
   .print-price-list h1, .print-price-list p { margin: 0; }
+  .print-price-list h1 { font-size: 16pt; line-height: 1.05; }
   .print-price-list p { margin-top: 3px; font-size: 9pt; }
   .print-price-list table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
   .print-price-list thead { display: table-header-group; }
@@ -725,8 +726,8 @@ button {
 .quote-rail { border-radius: 9px; padding: 15px; box-shadow: 0 5px 20px rgba(0,0,0,.045); }
 .catalog-header { position: sticky; top: 0; z-index: 8; padding: 5px 0 8px; background: var(--bg); }
 .catalog-header h1 { margin: 0 0 8px; font-size: .98rem; }
-.price-list-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px; font-size: .7rem; }
-.price-list-actions select, .price-list-actions button { border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; background: white; font-size: .72rem; font-weight: 700; }
+.price-list-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; font-size: .66rem; }
+.price-list-actions select, .price-list-actions button { border: 1px solid var(--border); border-radius: 6px; padding: 4px 7px; background: white; font-size: .66rem; font-weight: 700; min-height: 28px; }
 .price-list-actions button { background: var(--text); color: white; }
 .print-price-list { display: none; }
 .filters { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, .75fr)); gap: 7px; margin-bottom: 6px; }
