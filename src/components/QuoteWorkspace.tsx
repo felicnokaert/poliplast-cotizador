@@ -56,7 +56,7 @@ function newMeta(existingQuotes: SavedQuote[] = loadSavedQuotes()): QuoteMeta {
 }
 
 function BrandMark({ brand }: { brand: string }) {
-  if (brand === 'Grupo Poliplast') return <img className="brand-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />
+  if (brand === 'Grupo Poliplast') return <img className="brand-logo" src="/poliplast-isotipo-color.png" alt="Grupo Poliplast" />
   return <div className={`brand-mark brand-mark-${brand.toLowerCase().replace(/\W/g, '')}`}><span>línea</span><strong>{brand}</strong></div>
 }
 
