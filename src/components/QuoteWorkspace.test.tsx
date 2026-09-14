@@ -61,8 +61,10 @@ function mockCommonLoaders() {
 }
 
 function openActiveQuote() {
-  fireEvent.click(screen.getByRole('button', { name: /Cotización 1/ }))
+  fireEvent.click(screen.getByRole('button', { name: /^Ver cotización \(/ }))
 }
+
+function openCatalog() { fireEvent.click(screen.getByRole('button', { name: /Catálogo/ })) }
 
 afterEach(() => {
   cleanup()
@@ -87,6 +89,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
     almohadaVariant.approvedStock = { quantity: 5, unit: 'u', approvedAt: '2026-09-12T00:00:00Z' }
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
     openActiveQuote()
     fireEvent.change(await screen.findByLabelText('Cantidad'), { target: { value: '6' } })
@@ -99,7 +102,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
-    fireEvent.click(screen.getByRole('button', { name: /Cotización 0/ }))
+    fireEvent.click(screen.getByRole('button', { name: '+ Nueva cotización' }))
     const status = await screen.findByLabelText('Estado')
     fireEvent.change(status, { target: { value: 'enviada' } })
     expect(status).toHaveValue('enviada')
@@ -110,13 +113,14 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
 
     const first = render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
     openActiveQuote()
     await waitFor(() => expect(screen.getByText(/Borrador protegido automáticamente/)).toBeInTheDocument())
     first.unmount()
 
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
-    fireEvent.click(screen.getByRole('button', { name: /Cotización 1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Continuar borrador/ }))
     expect(await screen.findByLabelText('Cantidad')).toHaveValue(1)
   })
 
@@ -125,6 +129,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([almohadasRule])
 
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)
@@ -144,6 +149,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([almohadasRule])
 
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)
@@ -161,6 +167,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockRejectedValue(new Error('Supabase caído'))
 
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
 
     const addButton = await screen.findByRole('button', { name: 'Agregar' })
     fireEvent.click(addButton)

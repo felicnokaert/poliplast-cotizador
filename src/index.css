@@ -185,6 +185,8 @@ button {
 .rail-actions button:disabled { opacity: .45; cursor: not-allowed; }
 
 .history-page { max-width: 980px; margin: 0 auto; }
+.history-actions { display: flex; gap: 7px; }
+.history-actions .primary-action { width: auto; margin: 0; }
 .page-intro h1 { margin: 4px 0; }
 .history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
 .history-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
@@ -537,9 +539,16 @@ button {
   .print-price-list { position: absolute; inset: 0; display: block; color: #111; }
   .print-price-list header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 14px; border-bottom: 2px solid #222; padding-bottom: 10px; }
   .print-price-list header img { width: 150px; }
+  .print-logos { display: flex; align-items: center; gap: 18px; }
+  .print-family-brand { padding-left: 18px; border-left: 1px solid #bbb; font-size: 17pt; letter-spacing: -.04em; }
+  .print-family-brand.brand-resinplast { color: #0071bc; }
+  .print-family-brand.brand-penosil { color: #e33b28; }
+  .print-family-brand.brand-purmac { color: #194f7a; }
   .print-price-list h1, .print-price-list p { margin: 0; }
   .print-price-list p { margin-top: 3px; font-size: 9pt; }
   .print-price-list table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  .print-price-list thead { display: table-header-group; }
+  .print-price-list tr { break-inside: avoid; }
   .print-price-list th, .print-price-list td { padding: 4px 6px; border-bottom: 1px solid #ddd; text-align: left; }
   .print-price-list th:last-child, .print-price-list td:last-child { text-align: right; }
   @page { size: A4; margin: 8mm; }
@@ -587,7 +596,9 @@ button {
 .quote-product-picker .catalog-header { position: static; background: transparent; }
 .quote-page .quote-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 9px; }
 .quote-page .quote-line { margin: 0; border: 1px solid var(--border); border-radius: 8px; padding: 11px; background: #fff; }
-.quote-page .commercial-controls { margin-top: 10px; padding-top: 10px; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 7px; }
+.quote-page .commercial-controls { display: flex; align-items: flex-start; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; gap: 7px; }
+.quote-page .commercial-controls > label { flex: 0 1 auto; }
+.quote-page .commercial-controls > label:first-child { width: min(100%, 360px); }
 .quote-page .commercial-controls input, .quote-page .commercial-controls select, .quote-page .commercial-controls textarea { padding: 7px 8px; font-size: .8rem; }
 .quote-page .commercial-controls .compact-control { align-self: start; }
 .inline-control { display: flex; gap: 5px; }
@@ -608,7 +619,7 @@ button {
 .quote-empty-action strong { color: var(--accent); font-size: .82rem; }
 .quote-empty-action span { margin-top: 2px; font-size: .68rem; }
 .quote-page .commercial-controls textarea { min-height: 52px; resize: vertical; }
-.quote-page .commercial-controls .full-field { grid-column: span 3; }
+.quote-page .commercial-controls .full-field { flex-basis: 100%; width: 100%; }
 .quote-page .quote-totals { width: min(100%, 440px); margin: 10px 0 0 auto; padding-top: 7px; gap: 4px; font-size: .78rem; }
 .quote-page .quote-totals .grand-total { padding-top: 4px; font-size: 1rem; }
 .quote-page .peso-equivalent { font-size: .86rem; }
@@ -653,8 +664,9 @@ button {
 @media (max-width: 760px) {
   .page-intro-actions, .quote-items-heading { align-items: stretch; flex-direction: column; }
   .page-intro-actions button, .quote-items-heading button { width: 100%; }
-  .quote-page .commercial-controls { grid-template-columns: 1fr; }
-  .quote-page .commercial-controls .full-field { grid-column: auto; }
+  .quote-page .commercial-controls > label { width: 100%; max-width: none; }
+  .quote-page .commercial-controls .full-field { width: 100%; }
+  .history-actions { flex-direction: column; }
   .quote-page .quote-lines { grid-template-columns: 1fr; }
   .price-reason { grid-template-columns: 1fr; }
   .price-reason span { width: fit-content; }

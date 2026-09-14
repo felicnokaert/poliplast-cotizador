@@ -119,7 +119,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [lines, setLines] = useState<QuoteLine[]>(() => initialDraft?.lines ?? [])
   const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
-  const [activeSection, setActiveSection] = useState<'catalogo' | 'cotizacion' | 'historial' | 'administracion'>('catalogo')
+  const [activeSection, setActiveSection] = useState<'catalogo' | 'cotizacion' | 'historial' | 'administracion'>('historial')
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [lastAdded, setLastAdded] = useState('')
   const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
@@ -139,6 +139,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
+  const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
   const visibleQuotes = useMemo(() => historyStatus === 'todas' ? savedQuotes : savedQuotes.filter((quote) => quote.meta.status === historyStatus), [savedQuotes, historyStatus])
   const editingSavedQuote = savedQuotes.some((quote) => quote.meta.number === meta.number)
 
@@ -237,13 +238,13 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     <>
       <nav className="workspace-nav">
         <div className="nav-brand"><BrandMark brand="Grupo Poliplast" /><span>Cotizador comercial</span></div>
-        <div className="nav-tabs"><button className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b>▦</b>Catálogo</button><button className={activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('cotizacion')}><b>▤</b>Cotización <span>{lines.length}</span></button><button className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>◷</b>Guardadas <span>{savedQuotes.length}</span></button><button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button></div>
-        <div className="nav-user"><span>{userEmail}</span><button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button></div>
+        <div className="nav-tabs"><button className={activeSection === 'historial' || activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>▤</b>Cotizaciones <span>{savedQuotes.length}</span></button><button className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b>▦</b>Catálogo</button>{canAccessAdministration && <button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button>}</div>
+        <div className="nav-user"><span>{userEmail}</span>{activeSection !== 'historial' && <button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button>}</div>
       </nav>
 
       {activeSection === 'administracion' ? <AdminPanel userEmail={userEmail} /> : activeSection === 'historial' ? (
         <main className="history-page">
-          <div className="page-intro"><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones guardadas</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial compartido con el equipo y respaldado en este navegador.' : quoteSyncStatus === 'guardando' ? 'Sincronizando con el equipo…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones compartidas…' : 'Modo local: el respaldo está seguro en este navegador; la sincronización remota todavía no está disponible.'}</p></div>
+          <div className="page-intro page-intro-actions"><div><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial sincronizado en todas tus computadoras.' : quoteSyncStatus === 'guardando' ? 'Sincronizando…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones…' : 'Modo local: la sincronización todavía no está disponible.'}</p></div><div className="history-actions">{lines.length > 0 && <button className="secondary-action" onClick={() => setActiveSection('cotizacion')}>Continuar borrador {meta.number}</button>}<button className="primary-action inline" onClick={startNew}>+ Nueva cotización</button></div></div>
           {savedQuotes.length > 0 && <div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div>}
           {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones con ese estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button></article>)}</div>}
         </main>
