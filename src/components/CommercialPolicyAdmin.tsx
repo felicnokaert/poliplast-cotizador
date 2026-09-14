@@ -116,8 +116,8 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
             </article>
           ))}
         </div>
-        <details>
-          <summary>{editingRule ? "Editando una condición" : "+ Crear condición mayorista"}</summary>
+        <details className="commercial-rule-editor" open={Boolean(editingRule) || undefined}>
+          <summary>{editingRule ? "Editando una condición" : "Crear condición mayorista"}</summary>
           <div className="policy-form">
             <label>
               Aplicar a

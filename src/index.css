@@ -645,6 +645,12 @@ button {
 .policy-health span, .policy-health b { color: var(--muted); font-size: .78rem; }
 .pending-skus { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 5px; max-height: 220px; overflow: auto; margin-top: 8px; font-size: .72rem; }
 .policy-form { display: grid; grid-template-columns: repeat(4,minmax(140px,1fr)); gap: 9px; }
+.commercial-rule-editor { border: 0; }
+.commercial-rule-editor > summary { display: inline-flex; align-items: center; gap: 7px; width: fit-content; cursor: pointer; list-style: none; border: 1px solid #b91f1a; border-radius: 8px; padding: 8px 12px; background: #c72c27; color: white; font-size: .76rem; font-weight: 750; box-shadow: 0 3px 10px rgba(199,44,39,.16); }
+.commercial-rule-editor > summary::-webkit-details-marker { display: none; }
+.commercial-rule-editor > summary::before { content: '+'; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: rgba(255,255,255,.2); font-size: .95rem; line-height: 1; }
+.commercial-rule-editor[open] > summary { margin-bottom: 10px; background: #fff4f3; color: #a31c18; box-shadow: none; }
+.commercial-rule-editor[open] > summary::before { content: '\2212'; background: #f4d8d6; }
 .policy-form label, .payment-policy-list label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: .7rem; }
 .policy-form .wide { grid-column: span 2; }
 .policy-form input, .policy-form select, .payment-policy-list input { width: 100%; border: 1px solid var(--border); border-radius: 7px; padding: 8px; background: white; }

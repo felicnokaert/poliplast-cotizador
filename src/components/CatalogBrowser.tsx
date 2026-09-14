@@ -4,6 +4,7 @@ import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters
 import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
+import { withoutKits } from '../lib/catalogVisibility'
 
 const BRAND_LOGOS: Record<string, string> = {
   penosil: '/brands/penosil.png',
@@ -57,14 +58,17 @@ export function CatalogBrowser({
   const filtered = useMemo(() => {
     if (!data) return []
     if (search.trim().length < minimumSearchLength) return []
-    return filterCatalog(data.products, { search, family, subfamily, brand, priceFilter })
+    return filterCatalog(withoutKits(data.products), { search, family, subfamily, brand, priceFilter })
   }, [data, search, family, subfamily, brand, priceFilter, minimumSearchLength])
   const subfamilies = useMemo(() => {
     if (!data) return []
     return [...new Set(data.products.filter((p) => family === 'todas' || p.family === family).map((p) => p.subfamily).filter(Boolean))].sort()
   }, [data, family])
   const visibleProducts = useMemo(() => printKind === 'wholesale'
-    ? filtered.filter((product) => product.variants.some((variant) => Boolean(commercialPrices(variant).wholesale)))
+    ? filtered.flatMap((product) => {
+        const variants = product.variants.filter((variant) => Boolean(commercialPrices(variant).wholesale))
+        return variants.length ? [{ ...product, variants }] : []
+      })
     : filtered, [filtered, printKind])
   const paginated = useMemo(() => paginateCatalog(visibleProducts, page, pageSize), [visibleProducts, page])
   const printBrands = [...new Set(visibleProducts.map((product) => product.brand))]
@@ -134,9 +138,9 @@ export function CatalogBrowser({
         </div>
       ) : search.trim().length < minimumSearchLength ? (
         <div className="catalog-search-prompt"><strong>Buscá el producto que querés cotizar</strong><span>Ingresá nombre, SKU, familia, subfamilia o marca.</span></div>
-      ) : filtered.length === 0 ? (
+      ) : visibleProducts.length === 0 ? (
         <div className="empty-state">
-          <p>No se encontraron productos con esos filtros.</p>
+          <p>{printKind === 'wholesale' ? 'No hay productos con precio mayorista para estos filtros.' : 'No se encontraron productos con esos filtros.'}</p>
         </div>
       ) : (
         <div className="product-list">
