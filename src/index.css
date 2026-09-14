@@ -648,6 +648,7 @@ button {
 .policy-form .wide { grid-column: span 2; }
 .policy-form input, .policy-form select, .payment-policy-list input { width: 100%; border: 1px solid var(--border); border-radius: 7px; padding: 8px; background: white; }
 .fixed-currency { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: #f5f6f4; color: var(--ink); font-size: .78rem; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 12px; border-radius: 7px; background: var(--accent); color: white; font-size: .78rem; font-weight: 700; text-decoration: none; }
 .payment-policy-list { display: grid; gap: 7px; }
 .payment-policy-list article { display: grid; grid-template-columns: 180px 1fr 90px 90px auto; gap: 7px; align-items: end; }
 .payment-policy-list button { padding: 8px 10px; }

@@ -178,7 +178,10 @@ export function AdminPanel({ userEmail = "" }: { userEmail?: string }) {
           <section className="admin-section stack">
             <div>
               <h2>Stock por depósito</h2>
-              <p className="muted">El stock se registra por depósito, se cuenta y luego se aprueba. Una cotización sólo consulta disponibilidad.</p>
+              <p className="muted">Los conteos se cargan en la app de stock y se vinculan al catálogo por SKU. La cotización sólo consulta el último saldo cerrado.</p>
+            </div>
+            <div className="admin-actions">
+              <a className="button-link" href="https://poliplast-conteo-stock.netlify.app/" target="_blank" rel="noreferrer">Abrir app de conteo</a>
             </div>
             <div className="location-grid">
               {data.locations.filter((location) => location.active).length === 0 ? (
@@ -198,7 +201,7 @@ export function AdminPanel({ userEmail = "" }: { userEmail?: string }) {
                   })
               )}
             </div>
-            <p className="muted">Próximo flujo: exportar plantilla por depósito → cargar conteo → revisar diferencias → aprobar saldo.</p>
+            <p className="muted">Vinculación prevista: depósito + SKU + último conteo cerrado. Los conteos en curso no modifican la disponibilidad comercial.</p>
           </section>
         </>
       )}
