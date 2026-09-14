@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { isKitPresentation, withoutKits } from './catalogVisibility'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
-const variant = (name: string): VariantWithPricing => ({
-  id: name, product_id: 'p1', sku: name, name, unit: 'unidad', attributes: {}, active: true,
+const variant = (name: string, sku = name): VariantWithPricing => ({
+  id: name, product_id: 'p1', sku, name, unit: 'unidad', attributes: {}, active: true,
   prices: [], hasTechnicalDoc: false,
 })
 
@@ -13,9 +13,13 @@ const product = (name: string, variants: VariantWithPricing[]): ProductWithVaria
 })
 
 describe('visibilidad del catálogo del cotizador', () => {
-  it('detecta kits y combos sin confundir palabras parciales', () => {
+  it('detecta kits, sets, combos, SKU de kit y productos compuestos', () => {
     expect(isKitPresentation('Kit resina epoxi', variant('1 kg'))).toBe(true)
     expect(isKitPresentation('Resina epoxi', variant('Combo x 2'))).toBe(true)
+    expect(isKitPresentation('Pigmentos', variant('Set primarios'))).toBe(true)
+    expect(isKitPresentation('Espuma', variant('4 kg', 'KT-628-4'))).toBe(true)
+    expect(isKitPresentation('Resina + catalizador', variant('1 kg'))).toBe(true)
+    expect(isKitPresentation('Resina epoxi', variant('1 kg'), 'Kits epoxi')).toBe(true)
     expect(isKitPresentation('Mosquitero', variant('Unidad'))).toBe(false)
   })
 
