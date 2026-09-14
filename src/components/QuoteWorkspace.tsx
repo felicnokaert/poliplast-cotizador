@@ -19,7 +19,7 @@ import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
-import { loadCommercialClients, type CommercialClient } from '../lib/clients'
+import { addCommercialClientPhone, loadCommercialClients, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 import { loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, reserveQuoteNumber, type PaymentPolicy } from '../lib/paymentPolicies'
@@ -125,6 +125,9 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
   const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
   const [previewOpen, setPreviewOpen] = useState(false)
   const [clientOpen, setClientOpen] = useState(false)
+  const [whatsappOpen, setWhatsappOpen] = useState(false)
+  const [whatsappPhone, setWhatsappPhone] = useState('')
+  const [newWhatsappPhone, setNewWhatsappPhone] = useState('')
   const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
   const [clients, setClients] = useState<CommercialClient[]>([])
   const [rules, setRules] = useState<CommercialRule[]>([])
@@ -191,11 +194,23 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
     const number = await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
     setMeta((current) => current.createdAt === draft.createdAt ? { ...current, number } : current)
   }
+  const saveAndStartNew = async () => { await save(); await startNew() }
   const loadQuote = (quote: SavedQuote) => { setMeta({ ...quote.meta, outputCurrency: 'USD' }); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
-  const openWhatsApp = () => {
+  const sendWhatsApp = (phone = whatsappPhone) => {
     const quote = snapshot()
     const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
-    window.open(whatsappUrl(meta.phone, message), '_blank', 'noopener,noreferrer')
+    window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
+    setWhatsappOpen(false)
+  }
+  const matchingClient = clients.find((item) => item.company.trim().toLowerCase() === meta.client.trim().toLowerCase())
+  const availablePhones = [...new Set([...(matchingClient?.phones ?? []), meta.phone].filter(Boolean))]
+  const openWhatsApp = () => { setWhatsappPhone(availablePhones[0] ?? ''); setNewWhatsappPhone(''); setWhatsappOpen(true) }
+  const saveNewPhone = async () => {
+    if (!matchingClient) return
+    await addCommercialClientPhone(matchingClient.id, newWhatsappPhone, userId)
+    const normalized = newWhatsappPhone.replace(/\D/g, '')
+    setClients((current) => current.map((client) => client.id === matchingClient.id ? { ...client, phones: [...new Set([...client.phones, normalized])], phone: client.phone || normalized } : client))
+    setWhatsappPhone(normalized); setNewWhatsappPhone('')
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
   const selectClient = (clientId: string) => {
@@ -273,7 +288,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div>{sourceCurrency === 'USD' && meta.exchangeRate > 0 && <><div className="peso-equivalent"><span>Equivalente estimado en pesos</span><strong>{money(totals.total * meta.exchangeRate, 'ARS')}</strong></div><small className="exchange-legend">USD {money(totals.total, 'USD')} × {money(meta.exchangeRate, 'ARS')} por dólar. {exchangeInfo.loading ? 'Actualizando cotización…' : exchangeInfo.error || exchangeInfo.source}.</small></>}</div>
             <div className="policy-note">El precio se resuelve por lista y tramo de cantidad. Costos y rentabilidad no se exponen en esta vista comercial.</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
-            <div className="rail-actions"><button onClick={save}>{editingSavedQuote ? 'Guardar cambios' : 'Guardar en historial'}</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button></div>
+            <div className="rail-actions"><button onClick={save}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear nueva' : 'Guardar y crear nueva'}</button></div>
           </section>
         </main>
       )}
@@ -282,6 +297,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
       {activeSection === 'catalogo' && lines.length > 0 && <button className="mobile-quote-bar" onClick={() => setActiveSection('cotizacion')}><span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong><b>Ver cotización →</b></button>}
 
       {previewOpen && <QuotePreview quote={snapshot()} rules={rules} onClose={() => setPreviewOpen(false)} />}
+      {whatsappOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Elegir número de WhatsApp"><section className="admin-confirm"><h2>Enviar cotización por WhatsApp</h2><p className="muted">Elegí uno de los números guardados o agregá otro sin borrar los anteriores.</p>{availablePhones.length > 0 ? <div className="stack">{availablePhones.map((phone) => <label key={phone}><input type="radio" name="whatsapp-phone" checked={whatsappPhone === phone} onChange={() => setWhatsappPhone(phone)} /> {phone}</label>)}</div> : <p className="quote-warning">Este cliente todavía no tiene teléfonos guardados.</p>}<label>Agregar número<input value={newWhatsappPhone} onChange={(event) => setNewWhatsappPhone(event.target.value)} placeholder="Ej. 11 5555-1234" /></label>{!matchingClient && newWhatsappPhone && <p className="quote-warning">Elegí primero una empresa del CRM para guardar el número en su ficha.</p>}<div className="admin-actions"><button onClick={() => setWhatsappOpen(false)}>Cancelar</button><button disabled={!matchingClient || newWhatsappPhone.replace(/\D/g, '').length < 8} onClick={saveNewPhone}>Guardar número</button><button className="primary-action inline" disabled={!whatsappPhone} onClick={() => sendWhatsApp()}>Continuar a WhatsApp</button></div></section></div>}
     </>
   )
 }
