@@ -156,7 +156,7 @@ const AMOUNT_FORMAT = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 4,
 export function formatRuleLabel(rule: CommercialRule, currency = rule.currency, grossAmount = rule.gross_amount): string {
   const scopeLabel =
     rule.scope_type === 'family'
-      ? `Mayorista ${rule.family}`
+      ? rule.family ? `Mayorista ${rule.family}` : 'Mayorista por tramo'
       : rule.aggregate_by_pack_group
         ? `Mayorista por caja (${rule.pack_group})`
         : rule.aggregate_by_family
