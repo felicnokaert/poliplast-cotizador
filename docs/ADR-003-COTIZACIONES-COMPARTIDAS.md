@@ -1,6 +1,6 @@
 # ADR-003: Cotizaciones compartidas con snapshot histórico
 
-**Estado:** Aceptado para implementación; migración pendiente de aplicar  
+**Estado:** Implementado y verificado en Supabase  
 **Fecha:** 12/09/2026  
 **Decisores:** Felipe / Codex
 
@@ -26,3 +26,9 @@ No se habilita DELETE. Un renglón retirado se marca `active=false`; así el his
 - Será posible medir enviadas, aceptadas y rechazadas sin duplicar datos en el CRM.
 - La escritura remota debe fallar de forma visible y conservar el respaldo local.
 - La migración debe aplicarse antes de activar la sincronización en la interfaz.
+
+## Verificación operativa
+
+Aplicado en `poli crm` el 14/09/2026. Se verificaron RLS en ambas tablas,
+escritura transaccional con rollback y guardado real de la cotización `0001`
+con dos renglones y snapshot histórico. El respaldo local continúa activo.
