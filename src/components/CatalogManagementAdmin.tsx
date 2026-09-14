@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { setCatalogVariantActive, setCatalogVariantPrice, updateCatalogClassification, type AdminCatalogRow, type PriceImportKind } from "../lib/admin";
+import { downloadCsv, rowsToCsv, setCatalogVariantActive, setCatalogVariantPrice, updateCatalogClassification, type AdminCatalogRow, type PriceImportKind } from "../lib/admin";
+import { buildCatalogReview } from "../lib/catalogReview";
 
 export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminCatalogRow[]; onChanged: () => Promise<void> }) {
   const [search, setSearch] = useState("");
@@ -35,6 +36,11 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
         <label>
           <input type="checkbox" checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)} /> Ver desactivados
         </label>
+        <button className="secondary" onClick={() => {
+          const review = buildCatalogReview(catalog).map(({ product_id, variant_id, ...item }) => ({ ...item, variant_id, product_id }));
+          downloadCsv(`revision-catalogo-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(review));
+          setMessage(`${review.length} filas exportadas para revisión. No se modificó el catálogo.`);
+        }}>Exportar dudas CSV</button>
       </div>
       {normalized.length < 3 ? (
         <p className="pending-control">Ingresá al menos 3 caracteres.</p>
