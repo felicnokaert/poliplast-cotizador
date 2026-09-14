@@ -166,7 +166,7 @@ export function formatRuleLabel(rule: CommercialRule, currency = rule.currency, 
       : rule.aggregate_by_pack_group
         ? `Mayorista por caja (${rule.pack_group})`
         : rule.aggregate_by_family
-          ? `Mayorista ${rule.family} por tramo`
+          ? rule.family ? `Mayorista ${rule.family} por tramo` : 'Mayorista por tramo'
           : 'Precio especial por SKU'
   return `${scopeLabel} · ${formatQuantityCondition(rule)} · ${currency} ${AMOUNT_FORMAT.format(grossAmount)} final con IVA incluido`
 }

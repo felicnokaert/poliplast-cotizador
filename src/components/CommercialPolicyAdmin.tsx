@@ -1,26 +1,247 @@
-import { useEffect, useMemo, useState } from 'react'
-import { createCommercialRule, formatRuleLabel, loadCommercialRules, retireCommercialRule } from '../lib/commercialRules'
-import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, savePaymentPolicy, type PaymentPolicy } from '../lib/paymentPolicies'
-import type { AdminCatalogRow } from '../lib/admin'
-import type { CommercialRule } from '../types/commercialRules'
+import { useEffect, useMemo, useState } from "react";
+import { createCommercialRule, formatRuleLabel, loadCommercialRules, retireCommercialRule } from "../lib/commercialRules";
+import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, savePaymentPolicy, type PaymentPolicy } from "../lib/paymentPolicies";
+import type { AdminCatalogRow } from "../lib/admin";
+import type { CommercialRule } from "../types/commercialRules";
 
 export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCatalogRow[]; userEmail: string }) {
-  const families = useMemo(() => [...new Set(catalog.map((r) => r.familia).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es-AR')), [catalog])
-  const [rules, setRules] = useState<CommercialRule[]>([]), [payments, setPayments] = useState<PaymentPolicy[]>(DEFAULT_PAYMENT_POLICIES), [message, setMessage] = useState('')
-  const [editingRule, setEditingRule] = useState<string | null>(null), [retiringRule, setRetiringRule] = useState<string | null>(null), [retireReason, setRetireReason] = useState('')
-  const [form, setForm] = useState({ family: '', comparator: 'gte' as 'gt' | 'gte', min: 1, net: 0, currency: 'USD' as 'USD' | 'ARS', unit: 'unidad', source: '', validFrom: new Date().toISOString().slice(0, 10) })
-  const reloadRules = async () => setRules(await loadCommercialRules())
-  useEffect(() => { loadCommercialRules().then(setRules); loadPaymentPolicies().then(setPayments) }, [])
-  const selectedFamily = form.family || families[0] || ''
-  useEffect(() => { if (!form.family && families[0]) window.setTimeout(() => setForm((value) => ({ ...value, family: families[0] })), 0) }, [families, form.family])
-  const activeRules = rules.filter((rule) => rule.status === 'confirmado' && (!rule.valid_until || rule.valid_until >= new Date().toISOString().slice(0, 10)))
-  const saveRule = async () => { try { await createCommercialRule({ scope_type: 'family', family: selectedFamily, variant_id: null, pack_group: null, quantity_comparator: form.comparator, min_quantity: form.min, net_amount: form.net, vat_rate: .21, currency: form.currency, unit: form.unit, valid_from: form.validFrom, valid_until: null, source: form.source, notes: '', aggregate_by_family: false, aggregate_by_pack_group: false, supersedes_rule_id: editingRule }, userEmail); setEditingRule(null); await reloadRules(); setMessage(editingRule ? 'Nueva versión guardada; la anterior conserva su historial.' : 'Regla creada como nueva versión auditable.') } catch (e) { setMessage(e instanceof Error ? e.message : 'No se pudo guardar.') } }
-  const editRule = (rule: CommercialRule) => { if (rule.scope_type !== 'family' || !rule.family) return; setEditingRule(rule.id); setForm({ family: rule.family, comparator: rule.quantity_comparator, min: rule.min_quantity, net: rule.net_amount, currency: rule.currency, unit: rule.unit, source: rule.source, validFrom: new Date().toISOString().slice(0, 10) }) }
-  const updatePayment = (id: string, field: keyof PaymentPolicy, value: string | number) => setPayments((xs) => xs.map((x) => x.id === id ? { ...x, [field]: value } : x))
-  const penosilMissing = catalog.filter((r) => r.marca.toLowerCase() === 'penosil' && r.precio_mayorista === '')
-  return <>
-    <section className="admin-section stack"><div><h2>Políticas mayoristas</h2><p className="muted">Revisá primero las reglas vigentes. Las modificaciones crean una versión nueva; desactivar no elimina el historial.</p></div><div className="policy-health"><strong>Penosil</strong><span>USD 1.800 netos · cajas combinables</span><b>{penosilMissing.length ? `${penosilMissing.length} SKU sin precio mayorista` : 'Lista completa'}</b></div><div className="commercial-rule-list">{activeRules.map((rule) => <article key={rule.id}><div><strong>{formatRuleLabel(rule)}</strong><small>{rule.source}</small></div>{rule.scope_type === 'family' && rule.family && <button onClick={() => editRule(rule)}>Editar</button>}<button className="danger-outline" onClick={() => { setRetiringRule(rule.id); setRetireReason('') }}>Desactivar</button></article>)}</div><details><summary>{editingRule ? 'Editando una regla' : '+ Crear nueva regla por familia'}</summary><div className="policy-form"><label>Familia<select value={form.family} onChange={(e) => setForm({ ...form, family: e.target.value })}>{families.map((x) => <option key={x}>{x}</option>)}</select></label><label>Condición<select value={form.comparator} onChange={(e) => setForm({ ...form, comparator: e.target.value as 'gt' | 'gte' })}><option value="gte">Desde</option><option value="gt">Más de</option></select></label><label>Cantidad<input type="number" min=".01" value={form.min} onChange={(e) => setForm({ ...form, min: Number(e.target.value) })} /></label><label>Precio neto<input type="number" min="0" step=".0001" value={form.net} onChange={(e) => setForm({ ...form, net: Number(e.target.value) })} /></label><label>Moneda<select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value as 'USD' | 'ARS' })}><option>USD</option><option>ARS</option></select></label><label>Unidad<input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></label><label className="wide">Fuente / aprobación<input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Quién confirmó y cuándo" /></label></div><div className="admin-actions"><button disabled={!form.family || form.min <= 0 || form.net <= 0 || !form.source.trim()} onClick={saveRule}>{editingRule ? 'Guardar nueva versión' : 'Crear regla'}</button>{editingRule && <button className="secondary" onClick={() => setEditingRule(null)}>Cancelar edición</button>}<span className="muted">{activeRules.length} vigentes</span></div></details></section>
-    <section className="admin-section stack"><div><h2>Formas de pago</h2><p className="muted">El texto y los ajustes se aplican al elegir la condición.</p></div><div className="payment-policy-list">{payments.map((p) => <article key={p.id}><input aria-label={`Nombre ${p.id}`} value={p.name} onChange={(e) => updatePayment(p.id, 'name', e.target.value)} /><input aria-label={`Texto ${p.id}`} value={p.customerText} onChange={(e) => updatePayment(p.id, 'customerText', e.target.value)} /><label>Dto. %<input type="number" value={p.discountPercent} onChange={(e) => updatePayment(p.id, 'discountPercent', Number(e.target.value))} /></label><label>Recargo %<input type="number" value={p.surchargePercent} onChange={(e) => updatePayment(p.id, 'surchargePercent', Number(e.target.value))} /></label><button onClick={async () => { try { await savePaymentPolicy(p); setMessage(`Condición “${p.name}” guardada.`) } catch (e) { setMessage(e instanceof Error ? e.message : 'Aplicá primero la migración.') } }}>Guardar</button></article>)}</div></section>{message && <div className="policy-message" role="status">{message}</div>}
-    {retiringRule && <div className="admin-confirm-backdrop" role="dialog" aria-modal="true" aria-label="Desactivar política mayorista"><div className="admin-confirm"><h2>Desactivar política</h2><p>Dejará de aplicarse en nuevas cotizaciones, pero conservará su historial.</p><label>Motivo<input value={retireReason} onChange={(event) => setRetireReason(event.target.value)} placeholder="Ej. lista reemplazada" /></label><div className="admin-actions"><button className="secondary" onClick={() => setRetiringRule(null)}>Cancelar</button><button disabled={retireReason.trim().length < 3} onClick={async () => { try { await retireCommercialRule(retiringRule, retireReason); setRetiringRule(null); await reloadRules(); setMessage('Política desactivada.') } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo desactivar.') } }}>Confirmar baja</button></div></div></div>}
-  </>
+  const families = useMemo(() => [...new Set(catalog.map((r) => r.familia).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es-AR")), [catalog]);
+  const [rules, setRules] = useState<CommercialRule[]>([]),
+    [payments, setPayments] = useState<PaymentPolicy[]>(DEFAULT_PAYMENT_POLICIES),
+    [message, setMessage] = useState("");
+  const [editingRule, setEditingRule] = useState<string | null>(null),
+    [retiringRule, setRetiringRule] = useState<string | null>(null),
+    [retireReason, setRetireReason] = useState("");
+  const [form, setForm] = useState({
+    family: "",
+    comparator: "gte" as "gt" | "gte",
+    min: 1,
+    net: 0,
+    currency: "USD" as const,
+    unit: "unidad",
+    source: "",
+    validFrom: new Date().toISOString().slice(0, 10),
+  });
+  const reloadRules = async () => setRules(await loadCommercialRules());
+  useEffect(() => {
+    loadCommercialRules().then(setRules);
+    loadPaymentPolicies().then(setPayments);
+  }, []);
+  const selectedFamily = form.family || families[0] || "";
+  useEffect(() => {
+    if (!form.family && families[0]) window.setTimeout(() => setForm((value) => ({ ...value, family: families[0] })), 0);
+  }, [families, form.family]);
+  const activeRules = rules.filter((rule) => rule.status === "confirmado" && (!rule.valid_until || rule.valid_until >= new Date().toISOString().slice(0, 10)));
+  const saveRule = async () => {
+    try {
+      await createCommercialRule(
+        {
+          scope_type: "family",
+          family: selectedFamily,
+          variant_id: null,
+          pack_group: null,
+          quantity_comparator: form.comparator,
+          min_quantity: form.min,
+          net_amount: form.net,
+          vat_rate: 0.21,
+          currency: form.currency,
+          unit: form.unit,
+          valid_from: form.validFrom,
+          valid_until: null,
+          source: form.source,
+          notes: "",
+          aggregate_by_family: false,
+          aggregate_by_pack_group: false,
+          supersedes_rule_id: editingRule,
+        },
+        userEmail,
+      );
+      setEditingRule(null);
+      await reloadRules();
+      setMessage(editingRule ? "Nueva versión guardada; la anterior conserva su historial." : "Regla creada como nueva versión auditable.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "No se pudo guardar.");
+    }
+  };
+  const editRule = (rule: CommercialRule) => {
+    if (rule.scope_type !== "family" || !rule.family) return;
+    setEditingRule(rule.id);
+    setForm({
+      family: rule.family,
+      comparator: rule.quantity_comparator,
+      min: rule.min_quantity,
+      net: rule.net_amount,
+      currency: "USD",
+      unit: rule.unit,
+      source: rule.source,
+      validFrom: new Date().toISOString().slice(0, 10),
+    });
+  };
+  const updatePayment = (id: string, field: keyof PaymentPolicy, value: string | number) => setPayments((xs) => xs.map((x) => (x.id === id ? { ...x, [field]: value } : x)));
+  const penosilMissing = catalog.filter((r) => r.marca.toLowerCase() === "penosil" && r.precio_mayorista === "");
+  return (
+    <>
+      <section className="admin-section stack">
+        <div>
+          <h2>Políticas mayoristas</h2>
+          <p className="muted">Revisá primero las reglas vigentes. Las modificaciones crean una versión nueva; desactivar no elimina el historial.</p>
+        </div>
+        <div className="policy-health">
+          <strong>Penosil</strong>
+          <span>USD 1.800 netos · cajas combinables</span>
+          <b>{penosilMissing.length ? `${penosilMissing.length} SKU sin precio mayorista` : "Lista completa"}</b>
+        </div>
+        <div className="commercial-rule-list">
+          {activeRules.map((rule) => (
+            <article key={rule.id}>
+              <div>
+                <strong>{formatRuleLabel(rule)}</strong>
+                <small>{rule.source}</small>
+              </div>
+              {rule.scope_type === "family" && rule.family && <button onClick={() => editRule(rule)}>Editar</button>}
+              <button
+                className="danger-outline"
+                onClick={() => {
+                  setRetiringRule(rule.id);
+                  setRetireReason("");
+                }}
+              >
+                Desactivar
+              </button>
+            </article>
+          ))}
+        </div>
+        <details>
+          <summary>{editingRule ? "Editando una regla" : "+ Crear nueva regla por familia"}</summary>
+          <div className="policy-form">
+            <label>
+              Familia
+              <select value={form.family} onChange={(e) => setForm({ ...form, family: e.target.value })}>
+                {families.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Condición
+              <select
+                value={form.comparator}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    comparator: e.target.value as "gt" | "gte",
+                  })
+                }
+              >
+                <option value="gte">Desde</option>
+                <option value="gt">Más de</option>
+              </select>
+            </label>
+            <label>
+              Cantidad
+              <input type="number" min=".01" value={form.min} onChange={(e) => setForm({ ...form, min: Number(e.target.value) })} />
+            </label>
+            <label>
+              Precio neto
+              <input type="number" min="0" step=".0001" value={form.net} onChange={(e) => setForm({ ...form, net: Number(e.target.value) })} />
+            </label>
+            <label>
+              Moneda
+              <strong className="fixed-currency">USD</strong>
+            </label>
+            <label>
+              Unidad
+              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+            </label>
+            <label className="wide">
+              Fuente / aprobación
+              <input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Quién confirmó y cuándo" />
+            </label>
+          </div>
+          <div className="admin-actions">
+            <button disabled={!form.family || form.min <= 0 || form.net <= 0 || !form.source.trim()} onClick={saveRule}>
+              {editingRule ? "Guardar nueva versión" : "Crear regla"}
+            </button>
+            {editingRule && (
+              <button className="secondary" onClick={() => setEditingRule(null)}>
+                Cancelar edición
+              </button>
+            )}
+            <span className="muted">{activeRules.length} vigentes</span>
+          </div>
+        </details>
+      </section>
+      <section className="admin-section stack">
+        <div>
+          <h2>Formas de pago</h2>
+          <p className="muted">El texto y los ajustes se aplican al elegir la condición.</p>
+        </div>
+        <div className="payment-policy-list">
+          {payments.map((p) => (
+            <article key={p.id}>
+              <input aria-label={`Nombre ${p.id}`} value={p.name} onChange={(e) => updatePayment(p.id, "name", e.target.value)} />
+              <input aria-label={`Texto ${p.id}`} value={p.customerText} onChange={(e) => updatePayment(p.id, "customerText", e.target.value)} />
+              <label>
+                Dto. %
+                <input type="number" value={p.discountPercent} onChange={(e) => updatePayment(p.id, "discountPercent", Number(e.target.value))} />
+              </label>
+              <label>
+                Recargo %
+                <input type="number" value={p.surchargePercent} onChange={(e) => updatePayment(p.id, "surchargePercent", Number(e.target.value))} />
+              </label>
+              <button
+                onClick={async () => {
+                  try {
+                    await savePaymentPolicy(p);
+                    setMessage(`Condición “${p.name}” guardada.`);
+                  } catch (e) {
+                    setMessage(e instanceof Error ? e.message : "Aplicá primero la migración.");
+                  }
+                }}
+              >
+                Guardar
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+      {message && (
+        <div className="policy-message" role="status">
+          {message}
+        </div>
+      )}
+      {retiringRule && (
+        <div className="admin-confirm-backdrop" role="dialog" aria-modal="true" aria-label="Desactivar política mayorista">
+          <div className="admin-confirm">
+            <h2>Desactivar política</h2>
+            <p>Dejará de aplicarse en nuevas cotizaciones, pero conservará su historial.</p>
+            <label>
+              Motivo
+              <input value={retireReason} onChange={(event) => setRetireReason(event.target.value)} placeholder="Ej. lista reemplazada" />
+            </label>
+            <div className="admin-actions">
+              <button className="secondary" onClick={() => setRetiringRule(null)}>
+                Cancelar
+              </button>
+              <button
+                disabled={retireReason.trim().length < 3}
+                onClick={async () => {
+                  try {
+                    await retireCommercialRule(retiringRule, retireReason);
+                    setRetiringRule(null);
+                    await reloadRules();
+                    setMessage("Política desactivada.");
+                  } catch (error) {
+                    setMessage(error instanceof Error ? error.message : "No se pudo desactivar.");
+                  }
+                }}
+              >
+                Confirmar baja
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
