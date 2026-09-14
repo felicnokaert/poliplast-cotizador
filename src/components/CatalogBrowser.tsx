@@ -5,6 +5,12 @@ import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
 
+const BRAND_LOGOS: Record<string, string> = {
+  penosil: '/brands/penosil.png',
+  purmac: '/brands/purmac.png',
+  resinplast: '/brands/resinplast.jpg',
+}
+
 export function CatalogBrowser({
   onAdd,
   title = 'Catálogo Grupo Poliplast',
@@ -60,6 +66,7 @@ export function CatalogBrowser({
   const paginated = useMemo(() => paginateCatalog(filtered, page, pageSize), [filtered, page])
   const printBrands = [...new Set(filtered.map((product) => product.brand))]
   const printBrand = printBrands.length === 1 ? printBrands[0] : 'Grupo Poliplast'
+  const printBrandLogo = BRAND_LOGOS[printBrand.toLowerCase()]
   const printVariants = filtered.flatMap((product) => product.variants.map((variant) => ({ product, variant })))
   const hasFilters = Boolean(search) || family !== 'todas' || subfamily !== 'todas' || brand !== 'todas' || priceFilter !== 'todos'
   const clearFilters = () => { setSearch(''); setFamily('todas'); setSubfamily('todas'); setBrand('todas'); setPriceFilter('todos'); setPage(1) }
@@ -113,7 +120,7 @@ export function CatalogBrowser({
         {allowPriceListPrint && <div className="price-list-actions no-print"><span>Lista de precios</span><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => setPrintKind(event.target.value as 'consumer' | 'wholesale')}><option value="consumer">Minorista</option><option value="wholesale">Mayorista</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
       </header>
 
-      {allowPriceListPrint && <section className="print-price-list"><header><div className="print-logos"><img src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC de referencia {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> })}</tbody></table>}</section>}
+      {allowPriceListPrint && <section className="print-price-list"><header><div className="print-logos"><img src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC de referencia {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> })}</tbody></table>}</section>}
 
       {data.products.length === 0 ? (
         <div className="empty-state">
