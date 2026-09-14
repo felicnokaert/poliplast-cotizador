@@ -96,6 +96,21 @@ describe('resolveCommercialRule — comparador gte', () => {
   })
 })
 
+describe('resolveCommercialRule — tramos desde/hasta', () => {
+  const rules = [
+    baseRule({ id: 'intermedio', quantity_comparator: 'gte', min_quantity: 112, max_quantity: 224 }),
+    baseRule({ id: 'mayorista', quantity_comparator: 'gte', min_quantity: 225, max_quantity: null }),
+  ]
+
+  it('respeta el máximo del tramo intermedio', () => {
+    expect(resolveCommercialRule(rules, { variantId: 'v1', family: 'Almohadas', quantity: 224, today: TODAY })?.rule.id).toBe('intermedio')
+  })
+
+  it('usa el último tramo sin máximo', () => {
+    expect(resolveCommercialRule(rules, { variantId: 'v1', family: 'Almohadas', quantity: 225, today: TODAY })?.rule.id).toBe('mayorista')
+  })
+})
+
 describe('resolveCommercialRule — precedencia y filtros', () => {
   it('una regla por SKU puntual gana sobre una de familia', () => {
     const familyRule = baseRule({ id: 'family-rule', min_quantity: 200 })

@@ -11,6 +11,7 @@ export interface CommercialRule {
   pack_group: string | null
   quantity_comparator: QuantityComparator
   min_quantity: number
+  max_quantity?: number | null
   net_amount: number
   vat_rate: number
   gross_amount: number
@@ -39,6 +40,15 @@ export interface RuleResolutionInput {
   quantity: number
   /** ISO date (YYYY-MM-DD). Por defecto, hoy. */
   today?: string
+}
+
+export interface WholesaleOrderPolicy {
+  id: string
+  brand: string
+  threshold_net_usd: number
+  vat_rate: number
+  mix_products: boolean
+  active: boolean
 }
 
 export interface RuleResolutionResult {

@@ -45,6 +45,10 @@ function makeVariant(overrides: Partial<VariantWithPricing> & { id: string }): V
   return { ...base, ...overrides }
 }
 
+function withWholesale(variant: VariantWithPricing, amount: number): VariantWithPricing {
+  return { ...variant, prices: [...variant.prices, { id: `may-${variant.id}`, price_list_id: 'pl-may', variant_id: variant.id, min_quantity: 1, max_quantity: null, amount, status: 'confirmado', price_list: { id: 'pl-may', name: 'Penosil Mayorista', brand: 'Penosil', currency: 'USD', vat_rate: .21, valid_from: '2026-01-01', valid_until: null, status: 'vigente' } }] }
+}
+
 function makeProduct(family: string, name: string, overrides: Partial<ProductWithVariants> = {}): ProductWithVariants {
   return {
     id: 'p1', canonical_key: 'p1', name, brand: 'Grupo Poliplast', family, subfamily: '',
@@ -66,8 +70,8 @@ describe('Motor de precios — Penosil (USD 1.800 netos, mezcla de cajas)', () =
     currency: 'USD',
   })
 
-  const unitVariant = makeVariant({ id: 'v-810-1', sku: 'PS-810ML-1', name: 'PENOSIL EASYSPRAY 810ML', attributes: { units_per_pack: 1, pack_group: 'PS-810ML' } })
-  const boxVariant = makeVariant({ id: 'v-810-12', sku: 'PS-810ML-12', name: 'KIT X 12 EASYSPRAY 810ML', attributes: { units_per_pack: 12, pack_group: 'PS-810ML' } })
+  const unitVariant = withWholesale(makeVariant({ id: 'v-810-1', sku: 'PS-810ML-1', name: 'PENOSIL EASYSPRAY 810ML', attributes: { units_per_pack: 1, pack_group: 'PS-810ML' } }), 13.6972)
+  const boxVariant = withWholesale(makeVariant({ id: 'v-810-12', sku: 'PS-810ML-12', name: 'KIT X 12 EASYSPRAY 810ML', attributes: { units_per_pack: 12, pack_group: 'PS-810ML' } }), 13.6972 * 12)
   const unitProduct = makeProduct('PENOSIL', unitVariant.name, { variants: [unitVariant] })
   const boxProduct = makeProduct('PENOSIL', boxVariant.name, { id: 'p12', variants: [boxVariant] })
 
@@ -80,7 +84,7 @@ describe('Motor de precios — Penosil (USD 1.800 netos, mezcla de cajas)', () =
   it('desde USD 1.800 netos aplica', () => {
     const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 109 }
     const price = resolvedLinePrice(line, 'automatico', [penosilRule], [line])
-    expect(price?.specialRule).toBe(true)
+    expect(price?.listName).toBe('Penosil Mayorista')
     expect(price?.amount).toBeCloseTo(13.6972, 4)
   })
 
@@ -94,29 +98,29 @@ describe('Motor de precios — Penosil (USD 1.800 netos, mezcla de cajas)', () =
     const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l1', quantity: 60 }
     const otherUnitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], id: 'l2', quantity: 49 }
     const lines = [unitLine, otherUnitLine]
-    expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
-    expect(resolvedLinePrice(otherUnitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.listName).toBe('Penosil Mayorista')
+    expect(resolvedLinePrice(otherUnitLine, 'automatico', [penosilRule], lines)?.listName).toBe('Penosil Mayorista')
   })
 
   it('combina cajas de distintas presentaciones', () => {
-    const pack6 = makeVariant({ id: 'v-810-6', sku: 'PS-810ML-6', name: 'PACK X 6 EASYSPRAY 810ML', attributes: { units_per_pack: 6, pack_group: 'PS-810ML' } })
+    const pack6 = withWholesale(makeVariant({ id: 'v-810-6', sku: 'PS-810ML-6', name: 'PACK X 6 EASYSPRAY 810ML', attributes: { units_per_pack: 6, pack_group: 'PS-810ML' } }), 13.6972 * 6)
     const pack6Product = makeProduct('PENOSIL', pack6.name, { id: 'p6', variants: [pack6] })
     const unitLine = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 108 }
     const packLine = { ...addQuoteLine([], pack6, pack6Product)[0], quantity: 1 }
     const lines = [unitLine, packLine]
-    expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(unitLine, 'automatico', [penosilRule], lines)?.listName).toBe('Penosil Mayorista')
     expect(resolvedLinePrice(packLine, 'automatico', [penosilRule], lines)?.amount).toBeCloseTo(13.6972 * 6, 4)
   })
 
   it('otro producto Penosil también suma al umbral general', () => {
-    const otherVariant = makeVariant({ id: 'v-other-1', sku: 'PS-ADA10-1', name: 'ADHESIVO ACUOSO A-10', attributes: { units_per_pack: 1, pack_group: 'PS-ADA10' } })
+    const otherVariant = withWholesale(makeVariant({ id: 'v-other-1', sku: 'PS-ADA10-1', name: 'ADHESIVO ACUOSO A-10', attributes: { units_per_pack: 1, pack_group: 'PS-ADA10' } }), 13.6972)
     const otherProduct = makeProduct('PENOSIL', otherVariant.name, { id: 'p-other', variants: [otherVariant] })
     const otherRule = { ...penosilRule, id: 'penosil-a10', pack_group: 'PS-ADA10' }
     const line = { ...addQuoteLine([], unitVariant, unitProduct)[0], quantity: 60 }
     const otherLine = { ...addQuoteLine([], otherVariant, otherProduct)[0], quantity: 49 }
     const lines = [line, otherLine]
-    expect(resolvedLinePrice(line, 'automatico', [penosilRule, otherRule], lines)?.specialRule).toBe(true)
-    expect(resolvedLinePrice(otherLine, 'automatico', [penosilRule, otherRule], lines)?.specialRule).toBe(true)
+    expect(resolvedLinePrice(line, 'automatico', [penosilRule, otherRule], lines)?.listName).toBe('Penosil Mayorista')
+    expect(resolvedLinePrice(otherLine, 'automatico', [penosilRule, otherRule], lines)?.listName).toBe('Penosil Mayorista')
   })
 })
 

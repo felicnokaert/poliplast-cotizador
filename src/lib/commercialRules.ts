@@ -6,7 +6,8 @@ function isoToday(): string {
 }
 
 function meetsThreshold(rule: CommercialRule, quantity: number): boolean {
-  return rule.quantity_comparator === 'gt' ? quantity > rule.min_quantity : quantity >= rule.min_quantity
+  const meetsMinimum = rule.quantity_comparator === 'gt' ? quantity > rule.min_quantity : quantity >= rule.min_quantity
+  return meetsMinimum && (rule.max_quantity == null || quantity <= rule.max_quantity)
 }
 
 function isCurrentlyValid(rule: CommercialRule, today: string): boolean {
@@ -105,6 +106,7 @@ function mapRuleRow(row: Record<string, unknown>): CommercialRule {
     pack_group: (row.pack_group as string | null) ?? null,
     quantity_comparator: row.quantity_comparator as CommercialRule['quantity_comparator'],
     min_quantity: toNumber(row.min_quantity),
+    max_quantity: row.max_quantity == null ? null : toNumber(row.max_quantity),
     net_amount: toNumber(row.net_amount),
     vat_rate: toNumber(row.vat_rate),
     gross_amount: toNumber(row.gross_amount),
@@ -131,7 +133,7 @@ export async function loadCommercialRules(): Promise<CommercialRule[]> {
   return (data ?? []).map(mapRuleRow)
 }
 
-export type NewCommercialRule = Pick<CommercialRule, 'scope_type' | 'family' | 'variant_id' | 'pack_group' | 'quantity_comparator' | 'min_quantity' | 'net_amount' | 'vat_rate' | 'currency' | 'unit' | 'valid_from' | 'valid_until' | 'source' | 'notes' | 'aggregate_by_family' | 'aggregate_by_pack_group'> & { supersedes_rule_id?: string | null }
+export type NewCommercialRule = Pick<CommercialRule, 'scope_type' | 'family' | 'variant_id' | 'pack_group' | 'quantity_comparator' | 'min_quantity' | 'max_quantity' | 'net_amount' | 'vat_rate' | 'currency' | 'unit' | 'valid_from' | 'valid_until' | 'source' | 'notes' | 'aggregate_by_family' | 'aggregate_by_pack_group'> & { supersedes_rule_id?: string | null }
 
 /** Inserta una nueva versión; las reglas existentes nunca se pisan. */
 export async function createCommercialRule(rule: NewCommercialRule, responsibleEmail: string): Promise<void> {
@@ -150,6 +152,7 @@ export async function retireCommercialRule(ruleId: string, reason: string): Prom
 
 function formatQuantityCondition(rule: CommercialRule): string {
   const qty = Number.isInteger(rule.min_quantity) ? String(rule.min_quantity) : String(rule.min_quantity)
+  if (rule.max_quantity != null) return `de ${qty} a ${rule.max_quantity} unidades`
   return rule.quantity_comparator === 'gt' ? `más de ${qty} unidades` : `desde ${qty} unidades`
 }
 

@@ -11,16 +11,21 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     [message, setMessage] = useState("");
   const [editingRule, setEditingRule] = useState<string | null>(null),
     [retiringRule, setRetiringRule] = useState<string | null>(null),
-    [retireReason, setRetireReason] = useState("");
+    [retireReason, setRetireReason] = useState(""),
+    [targetSearch, setTargetSearch] = useState("");
   const [form, setForm] = useState({
+    scope: "family" as "family" | "sku",
     family: "",
+    variantId: "",
     comparator: "gte" as "gt" | "gte",
     min: 1,
+    max: "",
     net: 0,
     currency: "USD" as const,
     unit: "unidad",
     source: "",
     validFrom: new Date().toISOString().slice(0, 10),
+    aggregateByFamily: false,
   });
   const reloadRules = async () => setRules(await loadCommercialRules());
   useEffect(() => {
@@ -28,6 +33,8 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     loadPaymentPolicies().then(setPayments);
   }, []);
   const selectedFamily = form.family || families[0] || "";
+  const selectedVariant = catalog.find((row) => row.variant_id === form.variantId);
+  const matchingVariants = targetSearch.trim().length < 3 ? [] : catalog.filter((row) => row.active && [row.sku, row.producto].some((value) => value.toLowerCase().includes(targetSearch.trim().toLowerCase()))).slice(0, 60);
   useEffect(() => {
     if (!form.family && families[0]) window.setTimeout(() => setForm((value) => ({ ...value, family: families[0] })), 0);
   }, [families, form.family]);
@@ -36,12 +43,13 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     try {
       await createCommercialRule(
         {
-          scope_type: "family",
-          family: selectedFamily,
-          variant_id: null,
+          scope_type: form.scope,
+          family: form.scope === "family" ? selectedFamily : null,
+          variant_id: form.scope === "sku" ? form.variantId : null,
           pack_group: null,
           quantity_comparator: form.comparator,
           min_quantity: form.min,
+          max_quantity: form.max === "" ? null : Number(form.max),
           net_amount: form.net,
           vat_rate: 0.21,
           currency: form.currency,
@@ -50,7 +58,7 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
           valid_until: null,
           source: form.source,
           notes: "",
-          aggregate_by_family: false,
+          aggregate_by_family: form.scope === "sku" && form.aggregateByFamily,
           aggregate_by_pack_group: false,
           supersedes_rule_id: editingRule,
         },
@@ -64,32 +72,29 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     }
   };
   const editRule = (rule: CommercialRule) => {
-    if (rule.scope_type !== "family" || !rule.family) return;
     setEditingRule(rule.id);
     setForm({
-      family: rule.family,
+      scope: rule.scope_type,
+      family: rule.family ?? "",
+      variantId: rule.variant_id ?? "",
       comparator: rule.quantity_comparator,
       min: rule.min_quantity,
+      max: rule.max_quantity == null ? "" : String(rule.max_quantity),
       net: rule.net_amount,
       currency: "USD",
       unit: rule.unit,
       source: rule.source,
       validFrom: new Date().toISOString().slice(0, 10),
+      aggregateByFamily: rule.aggregate_by_family,
     });
   };
   const updatePayment = (id: string, field: keyof PaymentPolicy, value: string | number) => setPayments((xs) => xs.map((x) => (x.id === id ? { ...x, [field]: value } : x)));
-  const penosilMissing = catalog.filter((r) => r.marca.toLowerCase() === "penosil" && r.precio_mayorista === "");
   return (
     <>
       <section className="admin-section stack">
         <div>
           <h2>Políticas mayoristas</h2>
           <p className="muted">Revisá primero las reglas vigentes. Las modificaciones crean una versión nueva; desactivar no elimina el historial.</p>
-        </div>
-        <div className="policy-health">
-          <strong>Penosil</strong>
-          <span>USD 1.800 netos · cajas combinables</span>
-          <b>{penosilMissing.length ? `${penosilMissing.length} SKU sin precio mayorista` : "Lista completa"}</b>
         </div>
         <div className="commercial-rule-list">
           {activeRules.map((rule) => (
@@ -98,7 +103,7 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
                 <strong>{formatRuleLabel(rule)}</strong>
                 <small>{rule.source}</small>
               </div>
-              {rule.scope_type === "family" && rule.family && <button onClick={() => editRule(rule)}>Editar</button>}
+              <button onClick={() => editRule(rule)}>Editar</button>
               <button
                 className="danger-outline"
                 onClick={() => {
@@ -112,8 +117,24 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
           ))}
         </div>
         <details>
-          <summary>{editingRule ? "Editando una regla" : "+ Crear nueva regla por familia"}</summary>
+          <summary>{editingRule ? "Editando una condición" : "+ Crear condición mayorista"}</summary>
           <div className="policy-form">
+            <label>
+              Aplicar a
+              <select value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as "family" | "sku" })}>
+                <option value="family">Toda una familia</option>
+                <option value="sku">Un producto / SKU</option>
+              </select>
+            </label>
+            {form.scope === "sku" ? <label className="wide">
+              Producto / SKU
+              <input type="search" placeholder="Escribí 3 letras o el SKU" value={targetSearch} onChange={(e) => setTargetSearch(e.target.value)} />
+              <select value={form.variantId} onChange={(e) => setForm({ ...form, variantId: e.target.value })} disabled={matchingVariants.length === 0 && !selectedVariant}>
+                <option value="">Seleccionar…</option>
+                {selectedVariant && !matchingVariants.some((row) => row.variant_id === selectedVariant.variant_id) && <option value={selectedVariant.variant_id}>{selectedVariant.sku} · {selectedVariant.producto}</option>}
+                {matchingVariants.map((row) => <option key={row.variant_id} value={row.variant_id}>{row.sku} · {row.producto}</option>)}
+              </select>
+            </label> :
             <label>
               Familia
               <select value={form.family} onChange={(e) => setForm({ ...form, family: e.target.value })}>
@@ -121,7 +142,7 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
                   <option key={x}>{x}</option>
                 ))}
               </select>
-            </label>
+            </label>}
             <label>
               Condición
               <select
@@ -138,8 +159,12 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
               </select>
             </label>
             <label>
-              Cantidad
+              Desde
               <input type="number" min=".01" value={form.min} onChange={(e) => setForm({ ...form, min: Number(e.target.value) })} />
+            </label>
+            <label>
+              Hasta (opcional)
+              <input type="number" min={form.min} placeholder="Sin máximo" value={form.max} onChange={(e) => setForm({ ...form, max: e.target.value })} />
             </label>
             <label>
               Precio neto
@@ -153,13 +178,14 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
               Unidad
               <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
             </label>
+            {form.scope === "sku" && <label><span>Cómputo</span><span className="checkbox-line"><input type="checkbox" checked={form.aggregateByFamily} onChange={(e) => setForm({ ...form, aggregateByFamily: e.target.checked })} /> Sumar toda la familia{selectedVariant ? ` (${selectedVariant.familia})` : ""}</span></label>}
             <label className="wide">
               Fuente / aprobación
               <input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Quién confirmó y cuándo" />
             </label>
           </div>
           <div className="admin-actions">
-            <button disabled={!form.family || form.min <= 0 || form.net <= 0 || !form.source.trim()} onClick={saveRule}>
+            <button disabled={(form.scope === "family" ? !selectedFamily : !form.variantId) || form.min <= 0 || (form.max !== "" && Number(form.max) < form.min) || form.net <= 0 || !form.source.trim()} onClick={saveRule}>
               {editingRule ? "Guardar nueva versión" : "Crear regla"}
             </button>
             {editingRule && (

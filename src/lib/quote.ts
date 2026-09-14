@@ -142,7 +142,7 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
 
   const penosilWholesale = isPenosil(line) && (mode === 'mayorista' || (mode === 'automatico' && penosilNetTotal(contextLines) >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD))
   const ruleMatch = isPenosil(line)
-    ? (penosilWholesale && thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: Number.MAX_SAFE_INTEGER }) : null)
+    ? null
     : resolveCommercialRule(skuRulesPlain, { ...input, quantity: physicalUnits(line) }) ??
       (thisPackGroup ? resolveCommercialRule(skuRulesPackGroup, { ...input, packGroup: thisPackGroup, quantity: packGroupPhysical }) : null) ??
       resolveCommercialRule(skuRulesFamilyAgg, { ...input, quantity: familyPhysical }) ??
@@ -159,7 +159,9 @@ export function resolvedLinePrice(line: QuoteLine, mode: PriceMode = 'automatico
       ruleId: ruleMatch.rule.id,
     }
   }
-  const effectiveMode = mode === 'automatico' ? resolveAutomaticPriceMode(contextLines) : mode
+  const effectiveMode = isPenosil(line)
+    ? penosilWholesale ? 'mayorista' : 'consumidor_final'
+    : mode === 'automatico' ? resolveAutomaticPriceMode(contextLines) : mode
   const price = priceForQuantity(line.variant, line.quantity, effectiveMode)
   if (price?.price_list.currency === 'ARS' && exchangeRate <= 0) return null
   return price ? {
@@ -287,9 +289,12 @@ export function linePricingDetails(
     outcome = `Se usa ${price?.listName ?? 'precio pendiente'}; faltan ${nextRule.missing} unidades físicas para el siguiente precio.`
   } else if (isPenosil(line) && mode === 'automatico') {
     const netTotal = penosilNetTotal(contextLines)
+    const wholesaleApplied = !!price && /mayorista|distribuidor/i.test(price.listName)
     condition = `Penosil: USD ${netTotal.toFixed(2)} netos computados entre todas las cajas; mayorista desde USD ${PENOSIL_WHOLESALE_THRESHOLD_NET_USD.toFixed(2)} netos + IVA.`
-    outcome = netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD
-      ? `Umbral alcanzado, pero el precio mayorista de este SKU está pendiente; se mantiene ${price?.listName ?? 'precio pendiente'}.`
+    outcome = netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD && wholesaleApplied
+      ? `Mayorista Penosil aplicado; se pueden mezclar productos y presentaciones.`
+      : netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD
+        ? `Umbral alcanzado, pero el precio mayorista de este SKU está pendiente; se mantiene ${price?.listName ?? 'precio pendiente'}.`
       : `Se usa ${price?.listName ?? 'precio pendiente'}; faltan USD ${(PENOSIL_WHOLESALE_THRESHOLD_NET_USD - netTotal).toFixed(2)} netos para mayorista.`
   } else if (isResinplast(line) && mode === 'consumidor_final') {
     const resinLines = contextLines.filter(isResinplast)
@@ -307,11 +312,11 @@ export function linePricingDetails(
   return { price, physicalUnits: linePhysical, unitsPerPack: perPack, countedUnits: nextRule?.scopeUnits ?? linePhysical, countScope: 'renglón', priceLabel: price?.listName ?? 'Sin precio confirmado', condition, outcome, netUnitAmount, grossUnitAmount }
 }
 
-export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>, rules: CommercialRule[] = []): string {
+export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>, _rules: CommercialRule[] = []): string {
   const penosilLines = lines.filter(isPenosil)
   if (penosilLines.length) {
     const netTotal = penosilNetTotal(lines)
-    const pending = penosilLines.filter((line) => !rules.some((rule) => rule.status === 'confirmado' && rule.aggregate_by_pack_group && matchesRuleScope(rule, line))).length
+    const pending = penosilLines.filter((line) => !line.variant.prices.some((price) => price.status === 'confirmado' && listMatchesMode(price.price_list.name, 'mayorista'))).length
     if (netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD && pending > 0) return `Penosil alcanzó USD ${netTotal.toFixed(2)} netos, pero hay ${pending} SKU con precio mayorista pendiente.`
     return netTotal >= PENOSIL_WHOLESALE_THRESHOLD_NET_USD
       ? `Mayorista Penosil aplicado: USD ${netTotal.toFixed(2)} netos entre todas las cajas mezcladas + IVA.`
