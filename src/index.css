@@ -667,6 +667,9 @@ button {
 .admin-page .admin-section p { font-size: .75rem; line-height: 1.35; }
 .admin-page .policy-form { grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px; }
 .admin-page .policy-form input, .admin-page .policy-form select, .admin-page .payment-policy-list input { padding: 6px 7px; font-size: .75rem; }
+.admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.admin-tabs button { padding: 7px 11px; border: 1px solid var(--border); border-radius: 7px; background: white; color: var(--muted); font-size: .74rem; }
+.admin-tabs button.active { border-color: #c72c27; background: #fff4f3; color: #a31c18; }
 .catalog-admin-search { display: flex; align-items: center; gap: 10px; }
 .catalog-admin-search > input { flex: 1; min-width: 240px; }
 .catalog-admin-search label { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: .75rem; }
