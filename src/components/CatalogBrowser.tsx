@@ -3,15 +3,20 @@ import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters'
 import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
+import { commercialPrices } from '../lib/pricing'
 
 export function CatalogBrowser({
   onAdd,
   title = 'Catálogo Grupo Poliplast',
   minimumSearchLength = 0,
+  exchangeRate = 0,
+  allowPriceListPrint = false,
 }: {
   onAdd?: (variant: VariantWithPricing, product: ProductWithVariants) => void
   title?: string
   minimumSearchLength?: number
+  exchangeRate?: number
+  allowPriceListPrint?: boolean
 }) {
   const [data, setData] = useState<CatalogData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -23,6 +28,7 @@ export function CatalogBrowser({
   const [brand, setBrand] = useState('todas')
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
   const [page, setPage] = useState(1)
+  const [printKind, setPrintKind] = useState<'consumer' | 'wholesale'>('consumer')
   const pageSize = 100
 
   useEffect(() => {
@@ -101,7 +107,10 @@ export function CatalogBrowser({
         <p className="muted" aria-live="polite">{search.trim().length < minimumSearchLength
           ? `Escribí al menos ${minimumSearchLength} caracteres del nombre o SKU para buscar.`
           : `${filtered.length} producto${filtered.length === 1 ? '' : 's'} · ${data.products.length} en el catálogo total`}</p>
+        {allowPriceListPrint && <div className="price-list-actions no-print"><span>Lista de precios</span><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => setPrintKind(event.target.value as 'consumer' | 'wholesale')}><option value="consumer">Minorista</option><option value="wholesale">Mayorista</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
       </header>
+
+      {allowPriceListPrint && <section className="print-price-list"><header><img src="/poliplast-logo.png" alt="Grupo Poliplast" /><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC de referencia {exchangeRate || '—'}</p></div></header><table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{filtered.flatMap((product) => product.variants.map((variant) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> }))}</tbody></table></section>}
 
       {data.products.length === 0 ? (
         <div className="empty-state">

@@ -100,7 +100,7 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
     fireEvent.click(screen.getByRole('button', { name: /Cotización 0/ }))
-    const status = await screen.findByLabelText('Estado de la cotización')
+    const status = await screen.findByLabelText('Estado')
     fireEvent.change(status, { target: { value: 'enviada' } })
     expect(status).toHaveValue('enviada')
   })

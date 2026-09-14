@@ -532,6 +532,16 @@ button {
   .modal-backdrop { position: absolute; inset: 0; padding: 0; background: white; overflow: visible; }
   .quote-preview { width: 100%; min-height: auto; margin: 0; box-shadow: none; padding: 28px 32px; }
   .no-print { display: none !important; }
+  body:has(.print-price-list) .modal-backdrop { display: none; }
+  .print-price-list, .print-price-list * { visibility: visible; }
+  .print-price-list { position: absolute; inset: 0; display: block; color: #111; }
+  .print-price-list header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 14px; border-bottom: 2px solid #222; padding-bottom: 10px; }
+  .print-price-list header img { width: 150px; }
+  .print-price-list h1, .print-price-list p { margin: 0; }
+  .print-price-list p { margin-top: 3px; font-size: 9pt; }
+  .print-price-list table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  .print-price-list th, .print-price-list td { padding: 4px 6px; border-bottom: 1px solid #ddd; text-align: left; }
+  .print-price-list th:last-child, .print-price-list td:last-child { text-align: right; }
   @page { size: A4; margin: 8mm; }
 }
 
@@ -579,6 +589,24 @@ button {
 .quote-page .quote-line { margin: 0; border: 1px solid var(--border); border-radius: 8px; padding: 11px; background: #fff; }
 .quote-page .commercial-controls { margin-top: 10px; padding-top: 10px; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 7px; }
 .quote-page .commercial-controls input, .quote-page .commercial-controls select, .quote-page .commercial-controls textarea { padding: 7px 8px; font-size: .8rem; }
+.quote-page .commercial-controls .compact-control { align-self: start; }
+.inline-control { display: flex; gap: 5px; }
+.inline-control select { min-width: 0; }
+.payment-control { max-width: 330px; }
+.status-control { max-width: 145px; }
+.exchange-control { max-width: 220px; }
+.discount-control { max-width: 105px; }
+.exchange-pill, .discount-pill { display: flex; align-items: center; min-height: 34px; overflow: hidden; border: 1px solid #d9dfe5; border-radius: 9px; background: #f7f9fb; }
+.exchange-pill > span { padding-left: 10px; color: #939aa5; font-size: .68rem; font-weight: 750; }
+.exchange-pill strong { min-width: 58px; padding: 0 8px; color: #142033; font-size: .9rem; text-align: center; }
+.exchange-pill input, .discount-pill input { min-width: 0; border: 0 !important; background: transparent !important; font-weight: 750; }
+.exchange-pill button { margin-right: 4px; padding: 4px 7px; border: 0; border-radius: 5px; background: #e4f4e9; color: #168044; font-size: .68rem; font-weight: 800; }
+.exchange-pill button:last-child:not(:first-child) { background: transparent; color: #687384; font-size: .9rem; }
+.discount-pill span { padding-right: 9px; color: var(--muted); font-weight: 750; }
+.quote-empty-action { width: 100%; cursor: pointer; font: inherit; }
+.quote-empty-action strong, .quote-empty-action span { display: block; }
+.quote-empty-action strong { color: var(--accent); font-size: .82rem; }
+.quote-empty-action span { margin-top: 2px; font-size: .68rem; }
 .quote-page .commercial-controls textarea { min-height: 52px; resize: vertical; }
 .quote-page .commercial-controls .full-field { grid-column: span 3; }
 .quote-page .quote-totals { width: min(100%, 440px); margin: 10px 0 0 auto; padding-top: 7px; gap: 4px; font-size: .78rem; }
@@ -612,6 +640,15 @@ button {
 .pricing-conditions summary { cursor: pointer; color: #8f1714; font-weight: 750; }
 .pricing-conditions details span { display: block; margin-top: 5px; }
 .catalog-row::before { background: #bd211d; }
+.admin-page .page-intro { margin-bottom: 12px; }
+.admin-page .admin-metrics { gap: 7px; margin: 12px 0; }
+.admin-page .admin-metrics article { padding: 11px 13px; border-radius: 8px; }
+.admin-page .admin-metrics article strong { font-size: 1.25rem; }
+.admin-page .admin-section { align-items: flex-start; gap: 12px; margin-bottom: 8px; padding: 12px 14px; border-radius: 9px; }
+.admin-page .admin-section h2 { font-size: 1rem; }
+.admin-page .admin-section p { font-size: .75rem; line-height: 1.35; }
+.admin-page .policy-form { grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 6px; }
+.admin-page .policy-form input, .admin-page .policy-form select, .admin-page .payment-policy-list input { padding: 6px 7px; font-size: .75rem; }
 
 @media (max-width: 760px) {
   .page-intro-actions, .quote-items-heading { align-items: stretch; flex-direction: column; }
@@ -640,6 +677,10 @@ button {
 .quote-rail { border-radius: 9px; padding: 15px; box-shadow: 0 5px 20px rgba(0,0,0,.045); }
 .catalog-header { position: sticky; top: 0; z-index: 8; padding: 5px 0 8px; background: var(--bg); }
 .catalog-header h1 { margin: 0 0 8px; font-size: .98rem; }
+.price-list-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px; font-size: .7rem; }
+.price-list-actions select, .price-list-actions button { border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; background: white; font-size: .72rem; font-weight: 700; }
+.price-list-actions button { background: var(--text); color: white; }
+.print-price-list { display: none; }
 .filters { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(120px, .75fr)); gap: 7px; margin-bottom: 6px; }
 .filters input, .filters select { min-width: 0; padding: 7px 8px; font-size: .76rem; }
 .catalog-row { min-height: 42px; padding: 4px 10px; font-size: .72rem; }

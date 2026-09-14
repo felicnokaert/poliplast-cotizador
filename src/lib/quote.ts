@@ -29,6 +29,7 @@ export interface QuoteMeta {
   email: string
   notes: string
   paymentMethod: PaymentMethod
+  paymentTermDays?: number
   priceMode: PriceMode
   validDays: number
   discountPercent: number
@@ -416,6 +417,7 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
     ? `\nEquivalente estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totals.total * meta.exchangeRate)} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(meta.exchangeRate)} por USD).`
     : ''
   const paymentName = paymentPolicy?.name ?? meta.paymentMethod.replace('_', ' ')
+  const paymentTerm = meta.paymentMethod === 'cheque' ? ` a ${meta.paymentTermDays ?? 0} días` : ''
   const paymentText = paymentPolicy?.customerText ? ` ${paymentPolicy.customerText}` : ''
-  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${paymentName}.${paymentText}\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
+  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${paymentName}${paymentTerm}.${paymentText}\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }

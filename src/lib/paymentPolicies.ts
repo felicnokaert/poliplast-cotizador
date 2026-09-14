@@ -14,6 +14,7 @@ export const DEFAULT_PAYMENT_POLICIES: PaymentPolicy[] = [
   { id: 'transferencia', name: 'Transferencia', customerText: 'Pago mediante transferencia bancaria.', discountPercent: 0, surchargePercent: 0, active: true, sortOrder: 10 },
   { id: 'contado', name: 'Contado', customerText: 'Pago contado.', discountPercent: 0, surchargePercent: 0, active: true, sortOrder: 20 },
   { id: 'cuenta_corriente', name: 'Cuenta corriente', customerText: 'Sujeto a cuenta corriente aprobada.', discountPercent: 0, surchargePercent: 0, active: true, sortOrder: 30 },
+  { id: 'cheque', name: 'Cheque', customerText: 'Pago mediante cheque a plazo acordado.', discountPercent: 0, surchargePercent: 0, active: true, sortOrder: 35 },
   { id: 'tarjeta', name: 'Tarjeta / cuotas', customerText: 'Recargo o financiación según condición confirmada.', discountPercent: 0, surchargePercent: 0, active: true, sortOrder: 40 },
 ]
 

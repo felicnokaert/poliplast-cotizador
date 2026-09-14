@@ -50,7 +50,7 @@ function newMeta(existingQuotes: SavedQuote[] = loadSavedQuotes()): QuoteMeta {
   const now = new Date()
   return {
     number: createQuoteNumber(now, existingQuotes.map((quote) => quote.meta.number)), client: '', contact: '', phone: '', email: '', notes: '',
-    paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0,
+    paymentMethod: 'transferencia', paymentTermDays: 0, priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0,
     exchangeRate: 0, outputCurrency: 'USD', status: 'borrador', createdAt: now.toISOString(),
   }
 }
@@ -102,7 +102,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
         </div>
         <footer className="preview-footer">
           <p><strong>Política de precios:</strong> {quote.meta.priceMode === 'automatico' ? automaticPricingSummary(quote.lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${quote.meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`}</p>
-          <p><strong>Condición:</strong> {quote.meta.paymentMethod.replace('_', ' ')} · <strong>Validez:</strong> hasta {expires.toLocaleDateString('es-AR')}</p>
+          <p><strong>Condición:</strong> {quote.meta.paymentMethod.replace('_', ' ')}{quote.meta.paymentMethod === 'cheque' ? ` a ${quote.meta.paymentTermDays ?? 0} días` : ''} · <strong>Validez:</strong> hasta {expires.toLocaleDateString('es-AR')}</p>
           <p>Todos los precios indicados incluyen IVA.</p>
           {quote.meta.outputCurrency === 'USD' && <p>Esta cotización está expresada en dólares estadounidenses. Si se cancela en pesos argentinos, el importe se calculará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
           {quote.meta.outputCurrency === 'ARS' && <p>Equivalencia calculada a un tipo de cambio de {money(quote.meta.exchangeRate, 'ARS')} por USD. El importe definitivo en pesos se determinará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}
@@ -250,7 +250,7 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
       ) : activeSection === 'catalogo' ? (
         <main className="catalog-page">
           <div className="page-intro page-intro-actions"><div><span className="eyebrow">Catálogo comercial</span><h1>Productos</h1><p className="muted">Buscá por nombre, SKU, familia o subfamilia y agregá cada producto a la cotización activa.</p></div><button className="primary-action inline" onClick={() => setActiveSection('cotizacion')}>Ver cotización ({lines.length})</button></div>
-          <CatalogBrowser title="Catálogo Grupo Poliplast" onAdd={add} />
+          <CatalogBrowser title="Catálogo Grupo Poliplast" onAdd={add} exchangeRate={meta.exchangeRate} allowPriceListPrint />
         </main>
       ) : (
         <main className="quote-page">
@@ -267,13 +267,13 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
             </div>
-            <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Editá cantidades y condiciones antes de emitir.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
+            <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Editá cantidades y condiciones antes de emitir.</p></div></div>{(lines.length > 0 || productPickerOpen) && <button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button>}</div>
             {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
           </section>
 
           <section className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
-            {lines.length === 0 ? <div className="quote-empty">Buscá un producto y elegí <strong>Agregar</strong>.</div> : <div className="quote-lines">{lines.map((line) => {
+            {lines.length === 0 ? <button className="quote-empty quote-empty-action" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar productos</strong><span>Buscá por nombre o SKU</span></button> : <div className="quote-lines">{lines.map((line) => {
               const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
               const price = details.price
               const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
@@ -282,10 +282,10 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
             <div className="commercial-controls">
               <label>Política de precios<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Reglas comerciales automáticas</option><option value="consumidor_final">Forzar consumidor final</option><option value="mayorista">Forzar mayorista</option></select><small className="exchange-source">{meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Aplicada: ${totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}`}</small></label>
-              <label>Forma de pago<select value={meta.paymentMethod} onChange={(e) => selectPaymentPolicy(e.target.value as PaymentMethod)}>{paymentPolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select><small className="exchange-source">{paymentPolicies.find((item) => item.id === meta.paymentMethod)?.customerText}</small></label>
-              <label>Estado de la cotización<select value={meta.status} onChange={(e) => updateMeta('status', e.target.value as QuoteMeta['status'])}><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select></label>
-              <label>Tipo de cambio<select value={exchangeMode} onChange={(e) => e.target.value === 'automatico' ? refreshAutomaticExchange() : setExchangeMode('manual')}><option value="automatico">Automático · BNA vendedor</option><option value="manual">Manual</option></select>{exchangeMode === 'manual' && <input aria-label="Tipo de cambio manual ARS/USD" type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} />}<small className="exchange-source">{exchangeInfo.loading ? 'Actualizando…' : exchangeInfo.error || `${money(meta.exchangeRate, 'ARS')} por USD · ${exchangeInfo.source}`}</small></label>
-              <label>Descuento %<input type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /></label>
+              <label className="compact-control payment-control">Forma de pago<div className="inline-control"><select value={meta.paymentMethod} onChange={(e) => selectPaymentPolicy(e.target.value as PaymentMethod)}>{paymentPolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}</option>)}</select>{meta.paymentMethod === 'cheque' && <select aria-label="Plazo del cheque" value={meta.paymentTermDays ?? 0} onChange={(e) => updateMeta('paymentTermDays', Number(e.target.value))}>{[0, 15, 30, 45, 60, 90, 120].map((days) => <option key={days} value={days}>{days} días</option>)}</select>}</div></label>
+              <label className="compact-control status-control">Estado<select value={meta.status} onChange={(e) => updateMeta('status', e.target.value as QuoteMeta['status'])}><option value="borrador">Borrador</option><option value="enviada">Enviada</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select></label>
+              <label className="compact-control exchange-control">Tipo de cambio<div className="exchange-pill"><span>TC</span>{exchangeMode === 'manual' ? <input aria-label="Tipo de cambio manual ARS/USD" type="number" min="0" value={meta.exchangeRate} onChange={(e) => { updateMeta('exchangeRate', Number(e.target.value)); setExchangeInfo({ source: 'Manual', fetchedAt: '', loading: false, error: '' }) }} /> : <strong>{meta.exchangeRate || '—'}</strong>}<button type="button" onClick={() => exchangeMode === 'automatico' ? setExchangeMode('manual') : refreshAutomaticExchange()}>{exchangeMode === 'automatico' ? 'BNA' : 'manual'}</button>{exchangeMode === 'manual' && <button type="button" aria-label="Volver a tipo de cambio automático" onClick={refreshAutomaticExchange}>↻</button>}</div></label>
+              <label className="compact-control discount-control">Descuento<div className="discount-pill"><input aria-label="Descuento porcentual" type="number" min="0" max="100" value={meta.discountPercent} disabled={!canAdjustCommercialTerms} onChange={(e) => updateMeta('discountPercent', Number(e.target.value))} /><span>%</span></div></label>
               <label className="full-field">Observaciones<textarea rows={3} value={meta.notes} onChange={(e) => updateMeta('notes', e.target.value)} placeholder="Entrega, aplicación, condición especial..." /></label>
             </div>
 

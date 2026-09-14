@@ -19,6 +19,7 @@ export function quoteToDatabaseRows(quote: SavedQuote, userId: string, rules: Co
     header: {
       quote_number: meta.number, owner_id: userId, client_name: meta.client, contact_name: meta.contact,
       phone: meta.phone, email: meta.email, notes: meta.notes, payment_method: meta.paymentMethod,
+      payment_term_days: meta.paymentTermDays ?? 0,
       price_mode: meta.priceMode, valid_days: meta.validDays, discount_percent: meta.discountPercent,
       surcharge_percent: meta.surchargePercent, exchange_rate: meta.exchangeRate, output_currency: meta.outputCurrency,
       status: meta.status, issued_at: meta.createdAt, updated_by: userId, updated_at: quote.updatedAt,
@@ -45,6 +46,7 @@ export function databaseRowToQuote(row: QuoteRow): SavedQuote | null {
       number: String(row.quote_number), client: String(row.client_name ?? ''), contact: String(row.contact_name ?? ''),
       phone: String(row.phone ?? ''), email: String(row.email ?? ''), notes: String(row.notes ?? ''),
       paymentMethod: String(row.payment_method ?? 'transferencia') as SavedQuote['meta']['paymentMethod'],
+      paymentTermDays: Number(row.payment_term_days ?? 0),
       priceMode: String(row.price_mode ?? 'automatico') as SavedQuote['meta']['priceMode'],
       validDays: Number(row.valid_days ?? 7), discountPercent: Number(row.discount_percent ?? 0),
       surchargePercent: Number(row.surcharge_percent ?? 0), exchangeRate: Number(row.exchange_rate ?? 1),
