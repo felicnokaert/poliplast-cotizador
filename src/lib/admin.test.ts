@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCostImportRows, buildPriceImportRows, csvEscape, parseAdminCsv, previewAdminImport, rowsToCsv, type AdminCatalogRow } from './admin'
+import { buildCostImportRows, buildPriceImportRows, csvEscape, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, rowsToCsv, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -10,6 +10,11 @@ describe('CSV administrativo', () => {
 const catalog: AdminCatalogRow[] = [{ product_id: 'p1', variant_id: 'v1', active: true, product_status: 'vigente', sku: 'SKU-1', producto: 'Producto', variante: '', marca: 'Poliplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 12, precio_mayorista: '', moneda_precio: 'USD', costo: 8, moneda_costo: 'USD', stock: 10, unidad_stock: 'kg', fuente: 'Catálogo' }]
 
 describe('vista previa de importación administrativa', () => {
+  it('interpreta ACTIVE en español y valida variant_id contra SKU', () => {
+    const preview = previewCatalogActiveReview('active;sku;variant_id\nFALSO;SKU-1;v1\nVERDADERO;SKU-1;otro', catalog)
+    expect(preview[0]).toMatchObject({ status: 'cambio', requestedActive: false, currentActive: true })
+    expect(preview[1].status).toBe('error')
+  })
   it('lee CSV de Excel argentino con punto decimal o coma decimal', () => {
     expect(parseAdminCsv('sku;costo;fuente\nSKU-1;8,50;Lista')).toEqual([{ sku: 'SKU-1', costo: '8,50', fuente: 'Lista' }])
     expect(previewAdminImport('sku;costo;fuente\nSKU-1;8,50;Lista', catalog)[0].changes).toContain('costo: 8 → 8.5')

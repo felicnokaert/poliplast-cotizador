@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { downloadCsv, rowsToCsv, setCatalogVariantActive, setCatalogVariantPrice, updateCatalogClassification, type AdminCatalogRow, type PriceImportKind } from "../lib/admin";
+import { applyCatalogActiveReview, downloadCsv, previewCatalogActiveReview, rowsToCsv, setCatalogVariantActive, setCatalogVariantPrice, updateCatalogClassification, type AdminCatalogRow, type CatalogActiveReviewPreview, type PriceImportKind } from "../lib/admin";
 import { buildCatalogReview } from "../lib/catalogReview";
 
 export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminCatalogRow[]; onChanged: () => Promise<void> }) {
@@ -8,6 +8,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
   const [drafts, setDrafts] = useState<Record<string, { family: string; subfamily: string }>>({});
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [activeReview, setActiveReview] = useState<{ fileName: string; preview: CatalogActiveReviewPreview[] } | null>(null);
   const [priceEditor, setPriceEditor] = useState<{
     variantId: string;
     kind: PriceImportKind;
@@ -41,7 +42,54 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
           downloadCsv(`revision-catalogo-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(review));
           setMessage(`${review.length} filas exportadas para revisión. No se modificó el catálogo.`);
         }}>Exportar dudas CSV</button>
+        <label className="secondary file-button">
+          Importar CSV revisado
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              const preview = previewCatalogActiveReview(await file.text(), catalog);
+              setActiveReview({ fileName: file.name, preview });
+              const changes = preview.filter((item) => item.status === "cambio").length;
+              const errors = preview.filter((item) => item.status === "error").length;
+              setMessage(`${file.name}: ${changes} cambios de ACTIVE y ${errors} errores.`);
+              event.target.value = "";
+            }}
+          />
+        </label>
       </div>
+      {activeReview && (
+        <div className="catalog-review-import">
+          <div>
+            <strong>{activeReview.fileName}</strong>
+            <span>{activeReview.preview.filter((item) => item.status === "cambio").length} cambios · {activeReview.preview.filter((item) => item.status === "sin_cambios").length} sin cambios · {activeReview.preview.filter((item) => item.status === "error").length} errores</span>
+          </div>
+          {activeReview.preview.some((item) => item.status === "error") && (
+            <ul>{activeReview.preview.filter((item) => item.status === "error").slice(0, 8).map((item) => <li key={`${item.row}-${item.sku}`}>Fila {item.row} · {item.sku || "sin SKU"}: {item.errors.join("; ")}</li>)}</ul>
+          )}
+          <div className="admin-actions">
+            <button
+              disabled={busy === "active-review" || activeReview.preview.some((item) => item.status === "error") || !activeReview.preview.some((item) => item.status === "cambio")}
+              onClick={async () => {
+                setBusy("active-review");
+                try {
+                  const applied = await applyCatalogActiveReview(activeReview.preview);
+                  setActiveReview(null);
+                  await refresh(`${applied} variantes actualizadas desde el CSV.`);
+                } catch (error) {
+                  setMessage(error instanceof Error ? error.message : "No se pudo aplicar el CSV.");
+                } finally {
+                  setBusy("");
+                }
+              }}
+            >Aplicar ACTIVE</button>
+            <button className="secondary" onClick={() => setActiveReview(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
       {normalized.length < 3 ? (
         <p className="pending-control">Ingresá al menos 3 caracteres.</p>
       ) : rows.length === 0 ? (

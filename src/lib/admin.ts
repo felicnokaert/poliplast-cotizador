@@ -139,6 +139,66 @@ function parseLocaleNumber(value: string): number | '' | null {
 
 export interface AdminImportPreview { row: number; sku: string; status: 'cambio' | 'sin_cambios' | 'error'; changes: string[]; errors: string[]; source: Record<string, string> }
 
+export interface CatalogActiveReviewPreview {
+  row: number
+  variantId: string
+  sku: string
+  currentActive: boolean
+  requestedActive: boolean | null
+  status: 'cambio' | 'sin_cambios' | 'error'
+  errors: string[]
+}
+
+function parseActiveValue(value: string): boolean | null {
+  const normalized = normalizeHeader(value)
+  if (['verdadero', 'true', 'si', '1', 'activo'].includes(normalized)) return true
+  if (['falso', 'false', 'no', '0', 'inactivo'].includes(normalized)) return false
+  return null
+}
+
+export function previewCatalogActiveReview(content: string, catalog: AdminCatalogRow[]): CatalogActiveReviewPreview[] {
+  const byId = new Map(catalog.map((item) => [item.variant_id, item]))
+  const bySku = new Map<string, AdminCatalogRow[]>()
+  for (const item of catalog) {
+    const key = item.sku.trim().toUpperCase()
+    bySku.set(key, [...(bySku.get(key) ?? []), item])
+  }
+  const seen = new Set<string>()
+  return parseAdminCsv(content).map((source, index) => {
+    const sourceId = (source.variant_id ?? '').trim()
+    const sourceSku = (source.sku ?? '').trim()
+    const skuMatches = bySku.get(sourceSku.toUpperCase()) ?? []
+    const current = (sourceId && byId.get(sourceId)) || (skuMatches.length === 1 ? skuMatches[0] : undefined)
+    const errors: string[] = []
+    const requestedActive = parseActiveValue(source.active ?? '')
+    if (!sourceId && !sourceSku) errors.push('Falta variant_id o SKU')
+    else if (!current && skuMatches.length > 1) errors.push('SKU ambiguo: hay más de una variante')
+    else if (!current) errors.push('La variante no existe en el catálogo actual')
+    if (current && sourceSku && current.sku.trim().toUpperCase() !== sourceSku.toUpperCase()) errors.push('El SKU no coincide con variant_id')
+    if (requestedActive === null) errors.push('ACTIVE debe ser VERDADERO o FALSO')
+    const identity = (current?.variant_id ?? sourceId) || `fila-${index + 2}`
+    if (seen.has(identity)) errors.push('Variante repetida en el archivo')
+    seen.add(identity)
+    const currentActive = current?.active ?? false
+    return {
+      row: index + 2,
+      variantId: current?.variant_id ?? sourceId,
+      sku: current?.sku ?? sourceSku,
+      currentActive,
+      requestedActive,
+      status: errors.length ? 'error' : currentActive === requestedActive ? 'sin_cambios' : 'cambio',
+      errors,
+    }
+  })
+}
+
+export async function applyCatalogActiveReview(preview: CatalogActiveReviewPreview[]): Promise<number> {
+  const changes = preview.filter((item) => item.status === 'cambio' && item.requestedActive !== null)
+  if (!changes.length) throw new Error('No hay cambios de ACTIVE válidos para aplicar.')
+  for (const item of changes) await setCatalogVariantActive(item.variantId, item.requestedActive!)
+  return changes.length
+}
+
 export interface CostImportRow { row_number: number; sku: string; amount: number; currency: 'ARS' | 'USD'; source: string; valid_from: string }
 export type PriceImportKind = 'consumidor_final' | 'mayorista'
 export interface PriceImportRow { row_number: number; sku: string; amount: number; source: string }
