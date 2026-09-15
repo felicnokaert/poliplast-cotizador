@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&display=swap');
+
 :root {
   --bg: #f3f4f2;
   --surface: #ffffff;
@@ -690,7 +692,18 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .admin-tabs button.active { border-color: #c72c27; background: #fff4f3; color: #a31c18; }
 .catalog-admin-search { display: flex; align-items: center; gap: 10px; }
 .catalog-admin-search > input { flex: 1; min-width: 240px; }
+.catalog-admin-search > select { min-width: 180px; border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; background: var(--surface); color: var(--text); }
 .catalog-admin-search label { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: .75rem; }
+.admin-summary-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.admin-summary-strip span { display: inline-flex; align-items: baseline; gap: 4px; min-height: 28px; padding: 5px 9px; border-radius: 99px; background: var(--surface-alt); color: var(--text-secondary); font-size: .7rem; }
+.admin-summary-strip strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.admin-summary-strip .attention { background: var(--warning-soft); color: var(--warning); }
+.global-policy-note { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .7fr); align-items: center; gap: 12px; margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--brand-penosil); border-radius: 0 8px 8px 0; background: var(--surface-alt); }
+.global-policy-note > div { display: grid; gap: 2px; }
+.global-policy-note span, .global-policy-note small { color: var(--text-secondary); font-size: .72rem; line-height: 1.4; }
+.policy-toolbar { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.policy-toolbar input { flex: 1; min-width: 220px; min-height: 36px; border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; }
+.policy-toolbar span { color: var(--text-tertiary); font-size: .7rem; white-space: nowrap; }
 .catalog-admin-list { display: grid; gap: 6px; max-height: 520px; overflow: auto; }
 .catalog-admin-list article { display: grid; grid-template-columns: minmax(240px, 1.5fr) minmax(125px, .7fr) minmax(125px, .7fr) auto auto auto; align-items: end; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 7px; background: white; }
 .catalog-admin-list article.inactive { opacity: .65; background: #f3f3f2; }
@@ -715,6 +728,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .history-list article > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .history-list article button { grid-column: 1 / -1; width: 100%; }
   .catalog-admin-search { align-items: stretch; flex-direction: column; }
+  .catalog-admin-search > select { width: 100%; }
+  .global-policy-note { grid-template-columns: 1fr; }
+  .policy-toolbar { align-items: stretch; flex-direction: column; }
+  .policy-toolbar input { min-width: 0; width: 100%; }
   .catalog-admin-list article { grid-template-columns: 1fr 1fr; }
   .catalog-admin-identity { grid-column: 1 / -1; }
   .catalog-price-editor { grid-template-columns: 1fr 1fr; }
@@ -809,8 +826,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
 }
 
 /* UI rework 2026: workspace comercial compacto (DESIGN.md). */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750&display=swap');
-
 :root {
   --bg: #f5f6f4;
   --bg-rgb: 245, 246, 244;

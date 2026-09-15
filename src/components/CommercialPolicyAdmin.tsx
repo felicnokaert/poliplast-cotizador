@@ -13,6 +13,7 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     [retiringRule, setRetiringRule] = useState<string | null>(null),
     [retireReason, setRetireReason] = useState(""),
     [targetSearch, setTargetSearch] = useState("");
+  const [ruleSearch, setRuleSearch] = useState("");
   const [form, setForm] = useState({
     scope: "family" as "family" | "sku",
     family: "",
@@ -39,6 +40,9 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
     if (!form.family && families[0]) window.setTimeout(() => setForm((value) => ({ ...value, family: families[0] })), 0);
   }, [families, form.family]);
   const activeRules = rules.filter((rule) => rule.status === "confirmado" && (!rule.valid_until || rule.valid_until >= new Date().toISOString().slice(0, 10)));
+  const visibleRules = activeRules
+    .filter((rule) => !ruleSearch.trim() || `${formatRuleLabel(rule)} ${rule.source}`.toLowerCase().includes(ruleSearch.trim().toLowerCase()))
+    .sort((a, b) => (a.family ?? a.pack_group ?? "").localeCompare(b.family ?? b.pack_group ?? "", "es-AR") || a.min_quantity - b.min_quantity);
   const saveRule = async () => {
     try {
       await createCommercialRule(
@@ -94,10 +98,13 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
       <section className="admin-section stack">
         <div>
           <h2>Políticas mayoristas</h2>
-          <p className="muted">Revisá primero las reglas vigentes. Las modificaciones crean una versión nueva; desactivar no elimina el historial.</p>
+          <p className="muted">Definí tramos por familia o SKU. Editar crea una versión nueva y conserva el historial.</p>
         </div>
+        <div className="global-policy-note"><div><strong>Penosil · condición global</strong><span>Mayorista desde USD 1.800 netos / USD 2.178 final. Se pueden mezclar productos y cajas.</span></div><small>Los precios unitarios Penosil se editan en Productos y precios; este umbral se evalúa sobre el pedido completo.</small></div>
+        <div className="policy-toolbar"><input type="search" aria-label="Buscar política mayorista" placeholder="Buscar familia, SKU o fuente" value={ruleSearch} onChange={(event) => setRuleSearch(event.target.value)} /><span>{visibleRules.length} de {activeRules.length} vigentes</span></div>
         <div className="commercial-rule-list">
-          {activeRules.map((rule) => (
+          {visibleRules.length === 0 && <p className="pending-control">No hay condiciones que coincidan con la búsqueda.</p>}
+          {visibleRules.map((rule) => (
             <article key={rule.id}>
               <div>
                 <strong>{formatRuleLabel(rule)}</strong>
@@ -169,6 +176,7 @@ export function CommercialPolicyAdmin({ catalog, userEmail }: { catalog: AdminCa
             <label>
               Precio neto
               <input type="number" min="0" step=".0001" value={form.net} onChange={(e) => setForm({ ...form, net: Number(e.target.value) })} />
+              <small>Final con IVA: USD {(form.net * 1.21).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</small>
             </label>
             <label>
               Moneda

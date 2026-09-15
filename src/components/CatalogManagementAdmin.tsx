@@ -4,6 +4,7 @@ import { buildCatalogReview } from "../lib/catalogReview";
 
 export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminCatalogRow[]; onChanged: () => Promise<void> }) {
   const [search, setSearch] = useState("");
+  const [familyFilter, setFamilyFilter] = useState("todas");
   const [includeInactive, setIncludeInactive] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, { family: string; subfamily: string }>>({});
   const [busy, setBusy] = useState("");
@@ -16,7 +17,14 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
     reason: string;
   } | null>(null);
   const normalized = search.trim().toLowerCase();
-  const rows = useMemo(() => (normalized.length < 3 ? [] : catalog.filter((row) => (includeInactive || row.active) && [row.sku, row.producto, row.variante, row.familia, row.subfamilia].some((value) => value.toLowerCase().includes(normalized))).slice(0, 60)), [catalog, includeInactive, normalized]);
+  const families = useMemo(() => [...new Set(catalog.map((row) => row.familia).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es-AR")), [catalog]);
+  const summary = useMemo(() => ({
+    active: catalog.filter((row) => row.active).length,
+    inactive: catalog.filter((row) => !row.active).length,
+    consumerPending: catalog.filter((row) => row.active && row.precio_consumidor_final === "").length,
+    wholesaleReady: catalog.filter((row) => row.active && row.precio_mayorista !== "").length,
+  }), [catalog]);
+  const rows = useMemo(() => (normalized.length < 3 ? [] : catalog.filter((row) => (includeInactive || row.active) && (familyFilter === "todas" || row.familia === familyFilter) && [row.sku, row.producto, row.variante, row.familia, row.subfamilia].some((value) => value.toLowerCase().includes(normalized))).slice(0, 60)), [catalog, familyFilter, includeInactive, normalized]);
   const draftFor = (row: AdminCatalogRow) =>
     drafts[row.product_id] ?? {
       family: row.familia,
@@ -32,8 +40,18 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
         <h2>Productos, categorías y precios</h2>
         <p className="muted">Buscá por nombre o SKU. Editá precios unitarios en USD y ocultá presentaciones que no quieras ofrecer.</p>
       </div>
+      <div className="admin-summary-strip" aria-label="Estado del catálogo">
+        <span><strong>{summary.active}</strong> activos</span>
+        <span><strong>{summary.inactive}</strong> ocultos</span>
+        <span className={summary.consumerPending ? "attention" : ""}><strong>{summary.consumerPending}</strong> sin minorista</span>
+        <span><strong>{summary.wholesaleReady}</strong> con mayorista</span>
+      </div>
       <div className="catalog-admin-search">
         <input type="search" aria-label="Buscar producto para administrar" placeholder="Escribí al menos 3 letras o un SKU" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <select aria-label="Filtrar por familia" value={familyFilter} onChange={(event) => setFamilyFilter(event.target.value)}>
+          <option value="todas">Todas las familias</option>
+          {families.map((family) => <option key={family} value={family}>{family}</option>)}
+        </select>
         <label>
           <input type="checkbox" checked={includeInactive} onChange={(event) => setIncludeInactive(event.target.checked)} /> Ver desactivados
         </label>
@@ -113,6 +131,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                 <label>
                   Familia
                   <input
+                    list="catalog-family-options"
                     value={draft.family}
                     onChange={(event) =>
                       setDrafts((current) => ({
@@ -269,6 +288,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
           {message}
         </div>
       )}
+      <datalist id="catalog-family-options">{families.map((family) => <option key={family} value={family} />)}</datalist>
     </section>
   );
 }
