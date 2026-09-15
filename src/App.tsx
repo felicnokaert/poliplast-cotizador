@@ -7,13 +7,7 @@ function App() {
     <AuthGate>
       {(session) => (
         <div className="app-shell">
-          <div className="topbar">
-            <span className="muted">{session.user.email}</span>
-            <button className="link-button" onClick={() => supabase.auth.signOut()}>
-              Salir
-            </button>
-          </div>
-          <QuoteWorkspace userEmail={session.user.email || ''} userId={session.user.id} />
+          <QuoteWorkspace userEmail={session.user.email || ''} userId={session.user.id} onSignOut={() => { void supabase.auth.signOut() }} />
         </div>
       )}
     </AuthGate>

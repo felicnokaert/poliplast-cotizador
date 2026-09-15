@@ -115,7 +115,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
   )
 }
 
-export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userId: string }) {
+export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: string; userId: string; onSignOut?: () => void }) {
   const [initialDraft] = useState(loadWorkingDraft)
   const [lines, setLines] = useState<QuoteLine[]>(() => initialDraft?.lines ?? [])
   const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
@@ -252,10 +252,10 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
 
   return (
     <>
-      <nav className="workspace-nav">
+      <nav className="workspace-nav" aria-label="Navegación principal">
         <div className="nav-brand"><BrandMark brand="Grupo Poliplast" /><span>Cotizador comercial</span></div>
-        <div className="nav-tabs"><button className={activeSection === 'historial' || activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b>▤</b>Cotizaciones <span>{savedQuotes.length}</span></button><button className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b>▦</b>Catálogo</button>{canAccessAdministration && <button className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b>⚙</b>Administración</button>}</div>
-        <div className="nav-user"><span>{userEmail}</span>{activeSection !== 'historial' && <button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button>}</div>
+        <div className="nav-tabs"><button aria-current={activeSection === 'historial' || activeSection === 'cotizacion' ? 'page' : undefined} className={activeSection === 'historial' || activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b aria-hidden="true">▤</b>Cotizaciones <span>{savedQuotes.length}</span></button><button aria-current={activeSection === 'catalogo' ? 'page' : undefined} className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b aria-hidden="true">▦</b>Catálogo</button>{canAccessAdministration && <button aria-current={activeSection === 'administracion' ? 'page' : undefined} className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b aria-hidden="true">⚙</b>Administración</button>}</div>
+        <div className="nav-user">{activeSection !== 'historial' && <button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button>}<span title={userEmail}>{userEmail}</span>{onSignOut && <button className="sign-out-button" onClick={onSignOut}>Salir</button>}</div>
       </nav>
 
       {activeSection === 'administracion' ? <AdminPanel userEmail={userEmail} /> : activeSection === 'historial' ? (
@@ -284,18 +284,19 @@ export function QuoteWorkspace({ userEmail, userId }: { userEmail: string; userI
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
             </div>
-            <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Editá cantidades y condiciones antes de emitir.</p></div></div>{(lines.length > 0 || productPickerOpen) && <button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button>}</div>
+            <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Productos, cantidades y precios aplicados.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
             {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
+            {lines.length === 0 ? <button className="quote-empty quote-empty-action quote-empty-main" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar el primer producto</strong><span>Buscá por nombre o SKU; los resultados aparecen desde 3 caracteres.</span></button> : <div className="quote-lines quote-lines-main">{lines.map((line) => {
+              const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
+              const price = details.price
+              const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
+              return <article className="quote-line quote-line-main" key={line.id}><div className="quote-line-identity"><span className={`brand-dot brand-dot-${line.brand.toLowerCase().replace(/\W/g, '')}`} aria-hidden="true" /><div><strong>{line.productName}</strong><span className="quote-line-meta">{line.variant.sku} · {line.brand} · {details.priceLabel}</span></div></div><label className="quote-line-quantity">Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div className="quote-line-price"><span>{price ? `${money(price.amount, price.currency)} / ${line.variant.unit}` : 'Precio pendiente'}</span>{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack, price.currency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}<strong>{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div><button className="remove-line" aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button>{exceedsApprovedStock && <div className="stock-warning quote-line-message">Cantidad supera el último saldo aprobado ({line.variant.approvedStock!.quantity} {line.variant.approvedStock!.unit}). Confirmar disponibilidad.</div>}<details className="price-details"><summary>Ver cálculo</summary><p><strong>{details.physicalUnits} unidades físicas.</strong> {details.condition} {details.outcome}</p></details></article>
+            })}</div>}
           </section>
 
           <section className="quote-rail" id="quote-summary">
             <div className="rail-title"><div><span className="eyebrow">Resumen</span><h2>{meta.client || 'Cotización sin cliente'}</h2></div><span className="line-count">{lines.length}</span></div>
-            {lines.length === 0 ? <button className="quote-empty quote-empty-action" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar productos</strong><span>Buscá por nombre o SKU</span></button> : <div className="quote-lines">{lines.map((line) => {
-              const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
-              const price = details.price
-              const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
-              return <div className="quote-line" key={line.id}><div className="quote-line-head"><strong>{line.productName}</strong><button aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button></div><div className="quote-line-meta">{line.variant.sku} · {details.priceLabel}</div>{exceedsApprovedStock && <div className="stock-warning">Cantidad supera el último saldo aprobado ({line.variant.approvedStock!.quantity} {line.variant.approvedStock!.unit}). Confirmar disponibilidad.</div>}<div className="quote-line-values"><label>Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div><span className="unit-price">{price ? `${money(price.amount, price.currency)} / ${line.variant.unit} · IVA incluido` : 'Precio pendiente'}</span>{price && <span className="price-trace">Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack, price.currency)} + IVA {(price.vatRate * 100).toFixed(0)}%</span>}<strong className="line-total">{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div></div><div className="price-reason"><span>{details.physicalUnits} unidades físicas</span><p>{details.condition} {details.outcome}</p></div></div>
-            })}</div>}
+            <p className="rail-context">{lines.length === 0 ? 'Agregá productos para calcular la cotización.' : `${lines.length} renglón${lines.length === 1 ? '' : 'es'} · valores finales con IVA incluido.`}</p>
 
             <div className="commercial-controls">
               <label>Política de precios<select value={meta.priceMode} onChange={(e) => updateMeta('priceMode', e.target.value as PriceMode)}><option value="automatico">Reglas comerciales automáticas</option><option value="consumidor_final">Forzar consumidor final</option><option value="mayorista">Forzar mayorista</option></select><small className="exchange-source">{meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Aplicada: ${totals.appliedPriceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}`}</small></label>
