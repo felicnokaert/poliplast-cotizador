@@ -165,7 +165,7 @@ Las tareas programadas y carpetas locales de las dos computadoras de Felipe no s
 4. **Integración CRM–cotizador:** decidir si la primera integración será solamente abrir/crear cotizaciones desde la ficha de empresa o también devolver estados y totales al CRM.
 5. **Contabilium:** definir el momento exacto del traspaso: cotización aceptada, pedido confirmado o emisión administrativa.
 6. **KPI:** acordar quién registra aceptación, rechazo y motivo de pérdida.
-7. **Fase 6:** Felipe debe definir su alcance para incorporarla al roadmap general.
+7. **Fase 6 — definición cerrada:** pertenece al frente Catálogo/Compras y cubre costos, precios y rentabilidad. La fuente normativa es el Anexo A de `SISTEMA_COMERCIAL_GRUPO_POLIPLAST.md`; no corresponde reabrirla como pregunta ni incorporarla como fase de ventas.
 
 ## 11. Próxima etapa recomendada
 
