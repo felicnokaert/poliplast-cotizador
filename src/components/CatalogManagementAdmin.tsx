@@ -67,7 +67,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
     consumerPending: catalog.filter((row) => row.active && row.precio_consumidor_final === "").length,
     wholesaleReady: catalog.filter((row) => row.active && row.precio_mayorista !== "").length,
   }), [catalog]);
-  const rows = useMemo(() => (normalized.length < 3 ? [] : catalog.filter((row) => (includeInactive || row.active) && (familyFilter === "todas" || row.familia === familyFilter) && [row.sku, row.producto, row.variante, row.familia, row.subfamilia].some((value) => value.toLowerCase().includes(normalized)))), [catalog, familyFilter, includeInactive, normalized]);
+  const rows = useMemo(() => catalog.filter((row) => (includeInactive || row.active) && (familyFilter === "todas" || row.familia === familyFilter) && (normalized === "" || [row.sku, row.producto, row.variante, row.familia, row.subfamilia].some((value) => value.toLowerCase().includes(normalized)))), [catalog, familyFilter, includeInactive, normalized]);
   const allGroups = useMemo(() => {
     const map = new Map<string, { product_id: string; producto: string; familia: string; subfamilia: string; photo_path: string | null; rows: AdminCatalogRow[] }>();
     for (const row of rows) {
@@ -171,7 +171,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
         <span><strong>{summary.wholesaleReady}</strong> con mayorista</span>
       </div>
       <div className="catalog-admin-search">
-        <input type="search" aria-label="Buscar producto para administrar" placeholder="Escribí al menos 3 letras o un SKU" value={search} onChange={(event) => setSearch(event.target.value)} />
+        <input type="search" aria-label="Buscar producto para administrar" placeholder="Buscar por nombre, SKU, familia o subfamilia" value={search} onChange={(event) => setSearch(event.target.value)} />
         <select aria-label="Filtrar por familia" value={familyFilter} onChange={(event) => setFamilyFilter(event.target.value)}>
           <option value="todas">Todas las familias</option>
           {families.map((family) => <option key={family} value={family}>{family}</option>)}
@@ -232,9 +232,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
           </div>
         </div>
       )}
-      {normalized.length < 3 ? (
-        <p className="pending-control">Ingresá al menos 3 caracteres.</p>
-      ) : allGroups.length === 0 ? (
+      {allGroups.length === 0 ? (
         <p className="pending-control">No se encontraron productos.</p>
       ) : (
         <>
