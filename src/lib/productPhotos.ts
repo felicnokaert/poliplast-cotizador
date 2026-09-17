@@ -38,6 +38,14 @@ function slugifyFileName(name: string): string {
   return `${safe || 'foto'}-${Date.now()}${ext.toLowerCase()}`
 }
 
+/** Borra la foto del bucket y la desasigna de cualquier producto que la tuviera puesta. */
+export async function deleteBucketPhoto(path: string): Promise<void> {
+  const { error: unassignError } = await supabase.from('catalog_products').update({ photo_path: null, updated_at: new Date().toISOString() }).eq('photo_path', path)
+  if (unassignError) throw unassignError
+  const { error } = await supabase.storage.from(BUCKET).remove([path])
+  if (error) throw error
+}
+
 /** Sube el archivo al bucket y lo asigna al producto en un solo paso. */
 export async function uploadProductPhoto(productId: string, file: File): Promise<string> {
   const path = slugifyFileName(file.name)

@@ -748,6 +748,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .catalog-grid-photo-thumb-btn.remove { display: grid; place-items: center; color: #9c2520; font-weight: 700; border-style: dashed; }
 .catalog-grid-photo-thumb-more { border: 1px solid var(--admin-border); border-radius: 6px; background: white; padding: 4px 8px; font-size: .64rem; font-weight: 700; color: var(--admin-muted); }
 .catalog-grid-photo-thumb-more:hover { border-color: var(--admin-accent); color: var(--admin-accent); }
+.catalog-grid-photo-search { width: 100%; margin: 4px 0; padding: 6px 8px; border: 1px solid var(--admin-border); border-radius: 6px; font-size: .78rem; }
+.catalog-grid-photo-thumb-wrap { position: relative; }
+.catalog-grid-photo-thumb-delete { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--admin-border); background: white; font-size: .6rem; line-height: 1; padding: 0; display: grid; place-items: center; cursor: pointer; }
+.catalog-grid-photo-thumb-delete:hover { border-color: #9c2520; background: #fdecea; }
 .catalog-grid-photo-upload { display: grid; place-items: center; gap: 3px; min-width: 150px; padding: 8px 10px; border: 1px dashed var(--admin-border); border-radius: 7px; color: var(--admin-muted); font-size: .66rem; font-weight: 700; text-align: center; cursor: pointer; background: white; }
 .catalog-grid-photo-upload:hover { border-color: var(--admin-accent); color: var(--admin-ink); }
 .catalog-grid-photo-upload input { display: none; }
