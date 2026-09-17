@@ -103,9 +103,10 @@ async function assertSkuAvailable(sku: string, excludeVariantId?: string): Promi
   throw new InactiveSkuConflictError({ variantId: row.id, productId: row.product_id, productName: productRef?.name ?? '(sin nombre)', variantName: row.name, active: row.active })
 }
 
-/** Reactiva una variante desactivada, opcionalmente actualizando nombre/unidad/pack con los datos recién ingresados. */
-export async function reactivateCatalogVariant(variantId: string, updates: { name?: string; unit?: string; unitsPerPack?: number }): Promise<void> {
+/** Reactiva una variante desactivada, opcionalmente actualizando nombre/unidad/pack y moviéndola a otro producto (productId) con los datos recién ingresados. */
+export async function reactivateCatalogVariant(variantId: string, updates: { name?: string; unit?: string; unitsPerPack?: number; productId?: string }): Promise<void> {
   const patch: Record<string, unknown> = { active: true, updated_at: new Date().toISOString() }
+  if (updates.productId) patch.product_id = updates.productId
   if (updates.name?.trim()) patch.name = updates.name.trim()
   if (updates.unit?.trim()) patch.unit = updates.unit.trim()
   if (updates.unitsPerPack && updates.unitsPerPack > 1) patch.attributes = { units_per_pack: updates.unitsPerPack }

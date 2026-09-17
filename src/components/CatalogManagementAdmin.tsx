@@ -597,9 +597,9 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                             } catch (error) {
                               if (error instanceof InactiveSkuConflictError) {
                                 const sameProduct = error.conflict.productId === group.product_id;
-                                const hint = sameProduct ? '' : ` Ojo: esa variante pertenece a otro producto ("${error.conflict.productName}"), va a reaparecer ahí, no en "${group.producto}".`;
-                                if (!window.confirm(`${error.message}${hint}\n\n¿Reactivarla con los datos que acabás de cargar en vez de crear una nueva?`)) return;
-                                await reactivateCatalogVariant(error.conflict.variantId, { name: newVariant.name, unit: newVariant.unit, unitsPerPack });
+                                const hint = sameProduct ? '' : ` Está colgada de otro producto ("${error.conflict.productName}"); se va a mover a "${group.producto}".`;
+                                if (!window.confirm(`${error.message}${hint}\n\n¿Reactivarla como variante de "${group.producto}" con los datos que acabás de cargar?`)) return;
+                                await reactivateCatalogVariant(error.conflict.variantId, { name: newVariant.name, unit: newVariant.unit, unitsPerPack, productId: group.product_id });
                               } else throw error;
                             }
                             setNewVariantDrafts((current) => { const next = { ...current }; delete next[group.product_id]; return next; });

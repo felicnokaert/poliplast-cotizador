@@ -103,4 +103,10 @@ describe('escrituras exitosas contra un Supabase simulado', () => {
     await reactivateCatalogVariant('v-vieja', { name: 'Nombre nuevo', unit: 'kg', unitsPerPack: 5 })
     expect(supabase.from).toHaveBeenCalledWith('catalog_variants')
   })
+  it('reactivar puede mover la variante a otro producto', async () => {
+    const result = makeQueryResult({ data: null, error: null })
+    vi.mocked(supabase.from).mockReturnValueOnce(result as never)
+    await reactivateCatalogVariant('v-vieja', { name: 'x', unit: 'unidad', productId: 'p-destino' })
+    expect(result.update).toHaveBeenCalledWith(expect.objectContaining({ product_id: 'p-destino', active: true }))
+  })
 })
