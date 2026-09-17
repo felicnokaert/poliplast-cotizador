@@ -143,6 +143,7 @@ export async function setCatalogVariantPrice(variantId: string, kind: PriceImpor
   return data as string
 }
 
+/** El costo se carga siempre sin IVA (neto), a diferencia de los precios de venta que son finales con IVA incluido. */
 export async function setCatalogVariantCost(variantId: string, amount: number, currency: 'USD' | 'ARS', reason: string) {
   if (!Number.isFinite(amount) || amount < 0) throw new Error('Ingresá un costo válido.')
   if (reason.trim().length < 3) throw new Error('Indicá la fuente o motivo del cambio.')

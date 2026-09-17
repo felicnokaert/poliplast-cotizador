@@ -515,7 +515,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                       <th>Variante</th>
                       <th>Minorista (USD)</th>
                       <th>Mayorista (USD)</th>
-                      <th>Costo (USD)</th>
+                      <th title="El costo se carga sin IVA">Costo (USD, sin IVA)</th>
                       <th>Condición comercial</th>
                       <th>Motivo del cambio</th>
                       <th>Activo</th>
