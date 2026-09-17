@@ -4,6 +4,7 @@ import { buildCatalogReview } from "../lib/catalogReview";
 import { formatRuleLabel, loadCommercialRules } from "../lib/commercialRules";
 import type { CommercialRule } from "../types/commercialRules";
 import { deleteBucketPhoto, listBucketPhotos, photoRelevance, productPhotoUrl, setCatalogProductPhoto, uploadProductPhoto, type BucketPhoto } from "../lib/productPhotos";
+import { groupByColorVariant } from "../lib/colorVariants";
 
 interface RowDraft {
   sku: string;
@@ -75,7 +76,20 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
       if (existing) existing.rows.push(row);
       else map.set(row.product_id, { product_id: row.product_id, producto: row.producto, familia: row.familia, subfamilia: row.subfamilia, photo_path: row.photo_path, rows: [row] });
     }
-    return [...map.values()].sort((a, b) => a.producto.localeCompare(b.producto, "es-AR"));
+    const priceKeyOf = (group: { rows: AdminCatalogRow[] }) => group.rows.map((row) => row.precio_consumidor_final).sort().join("|");
+    const clusters = groupByColorVariant([...map.values()], (group) => group.producto, priceKeyOf);
+    const withDots = clusters.map((cluster) => {
+      const members = cluster.colorOptions.length > 1
+        ? cluster.colorOptions.map((option) => option.product).sort((a, b) => a.producto.localeCompare(b.producto, "es-AR"))
+        : [cluster.representative];
+      return members.map((group, index) => ({
+        ...group,
+        colorDot: cluster.colorOptions.length > 1 ? cluster.colorOptions.find((option) => option.product === group)?.hex ?? null : null,
+        clusterStart: index === 0,
+      }));
+    });
+    withDots.sort((a, b) => a[0].producto.localeCompare(b[0].producto, "es-AR"));
+    return withDots.flat();
   }, [rows]);
   const pageSize = 25;
   const [pageState, setPageState] = useState({ page: 1, key: "" });
@@ -252,8 +266,9 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
             const subfamilyIsCustom = categoryDraft.subfamily !== "" && !subfamilyOptions.includes(categoryDraft.subfamily);
             const categoryChanged = categoryDraft.family !== group.familia || categoryDraft.subfamily !== group.subfamilia;
             return (
-              <div key={group.product_id} className="catalog-grid-product">
+              <div key={group.product_id} className={`catalog-grid-product${group.clusterStart ? " cluster-start" : " cluster-sibling"}`}>
                 <div className="catalog-grid-product-header">
+                  {group.colorDot && <span className="catalog-grid-color-dot" style={{ background: group.colorDot }} title="Mismo artículo, otro color" />}
                   {productPhotoUrl(group.photo_path) ? (
                     <img className="catalog-grid-thumb" src={productPhotoUrl(group.photo_path)!} alt={group.producto} />
                   ) : (
