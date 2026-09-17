@@ -92,13 +92,27 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
     return withDots.flat();
   }, [rows]);
   const pageSize = 25;
+  // Corta en trozos de ~pageSize, pero nunca en medio de un cluster de color
+  // (si el corte cae en un "cluster-sibling", el trozo se extiende hasta el
+  // próximo "cluster-start" para no partir visualmente el grupo).
+  const pages = useMemo(() => {
+    const chunks: (typeof allGroups)[] = [];
+    let index = 0;
+    while (index < allGroups.length) {
+      let end = Math.min(index + pageSize, allGroups.length);
+      while (end < allGroups.length && !allGroups[end].clusterStart) end += 1;
+      chunks.push(allGroups.slice(index, end));
+      index = end;
+    }
+    return chunks.length > 0 ? chunks : [[]];
+  }, [allGroups]);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
   const filterKey = `${normalized}|${familyFilter}|${includeInactive}`;
   const page = pageState.key === filterKey ? pageState.page : 1;
   const setPage = (updater: (value: number) => number) => setPageState({ page: updater(page), key: filterKey });
-  const pageCount = Math.max(1, Math.ceil(allGroups.length / pageSize));
+  const pageCount = pages.length;
   const currentPage = Math.min(page, pageCount);
-  const groups = useMemo(() => allGroups.slice((currentPage - 1) * pageSize, currentPage * pageSize), [allGroups, currentPage]);
+  const groups = pages[currentPage - 1] ?? [];
   const categoryDraftFor = (group: { product_id: string; familia: string; subfamilia: string }) =>
     categoryDrafts[group.product_id] ?? { family: group.familia, subfamily: group.subfamilia };
   const rowDraftFor = (row: AdminCatalogRow) => rowDrafts[row.variant_id] ?? rowDraftFrom(row);

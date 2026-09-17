@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CatalogBrowser } from './CatalogBrowser'
 import {
   addQuoteLine,
@@ -199,15 +199,22 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const snapshot = (): SavedQuote => ({ meta, lines, updatedAt: new Date().toISOString() })
   // El número se reserva recién acá, la primera vez que la cotización se guarda de verdad
   // (guardar, guardar-y-crear-otra o enviar por WhatsApp), no al abrir el borrador.
-  const save = async (): Promise<SavedQuote> => {
-    const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
-    if (!meta.number) setMeta((current) => ({ ...current, number }))
-    const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number } }
-    setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
-    setQuoteSyncStatus('guardando')
-    try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
-    window.setTimeout(() => setLastAdded(''), 2400)
-    return quote
+  const savingRef = useRef<Promise<SavedQuote> | null>(null)
+  const save = (): Promise<SavedQuote> => {
+    if (savingRef.current) return savingRef.current
+    const run = async (): Promise<SavedQuote> => {
+      const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
+      if (!meta.number) setMeta((current) => ({ ...current, number }))
+      const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number } }
+      setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
+      setQuoteSyncStatus('guardando')
+      try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
+      window.setTimeout(() => setLastAdded(''), 2400)
+      return quote
+    }
+    const promise = run().finally(() => { savingRef.current = null })
+    savingRef.current = promise
+    return promise
   }
   const startNew = () => {
     const draft = newMeta(savedQuotes)
