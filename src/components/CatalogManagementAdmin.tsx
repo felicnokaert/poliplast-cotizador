@@ -38,7 +38,6 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
   const [activeReview, setActiveReview] = useState<{ fileName: string; preview: CatalogActiveReviewPreview[] } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [photoPickerOpenFor, setPhotoPickerOpenFor] = useState<string | null>(null);
-  const [photoSearch, setPhotoSearch] = useState("");
   const [newProduct, setNewProduct] = useState({ name: "", brand: "Grupo Poliplast", family: "", subfamily: "", sku: "", unit: "unidad" });
 
   useEffect(() => {
@@ -295,16 +294,12 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                   {(() => {
                     const isOpen = photoPickerOpenFor === group.product_id;
                     const sortedPhotos = [...photos].sort((a, b) => photoRelevance(b, group.producto) - photoRelevance(a, group.producto));
-                    const query = photoSearch.trim().toLowerCase();
-                    const visible = isOpen
-                      ? (query ? sortedPhotos.filter((photo) => photo.path.toLowerCase().includes(query)) : sortedPhotos.slice(0, 8))
-                      : sortedPhotos.slice(0, 5);
-                    const assign = async (value: string | null) => {
+                    const currentPhoto = photos.find((photo) => photo.path === group.photo_path);
+                    const assign = async (value: string | null, keepOpen = false) => {
                       setBusy(`photo-${group.product_id}`);
                       try {
                         await setCatalogProductPhoto(group.product_id, value);
-                        setPhotoPickerOpenFor(null);
-                        setPhotoSearch("");
+                        if (!keepOpen) setPhotoPickerOpenFor(null);
                         await refresh(value ? `Foto asignada a ${group.producto}.` : `Foto quitada de ${group.producto}.`);
                       } catch (error) {
                         setMessage(error instanceof Error ? error.message : "No se pudo asignar la foto.");
@@ -318,7 +313,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                       try {
                         await deleteBucketPhoto(photo.path);
                         setPhotos(await listBucketPhotos());
-                        await refresh(`Foto "${photo.path}" borrada.`);
+                        await refresh(`Foto borrada.`);
                       } catch (error) {
                         setMessage(error instanceof Error ? error.message : "No se pudo borrar la foto.");
                       } finally {
@@ -327,55 +322,53 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                     };
                     return (
                       <div className="catalog-grid-photo-picker">
-                        <span>Fotos disponibles (click para asignar)</span>
-                        {isOpen && (
-                          <input
-                            type="text"
-                            className="catalog-grid-photo-search"
-                            placeholder="Buscar foto por nombre…"
-                            value={photoSearch}
-                            onChange={(event) => setPhotoSearch(event.target.value)}
-                            autoFocus
-                          />
-                        )}
-                        <div className="catalog-grid-photo-thumbs">
-                          {group.photo_path && (
-                            <button type="button" className="catalog-grid-photo-thumb-btn remove" title="Quitar foto" disabled={busy === `photo-${group.product_id}`} onClick={() => assign(null)}>✕</button>
-                          )}
-                          {visible.length === 0 && <span className="muted">{query ? "Sin resultados." : "Todavía no subiste fotos."}</span>}
-                          {visible.map((photo) => (
-                            <div className="catalog-grid-photo-thumb-wrap" key={photo.path}>
-                              <button
-                                type="button"
-                                className={`catalog-grid-photo-thumb-btn${group.photo_path === photo.path ? " selected" : ""}`}
-                                title={photo.path}
-                                disabled={busy === `photo-${group.product_id}`}
-                                onClick={() => assign(photo.path)}
-                              >
-                                <img src={photo.url} alt={photo.path} />
+                        <span>Foto del producto</span>
+                        <div className="catalog-grid-photo-current">
+                          {currentPhoto ? <img src={currentPhoto.url} alt={group.producto} /> : <div className="catalog-grid-photo-empty">Sin foto</div>}
+                          <div className="catalog-grid-photo-current-actions">
+                            <button type="button" className="catalog-grid-photo-thumb-more" onClick={() => setPhotoPickerOpenFor(group.product_id)}>
+                              Ver galería ({sortedPhotos.length})
+                            </button>
+                            {group.photo_path && (
+                              <button type="button" className="catalog-grid-photo-thumb-more" disabled={busy === `photo-${group.product_id}`} onClick={() => assign(null)}>
+                                Quitar foto
                               </button>
-                              <button
-                                type="button"
-                                className="catalog-grid-photo-thumb-delete"
-                                title="Borrar esta foto del bucket"
-                                disabled={busy === `photo-${group.product_id}`}
-                                onClick={() => removePhoto(photo)}
-                              >
-                                🗑
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            className="catalog-grid-photo-thumb-more"
-                            onClick={() => {
-                              setPhotoPickerOpenFor(isOpen ? null : group.product_id);
-                              setPhotoSearch("");
-                            }}
-                          >
-                            {isOpen ? "Ver menos" : `Buscar en todas (${sortedPhotos.length})`}
-                          </button>
+                            )}
+                          </div>
                         </div>
+                        {isOpen && (
+                          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Galería de fotos" onClick={() => setPhotoPickerOpenFor(null)}>
+                            <section className="photo-gallery-modal" onClick={(event) => event.stopPropagation()}>
+                              <h2>Elegir foto para {group.producto}</h2>
+                              <p className="muted">Click en una foto para asignarla. El tacho la borra del bucket para siempre (se usa para sacar duplicados).</p>
+                              <div className="photo-gallery-grid">
+                                {sortedPhotos.length === 0 && <span className="muted">Todavía no subiste fotos.</span>}
+                                {sortedPhotos.map((photo) => (
+                                  <div className="photo-gallery-item-wrap" key={photo.path}>
+                                    <button
+                                      type="button"
+                                      className={`photo-gallery-item${group.photo_path === photo.path ? " selected" : ""}`}
+                                      disabled={busy === `photo-${group.product_id}`}
+                                      onClick={() => assign(photo.path)}
+                                    >
+                                      <img src={photo.url} alt={photo.path} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="catalog-grid-photo-thumb-delete"
+                                      title="Borrar esta foto del bucket"
+                                      disabled={busy === `photo-${group.product_id}`}
+                                      onClick={() => removePhoto(photo)}
+                                    >
+                                      🗑
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="admin-actions"><button onClick={() => setPhotoPickerOpenFor(null)}>Cerrar</button></div>
+                            </section>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
