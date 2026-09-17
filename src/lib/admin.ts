@@ -74,12 +74,43 @@ export async function updateCatalogClassification(productId: string, family: str
   return data
 }
 
+export interface SkuConflict {
+  variantId: string
+  productId: string
+  productName: string
+  variantName: string
+  active: boolean
+}
+
+/** Se lanza cuando el SKU ya existe pero en una variante DESACTIVADA: el llamador puede ofrecer reactivarla en vez de bloquear el alta. */
+export class InactiveSkuConflictError extends Error {
+  conflict: SkuConflict
+  constructor(conflict: SkuConflict) {
+    super(`Ya existe una variante desactivada con el SKU de "${conflict.variantName}" (producto: ${conflict.productName}).`)
+    this.conflict = conflict
+  }
+}
+
 async function assertSkuAvailable(sku: string, excludeVariantId?: string): Promise<void> {
-  let query = supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
+  let query = supabase.from('catalog_variants').select('id, active, name, product_id, catalog_products(name)').eq('sku', sku).limit(1)
   if (excludeVariantId) query = query.neq('id', excludeVariantId)
   const { data: existing, error } = await query
   if (error) throw error
-  if (existing && existing.length > 0) throw new Error(`Ya existe otra variante con el SKU ${sku}.`)
+  const row = existing?.[0] as { id: string; active: boolean; name: string; product_id: string; catalog_products: { name: string } | { name: string }[] | null } | undefined
+  if (!row) return
+  if (row.active) throw new Error(`Ya existe otra variante con el SKU ${sku}.`)
+  const productRef = Array.isArray(row.catalog_products) ? row.catalog_products[0] : row.catalog_products
+  throw new InactiveSkuConflictError({ variantId: row.id, productId: row.product_id, productName: productRef?.name ?? '(sin nombre)', variantName: row.name, active: row.active })
+}
+
+/** Reactiva una variante desactivada, opcionalmente actualizando nombre/unidad/pack con los datos recién ingresados. */
+export async function reactivateCatalogVariant(variantId: string, updates: { name?: string; unit?: string; unitsPerPack?: number }): Promise<void> {
+  const patch: Record<string, unknown> = { active: true, updated_at: new Date().toISOString() }
+  if (updates.name?.trim()) patch.name = updates.name.trim()
+  if (updates.unit?.trim()) patch.unit = updates.unit.trim()
+  if (updates.unitsPerPack && updates.unitsPerPack > 1) patch.attributes = { units_per_pack: updates.unitsPerPack }
+  const { error } = await supabase.from('catalog_variants').update(patch).eq('id', variantId)
+  if (error) throw error
 }
 
 export async function updateCatalogVariantSku(variantId: string, sku: string) {

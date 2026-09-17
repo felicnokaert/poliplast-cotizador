@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, previewCatalogActiveReview, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
+import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, InactiveSkuConflictError, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
 import { buildCatalogReview } from "../lib/catalogReview";
 import { formatRuleLabel, loadCommercialRules } from "../lib/commercialRules";
 import type { CommercialRule } from "../types/commercialRules";
@@ -181,10 +181,17 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
             onClick={async () => {
               setBusy("new-product");
               try {
-                await createCatalogProduct(newProduct);
+                try {
+                  await createCatalogProduct(newProduct);
+                } catch (error) {
+                  if (error instanceof InactiveSkuConflictError) {
+                    if (!window.confirm(`${error.message}\n\n¿Reactivarla con el nombre y unidad que acabás de cargar, en el producto "${error.conflict.productName}" al que ya pertenece? (No se va a crear "${newProduct.name}" como producto nuevo.)`)) return;
+                    await reactivateCatalogVariant(error.conflict.variantId, { name: newProduct.name, unit: newProduct.unit });
+                  } else throw error;
+                }
                 setNewProduct({ name: "", brand: "Grupo Poliplast", family: "", subfamily: "", sku: "", unit: "unidad" });
                 setShowNewProduct(false);
-                await refresh(`${newProduct.name} creado. Buscalo para cargarle el precio.`);
+                await refresh(`${newProduct.name} listo. Buscalo para cargarle el precio.`);
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : "No se pudo crear el producto.");
               } finally {
@@ -583,10 +590,20 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                         disabled={busy === `newvariant-${group.product_id}` || !newVariant.sku.trim() || !newVariant.name.trim()}
                         onClick={async () => {
                           setBusy(`newvariant-${group.product_id}`);
+                          const unitsPerPack = newVariant.unitsPerPack ? Number(newVariant.unitsPerPack) : undefined;
                           try {
-                            await createCatalogVariant(group.product_id, { sku: newVariant.sku, name: newVariant.name, unit: newVariant.unit, unitsPerPack: newVariant.unitsPerPack ? Number(newVariant.unitsPerPack) : undefined });
+                            try {
+                              await createCatalogVariant(group.product_id, { sku: newVariant.sku, name: newVariant.name, unit: newVariant.unit, unitsPerPack });
+                            } catch (error) {
+                              if (error instanceof InactiveSkuConflictError) {
+                                const sameProduct = error.conflict.productId === group.product_id;
+                                const hint = sameProduct ? '' : ` Ojo: esa variante pertenece a otro producto ("${error.conflict.productName}"), va a reaparecer ahí, no en "${group.producto}".`;
+                                if (!window.confirm(`${error.message}${hint}\n\n¿Reactivarla con los datos que acabás de cargar en vez de crear una nueva?`)) return;
+                                await reactivateCatalogVariant(error.conflict.variantId, { name: newVariant.name, unit: newVariant.unit, unitsPerPack });
+                              } else throw error;
+                            }
                             setNewVariantDrafts((current) => { const next = { ...current }; delete next[group.product_id]; return next; });
-                            await refresh(`Variante ${newVariant.sku} creada. Cargale el precio abajo.`);
+                            await refresh(`Variante ${newVariant.sku} lista. Revisá el precio abajo.`);
                           } catch (error) {
                             setMessage(error instanceof Error ? error.message : "No se pudo crear la variante.");
                           } finally {

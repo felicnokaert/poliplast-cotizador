@@ -4,7 +4,7 @@ import { makeQueryResult } from './supabaseTestUtils'
 vi.mock('./supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
 
 import { supabase } from './supabase'
-import { buildCostImportRows, buildPriceImportRows, createCatalogProduct, createCatalogVariant, csvEscape, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, rowsToCsv, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogProductName, type AdminCatalogRow } from './admin'
+import { buildCostImportRows, buildPriceImportRows, createCatalogProduct, createCatalogVariant, csvEscape, InactiveSkuConflictError, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogProductName, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -88,8 +88,19 @@ describe('escrituras exitosas contra un Supabase simulado', () => {
     const id = await createCatalogVariant('p1', { sku: 'SKU-NUEVO', name: 'Variante nueva', unit: 'unidad' })
     expect(id).toBe('v-nueva')
   })
-  it('no crea la variante si el SKU ya existe', async () => {
-    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: [{ id: 'existente' }], error: null }) as never)
+  it('no crea la variante si el SKU ya existe activo', async () => {
+    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: [{ id: 'existente', active: true, name: 'x', product_id: 'p1', catalog_products: { name: 'Producto' } }], error: null }) as never)
     await expect(createCatalogVariant('p1', { sku: 'SKU-1', name: 'x', unit: 'unidad' })).rejects.toThrow('Ya existe')
+  })
+  it('ofrece reactivar cuando el SKU pertenece a una variante desactivada', async () => {
+    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: [{ id: 'v-vieja', active: false, name: 'Vieja', product_id: 'p-otro', catalog_products: { name: 'Producto viejo' } }], error: null }) as never)
+    const error = await createCatalogVariant('p1', { sku: 'SKU-1', name: 'x', unit: 'unidad' }).catch((e) => e)
+    expect(error).toBeInstanceOf(InactiveSkuConflictError)
+    expect(error.conflict).toMatchObject({ variantId: 'v-vieja', productId: 'p-otro', productName: 'Producto viejo' })
+  })
+  it('reactivar aplica los datos nuevos y marca active=true', async () => {
+    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: null, error: null }) as never)
+    await reactivateCatalogVariant('v-vieja', { name: 'Nombre nuevo', unit: 'kg', unitsPerPack: 5 })
+    expect(supabase.from).toHaveBeenCalledWith('catalog_variants')
   })
 })
