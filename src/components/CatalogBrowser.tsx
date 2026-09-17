@@ -7,6 +7,7 @@ import { commercialPrices } from '../lib/pricing'
 import { withoutKits } from '../lib/catalogVisibility'
 import { productPhotoUrl } from '../lib/productPhotos'
 import { groupByColorVariant, stripColorWord } from '../lib/colorVariants'
+import { unitsPerPack } from '../lib/packs'
 
 const BRAND_LOGOS: Record<string, string> = {
   penosil: '/brands/penosil.png',
@@ -147,16 +148,22 @@ export function CatalogBrowser({
         {allowPriceListPrint && <div className="price-list-actions no-print"><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => { setPrintKind(event.target.value as 'consumer' | 'wholesale'); setPage(1) }}><option value="consumer">Lista minorista</option><option value="wholesale">Lista mayorista</option></select><select aria-label="Formato de la lista" value={printLayout} onChange={(event) => setPrintLayout(event.target.value as 'lista' | 'fotos')}><option value="lista">Formato tabla</option><option value="fotos">Formato catálogo con fotos</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
       </header>
 
-      {allowPriceListPrint && printLayout === 'lista' && <section className={`print-price-list ${printThemeClass}`}><header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{baseSkuLabel(variant.sku)}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> })}</tbody></table>}</section>}
+      {allowPriceListPrint && printLayout === 'lista' && <section className={`print-price-list ${printThemeClass}`}><header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Presentación</th><th>Precio USD (por unidad)</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const pack = unitsPerPack(variant); const totalAmount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; const unitAmount = totalAmount == null ? null : totalAmount / pack; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{pack > 1 ? `Caja x ${pack}` : 'Unidad'}</td><td>{unitAmount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(unitAmount)}</td></tr> })}</tbody></table>}</section>}
 
       {allowPriceListPrint && printLayout === 'fotos' && (
         <section className={`print-photo-catalog ${printThemeClass}`}>
           <header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Catálogo {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA {exchangeRate || '—'}</p></div></header>
           {photoGroups.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : photoGroups.map((group) => {
-            const shownVariantOf = (product: ProductWithVariants) => product.variants.find((variant) => Boolean(commercialPrices(variant)[printKind])) ?? product.variants[0]
+            const pricedVariantsOf = (product: ProductWithVariants) => product.variants.filter((variant) => Boolean(commercialPrices(variant)[printKind]))
+            const shownVariantOf = (product: ProductWithVariants) => {
+              const priced = pricedVariantsOf(product)
+              return priced.find((variant) => unitsPerPack(variant) === 1) ?? priced[0] ?? product.variants[0]
+            }
             const amountOf = (product: ProductWithVariants) => {
-              const price = commercialPrices(shownVariantOf(product))[printKind]
-              return price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
+              const variant = shownVariantOf(product)
+              const price = commercialPrices(variant)[printKind]
+              const total = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
+              return total == null ? null : total / unitsPerPack(variant)
             }
             const colorGroups = groupByColorVariant(group.products, (product) => product.name, (product) => amountOf(product)?.toFixed(2) ?? 'sin-precio')
             return (
@@ -174,8 +181,8 @@ export function CatalogBrowser({
                       <strong>{colorOptions.length > 1 ? stripColorWord(product.name) : product.name}</strong>
                       <span>{baseSkuLabel(shownVariant.sku)}</span>
                       {colorOptions.length > 1 && <div className="print-photo-colors">{colorOptions.map((option) => <i key={option.color} style={{ background: option.hex }} title={option.color} />)}</div>}
-                      {packSizes.length > 1 && <div className="print-photo-variants">{packSizes.map((size) => <i key={size}>{size}</i>)}</div>}
-                      <em>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</em>
+                      {packSizes.length > 1 && <div className="print-photo-variants" title="Presentaciones disponibles (unidades por caja)">{packSizes.map((size) => <i key={size}>{size}</i>)}</div>}
+                      <em>{amount == null ? 'Consultar' : `${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)} / unidad`}</em>
                     </article>
                   )
                 })}
