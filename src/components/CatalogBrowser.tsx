@@ -165,6 +165,23 @@ export function CatalogBrowser({
               const total = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
               return total == null ? null : total / unitsPerPack(variant)
             }
+            // Precio "crudo" de una variante puntual, sin dividir por pack: para
+            // desglosar variantes por peso/medida (no son N copias de una unidad).
+            const rawAmountOf = (variant: VariantWithPricing) => {
+              const price = commercialPrices(variant)[printKind]
+              return price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
+            }
+            const money = (amount: number | null) => amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)
+            const commonSkuPrefix = (skus: string[]): string => {
+              if (skus.length === 0) return ''
+              let prefix = skus[0]
+              for (const sku of skus.slice(1)) {
+                let end = 0
+                while (end < prefix.length && end < sku.length && prefix[end] === sku[end]) end += 1
+                prefix = prefix.slice(0, end)
+              }
+              return prefix.replace(/-+$/, '')
+            }
             const colorGroups = groupByColorVariant(group.products, (product) => product.name, (product) => amountOf(product)?.toFixed(2) ?? 'sin-precio')
             return (
             <div key={`${group.family}-${group.subfamily}`} className="print-photo-section">
@@ -174,15 +191,26 @@ export function CatalogBrowser({
                   const shownVariant = shownVariantOf(product)
                   const amount = amountOf(product)
                   const photoUrl = productPhotoUrl(product.photo_path)
-                  const packSizes = [...new Set(product.variants.map((variant) => unitsPerPack(variant)))].sort((a, b) => a - b)
+                  const priced = pricedVariantsOf(product)
+                  const isColorMerge = colorOptions.length > 1
+                  const hasSizeBreakdown = !isColorMerge && priced.length > 1
+                  const displaySku = hasSizeBreakdown ? (commonSkuPrefix(priced.map((v) => v.sku)) || baseSkuLabel(shownVariant.sku)) : baseSkuLabel(shownVariant.sku)
                   return (
                     <article key={product.id} className="print-photo-card">
                       {photoUrl ? <img src={photoUrl} alt={product.name} /> : <div className="print-photo-placeholder">Sin foto</div>}
-                      <strong>{colorOptions.length > 1 ? stripColorWord(product.name) : product.name}</strong>
-                      <span>{baseSkuLabel(shownVariant.sku)}</span>
-                      {colorOptions.length > 1 && <div className="print-photo-colors">{colorOptions.map((option) => <i key={option.color} style={{ background: option.hex }} title={option.color} />)}</div>}
-                      {packSizes.length > 1 && <div className="print-photo-variants" title="Presentaciones disponibles (unidades por caja)">{packSizes.map((size) => <i key={size}>{size}</i>)}</div>}
-                      <em>{amount == null ? 'Consultar' : `${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)} / unidad`}</em>
+                      <strong>{isColorMerge ? stripColorWord(product.name) : product.name}</strong>
+                      <span>{displaySku}</span>
+                      {!isColorMerge && !hasSizeBreakdown && <em>{amount == null ? 'Consultar' : `${money(amount)} / unidad`}</em>}
+                      {isColorMerge && (
+                        <ul className="print-photo-variant-list">
+                          {colorOptions.map((option) => <li key={option.color}><i style={{ background: option.hex }} title={option.color} /><span>{option.color}</span><b>{money(amount)}</b></li>)}
+                        </ul>
+                      )}
+                      {hasSizeBreakdown && (
+                        <ul className="print-photo-variant-list">
+                          {[...priced].sort((a, b) => (rawAmountOf(a) ?? 0) - (rawAmountOf(b) ?? 0)).map((variant) => <li key={variant.id}><span>{variant.sku}</span><b>{money(rawAmountOf(variant))}</b></li>)}
+                        </ul>
+                      )}
                     </article>
                   )
                 })}
