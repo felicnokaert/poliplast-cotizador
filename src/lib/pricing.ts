@@ -19,6 +19,11 @@ export function commercialPrices(variant: VariantWithPricing, today?: string) {
   }
 }
 
+/** Todas las filas de precio vigentes y confirmadas de la variante, sin agrupar por consumidor/mayorista. Útil para listas con más de 2 niveles de cantidad. */
+export function currentPrices(variant: VariantWithPricing, today?: string) {
+  return variant.prices.filter((price) => listIsCurrent(price, today)).sort((a, b) => a.min_quantity - b.min_quantity)
+}
+
 export function hasVigentPrice(variant: VariantWithPricing): boolean {
   const today = new Date().toISOString().slice(0, 10)
   return variant.prices.some((price) => price.price_list.status === 'vigente' && price.price_list.valid_from <= today && (!price.price_list.valid_until || price.price_list.valid_until >= today))

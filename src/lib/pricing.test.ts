@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commercialPrices, currentPrice, hasVigentPrice } from './pricing'
+import { commercialPrices, currentPrice, currentPrices, hasVigentPrice } from './pricing'
 import type { VariantWithPricing } from '../types/catalog'
 
 function priceList(overrides: Partial<VariantWithPricing['prices'][number]['price_list']> = {}) {
@@ -76,6 +76,17 @@ describe('hasVigentPrice', () => {
 
   it('es false cuando no hay ninguna lista vigente asociada', () => {
     expect(hasVigentPrice(variantWith([]))).toBe(false)
+  })
+})
+
+describe('currentPrices', () => {
+  it('devuelve todas las filas vigentes ordenadas por cantidad minima, sin agrupar en 2 baldes', () => {
+    const v = variantWith([
+      { id: 'mayorista', price_list_id: 'may-list', variant_id: 'v1', min_quantity: 225, max_quantity: null, amount: 6800, status: 'confirmado', price_list: priceList({ id: 'may-list', name: 'Mayorista' }) },
+      { id: 'minorista', price_list_id: 'min-list', variant_id: 'v1', min_quantity: 1, max_quantity: 111, amount: 10500, status: 'confirmado', price_list: priceList({ id: 'min-list', name: 'Minorista' }) },
+      { id: 'medio', price_list_id: 'medio-list', variant_id: 'v1', min_quantity: 112, max_quantity: 224, amount: 7500, status: 'confirmado', price_list: priceList({ id: 'medio-list', name: 'Medio pallet' }) },
+    ])
+    expect(currentPrices(v).map((p) => p.price_list.name)).toEqual(['Minorista', 'Medio pallet', 'Mayorista'])
   })
 })
 
