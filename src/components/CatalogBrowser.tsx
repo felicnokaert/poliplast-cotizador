@@ -3,7 +3,7 @@ import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters'
 import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
-import { commercialPrices, currentPrices } from '../lib/pricing'
+import { commercialPrices } from '../lib/pricing'
 import { withoutKits } from '../lib/catalogVisibility'
 import { productPhotoUrl } from '../lib/productPhotos'
 import { groupByColorVariant, stripColorWord } from '../lib/colorVariants'
@@ -44,7 +44,7 @@ export function CatalogBrowser({
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
   const [page, setPage] = useState(1)
   const [printKind, setPrintKind] = useState<'consumer' | 'wholesale'>('consumer')
-  const [printLayout, setPrintLayout] = useState<'lista' | 'fotos' | 'niveles'>('lista')
+  const [printLayout, setPrintLayout] = useState<'lista' | 'fotos'>('lista')
   const pageSize = 100
 
   useEffect(() => {
@@ -145,53 +145,10 @@ export function CatalogBrowser({
         <p className="muted" aria-live="polite">{search.trim().length < minimumSearchLength
           ? `Escribí al menos ${minimumSearchLength} caracteres del nombre o SKU para buscar.`
           : `${visibleProducts.length} producto${visibleProducts.length === 1 ? '' : 's'} · ${data.products.length} en el catálogo total`}</p>
-        {allowPriceListPrint && <div className="price-list-actions no-print"><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => { setPrintKind(event.target.value as 'consumer' | 'wholesale'); setPage(1) }}><option value="consumer">Lista minorista</option><option value="wholesale">Lista mayorista</option></select><select aria-label="Formato de la lista" value={printLayout} onChange={(event) => setPrintLayout(event.target.value as 'lista' | 'fotos' | 'niveles')}><option value="lista">Formato tabla</option><option value="fotos">Formato catálogo con fotos</option><option value="niveles">Formato niveles de cantidad (ej. Resinplast)</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
+        {allowPriceListPrint && <div className="price-list-actions no-print"><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => { setPrintKind(event.target.value as 'consumer' | 'wholesale'); setPage(1) }}><option value="consumer">Lista minorista</option><option value="wholesale">Lista mayorista</option></select><select aria-label="Formato de la lista" value={printLayout} onChange={(event) => setPrintLayout(event.target.value as 'lista' | 'fotos')}><option value="lista">Formato tabla</option><option value="fotos">Formato catálogo con fotos</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
       </header>
 
       {allowPriceListPrint && printLayout === 'lista' && <section className={`print-price-list ${printThemeClass}`}><header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Presentación</th><th>Precio USD (por unidad)</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const pack = unitsPerPack(variant); const totalAmount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; const unitAmount = totalAmount == null ? null : totalAmount / pack; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{pack > 1 ? `Caja x ${pack}` : 'Unidad'}</td><td>{unitAmount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(unitAmount)}</td></tr> })}</tbody></table>}</section>}
-
-      {allowPriceListPrint && printLayout === 'niveles' && (() => {
-        // Columnas dinámicas: una por cada lista de precios (price_list) que
-        // tenga al menos una fila vigente/confirmada entre las variantes
-        // visibles. Si solo hay 1 o 2 listas cargadas, se ven 1 o 2 columnas;
-        // si hay 3 (ej. Resinplast: minorista/medio pallet/mayorista), se ven 3.
-        const rowsByVariant = filtered.flatMap((product) => product.variants.map((variant) => ({ product, variant, prices: currentPrices(variant) })))
-          .filter((row) => row.prices.length > 0)
-        const columnKey = (price: ReturnType<typeof currentPrices>[number]) => price.price_list.name
-        const columns = [...new Map(rowsByVariant.flatMap((row) => row.prices).map((price) => [columnKey(price), price])).values()]
-          .sort((a, b) => a.min_quantity - b.min_quantity)
-        const rangeLabel = (price: typeof columns[number], index: number) => {
-          const next = columns[index + 1]
-          if (!next) return price.min_quantity > 1 ? `${price.min_quantity}+ ud` : 'todas las cantidades'
-          return `${price.min_quantity}-${next.min_quantity - 1} ud`
-        }
-        return (
-          <section className={`print-price-list print-levels ${printThemeClass}`}>
-            <header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios por niveles de cantidad</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA</p></div></header>
-            {rowsByVariant.length === 0 ? <p className="print-empty">No hay productos con más de una lista de precios cargada para esta selección.</p> : (
-              <table>
-                <thead><tr><th>SKU</th><th>Producto</th>{columns.map((price, index) => <th key={columnKey(price)}>{columnKey(price)}<small>{rangeLabel(price, index)}</small></th>)}</tr></thead>
-                <tbody>
-                  {rowsByVariant.map(({ product, variant, prices }) => {
-                    const byColumn = new Map(prices.map((price) => [columnKey(price), price]))
-                    return (
-                      <tr key={variant.id}>
-                        <td>{variant.sku}</td>
-                        <td>{product.name}</td>
-                        {columns.map((column) => {
-                          const price = byColumn.get(columnKey(column))
-                          const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
-                          return <td key={columnKey(column)}>{amount == null ? '—' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td>
-                        })}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </section>
-        )
-      })()}
 
       {allowPriceListPrint && printLayout === 'fotos' && (
         <section className={`print-photo-catalog ${printThemeClass}`}>

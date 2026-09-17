@@ -582,9 +582,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .print-price-list thead { display: table-header-group; }
   .print-price-list tr { break-inside: avoid; }
   .print-price-list th { padding: 5px 6px; border-bottom: 2px solid var(--print-accent); text-align: left; color: var(--print-accent); text-transform: uppercase; font-size: 7.5pt; letter-spacing: .03em; }
-  .print-levels th small { display: block; color: #777; text-transform: none; font-weight: 500; font-size: 6.5pt; letter-spacing: 0; }
-  .print-levels td { text-align: right; }
-  .print-levels td:first-child, .print-levels td:nth-child(2) { text-align: left; }
   .print-price-list td { padding: 4px 6px; border-bottom: 1px solid #eee; text-align: left; }
   .print-price-list tbody tr:nth-child(even) td { background: var(--print-accent-soft); }
   .print-price-list th:last-child, .print-price-list td:last-child { text-align: right; font-weight: 700; }
