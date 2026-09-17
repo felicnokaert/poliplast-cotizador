@@ -203,7 +203,7 @@ export function CatalogBrowser({
                       {!isColorMerge && !hasSizeBreakdown && <em>{amount == null ? 'Consultar' : `${money(amount)} / unidad`}</em>}
                       {isColorMerge && (
                         <ul className="print-photo-variant-list">
-                          {colorOptions.map((option) => <li key={option.color}><i style={{ background: option.hex }} title={option.color} /><span>{option.color}</span><b>{money(amount)}</b></li>)}
+                          {colorOptions.map((option) => <li key={option.color}><span>{option.color}</span><b>{money(amount)}</b></li>)}
                         </ul>
                       )}
                       {hasSizeBreakdown && (

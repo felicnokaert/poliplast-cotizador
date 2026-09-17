@@ -586,18 +586,20 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .print-price-list th:last-child, .print-price-list td:last-child { text-align: right; font-weight: 700; }
   .print-photo-section { margin-top: 14px; }
   .print-photo-section h2 { font-size: 11pt; margin: 0 0 7px; padding: 3px 8px; border-radius: 4px; background: var(--print-accent-soft); color: var(--print-accent); border-bottom: 2px solid var(--print-accent); break-after: avoid; break-inside: avoid; }
-  .print-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
-  .print-photo-card { break-inside: avoid; page-break-inside: avoid; display: grid; gap: 2px; padding: 5px; border: 1px solid #e5e5e5; border-top: 3px solid var(--print-accent); border-radius: 6px; }
+  /* flex, no grid: con CSS grid, cuando Chrome empuja una card a la pagina
+     siguiente por "break-inside: avoid", el resto de las cards de esa misma
+     fila quedan con la altura de track ya calculada de la pagina anterior y
+     el texto termina superpuesto con la fila de abajo. Flexbox no tiene ese
+     problema porque cada card mide su propia caja, sin fila compartida. */
+  .print-photo-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+  .print-photo-card { flex: 1 1 100px; max-width: 160px; break-inside: avoid; page-break-inside: avoid; display: grid; align-content: start; gap: 2px; padding: 5px; border: 1px solid #e5e5e5; border-top: 3px solid var(--print-accent); border-radius: 6px; }
   .print-photo-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; background: #f3f3f2; }
   .print-photo-placeholder { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #f3f3f2; color: #999; font-size: 6.5pt; border-radius: 4px; }
   .print-photo-card strong { font-size: 7.3pt; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.44em; word-break: break-word; hyphens: auto; }
   .print-photo-card span { font-size: 6.6pt; color: #777; letter-spacing: .01em; }
-  .print-photo-colors { display: flex; flex-wrap: wrap; gap: 3px; margin: 1px 0; }
-  .print-photo-colors i { width: 9px; height: 9px; border-radius: 99px; border: 1px solid rgba(0,0,0,.25); }
   .print-photo-card em { font-style: normal; font-weight: 700; font-size: 8pt; margin-top: 1px; color: var(--print-accent); }
   .print-photo-variant-list { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 1px; }
   .print-photo-variant-list li { display: flex; align-items: center; gap: 3px; font-size: 6.4pt; color: #444; }
-  .print-photo-variant-list li i { width: 8px; height: 8px; border-radius: 99px; border: 1px solid rgba(0,0,0,.25); flex: 0 0 auto; }
   .print-photo-variant-list li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .print-photo-variant-list li b { font-weight: 700; color: var(--print-accent); white-space: nowrap; }
   @page { size: A4; margin: 8mm; }
