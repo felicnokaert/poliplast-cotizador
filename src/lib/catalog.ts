@@ -68,8 +68,10 @@ export function assembleCatalog(raw: RawCatalogRows): CatalogData {
 
   const documentsById = new Map(docs.filter((doc) => doc.status === 'vigente').map((doc) => [doc.id, doc]))
 
-  const result: ProductWithVariants[] = products.map((product) => {
-    const productVariants = (variantsByProduct.get(product.id) ?? []).map((variant) => {
+  const result: ProductWithVariants[] = products
+    .filter((product) => product.status !== 'excluido')
+    .map((product) => {
+    const productVariants = (variantsByProduct.get(product.id) ?? []).filter((variant) => variant.active).map((variant) => {
       const variantPrices = (pricesByVariant.get(variant.id) ?? [])
         .filter((price) => priceLists.has(price.price_list_id))
         .map((price) => ({ ...price, price_list: priceLists.get(price.price_list_id)! }))

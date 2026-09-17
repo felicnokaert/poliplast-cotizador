@@ -143,6 +143,17 @@ describe('assembleCatalog', () => {
     expect(assembleCatalog(raw).products[0].variants[0].approvedStock).toBeNull()
   })
 
+  it('no muestra una variante desactivada en Administración', () => {
+    const raw = { products: [product()], variants: [variant({ id: 'v1', active: true }), variant({ id: 'v2', sku: 'SKU-2', active: false })], priceLists: [], prices: [], docs: [] }
+    const result = assembleCatalog(raw)
+    expect(result.products[0].variants.map((v) => v.id)).toEqual(['v1'])
+  })
+
+  it('no muestra un producto marcado como excluido', () => {
+    const raw = { products: [product({ status: 'excluido' })], variants: [variant()], priceLists: [], prices: [], docs: [] }
+    expect(assembleCatalog(raw).products).toHaveLength(0)
+  })
+
   it('solo confirma una ficha cuando existe un vínculo formal y el documento está vigente', () => {
     const doc = { id: 'd1', title: 'Ficha', family: 'CARROZADOS', product: 'ADHESIVO POLIURETANICO 1000CC', sku: 'SKU-1', status: 'vigente' }
     const withoutLink = assembleCatalog({ products: [product()], variants: [variant()], priceLists: [], prices: [], docs: [doc] })
