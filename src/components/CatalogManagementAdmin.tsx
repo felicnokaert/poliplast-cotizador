@@ -124,12 +124,16 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
       setMessage("Indicá una fuente o motivo (mínimo 3 caracteres) antes de guardar.");
       return;
     }
+    if ((changedMinorista && draft.minorista === "") || (changedMayorista && draft.mayorista === "") || (changedCosto && draft.costo === "")) {
+      setMessage("No se puede vaciar un precio o costo ya cargado: escribí el nuevo valor o desactivá la variante en vez de dejarlo en blanco.");
+      return;
+    }
     setBusy(row.variant_id);
     try {
       if (changedSku) await updateCatalogVariantSku(row.variant_id, draft.sku);
-      if (changedMinorista && draft.minorista !== "") await setCatalogVariantPrice(row.variant_id, "consumidor_final", Number(draft.minorista), "USD", draft.reason);
-      if (changedMayorista && draft.mayorista !== "") await setCatalogVariantPrice(row.variant_id, "mayorista", Number(draft.mayorista), "USD", draft.reason);
-      if (changedCosto && draft.costo !== "") await setCatalogVariantCost(row.variant_id, Number(draft.costo), "USD", draft.reason);
+      if (changedMinorista) await setCatalogVariantPrice(row.variant_id, "consumidor_final", Number(draft.minorista), "USD", draft.reason);
+      if (changedMayorista) await setCatalogVariantPrice(row.variant_id, "mayorista", Number(draft.mayorista), "USD", draft.reason);
+      if (changedCosto) await setCatalogVariantCost(row.variant_id, Number(draft.costo), "USD", draft.reason);
       setRowDrafts((current) => { const next = { ...current }; delete next[row.variant_id]; return next; });
       await refresh(`${row.sku} actualizado.`);
     } catch (error) {

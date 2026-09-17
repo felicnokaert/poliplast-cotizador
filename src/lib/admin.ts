@@ -74,11 +74,18 @@ export async function updateCatalogClassification(productId: string, family: str
   return data
 }
 
+async function assertSkuAvailable(sku: string, excludeVariantId?: string): Promise<void> {
+  let query = supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
+  if (excludeVariantId) query = query.neq('id', excludeVariantId)
+  const { data: existing, error } = await query
+  if (error) throw error
+  if (existing && existing.length > 0) throw new Error(`Ya existe otra variante con el SKU ${sku}.`)
+}
+
 export async function updateCatalogVariantSku(variantId: string, sku: string) {
   const cleanSku = sku.trim()
   if (!cleanSku) throw new Error('El SKU no puede quedar vacío.')
-  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', cleanSku).neq('id', variantId).limit(1)
-  if (existing && existing.length > 0) throw new Error(`Ya existe otra variante con el SKU ${cleanSku}.`)
+  await assertSkuAvailable(cleanSku, variantId)
   const { error } = await supabase.from('catalog_variants').update({ sku: cleanSku, updated_at: new Date().toISOString() }).eq('id', variantId)
   if (error) throw error
 }
@@ -98,8 +105,7 @@ export async function createCatalogProduct(input: NewProductInput): Promise<stri
   if (name.length < 3) throw new Error('Ingresá el nombre del producto.')
   if (!family) throw new Error('Ingresá la familia.')
   if (!sku) throw new Error('Ingresá el SKU de la primera variante.')
-  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
-  if (existing && existing.length > 0) throw new Error(`Ya existe una variante con el SKU ${sku}.`)
+  await assertSkuAvailable(sku)
   const canonicalKey = `${brand}-${name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
   const { data: product, error: productError } = await supabase.from('catalog_products').insert({
     name, brand, family, subfamily: input.subfamily.trim(), status: 'vigente', source: 'Alta manual desde Administración', canonical_key: canonicalKey || crypto.randomUUID(),
@@ -116,8 +122,7 @@ export async function createCatalogVariant(productId: string, input: NewVariantI
   const sku = input.sku.trim(); const name = input.name.trim(); const unit = input.unit.trim() || 'unidad'
   if (!sku) throw new Error('Ingresá el SKU de la variante.')
   if (!name) throw new Error('Ingresá el nombre de la variante.')
-  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
-  if (existing && existing.length > 0) throw new Error(`Ya existe una variante con el SKU ${sku}.`)
+  await assertSkuAvailable(sku)
   const attributes = input.unitsPerPack && input.unitsPerPack > 1 ? { units_per_pack: input.unitsPerPack } : {}
   const { data, error } = await supabase.from('catalog_variants').insert({ product_id: productId, sku, name, unit, attributes, active: true, source: 'Alta manual desde Administración' }).select('id').single()
   if (error) throw error

@@ -174,7 +174,7 @@ export function CatalogBrowser({
                   const shownVariant = shownVariantOf(product)
                   const amount = amountOf(product)
                   const photoUrl = productPhotoUrl(product.photo_path)
-                  const packSizes = [...new Set(product.variants.map((variant) => (variant.attributes as { units_per_pack?: number } | undefined)?.units_per_pack ?? 1))].sort((a, b) => a - b)
+                  const packSizes = [...new Set(product.variants.map((variant) => unitsPerPack(variant)))].sort((a, b) => a - b)
                   return (
                     <article key={product.id} className="print-photo-card">
                       {photoUrl ? <img src={photoUrl} alt={product.name} /> : <div className="print-photo-placeholder">Sin foto</div>}

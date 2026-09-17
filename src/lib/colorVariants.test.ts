@@ -8,6 +8,9 @@ describe('stripColorWord', () => {
   it('deja igual un nombre sin color', () => {
     expect(stripColorWord('RESINA NAUTICA VIRGEN')).toBe('RESINA NAUTICA VIRGEN')
   })
+  it('saca la palabra de color aunque este acentuada en el nombre original', () => {
+    expect(stripColorWord('SILICONA MARRÓN X4')).toBe('SILICONA X4')
+  })
 })
 
 describe('groupByColorVariant', () => {

@@ -19,6 +19,13 @@ function normalize(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
+const ACCENT_VARIANTS: Record<string, string> = { a: 'aá', e: 'eé', i: 'ií', o: 'oó', u: 'uúü' }
+
+/** Regex que matchea la palabra tanto acentuada como sin acentuar, para usar directo sobre el nombre original. */
+function accentInsensitivePattern(word: string): string {
+  return word.replace(/[aeiou]/g, (letter) => `[${ACCENT_VARIANTS[letter]}]`)
+}
+
 function findColorWord(name: string): string | null {
   const normalized = normalize(name)
   for (const word of Object.keys(COLOR_WORDS)) {
@@ -31,7 +38,7 @@ function findColorWord(name: string): string | null {
 export function stripColorWord(name: string): string {
   const word = findColorWord(name)
   if (!word) return name
-  return name.replace(new RegExp(`\\b${word}\\b`, 'i'), '').replace(/\s{2,}/g, ' ').trim()
+  return name.replace(new RegExp(`\\b${accentInsensitivePattern(word)}\\b`, 'i'), '').replace(/\s{2,}/g, ' ').trim()
 }
 
 function colorlessKey(name: string): string {
