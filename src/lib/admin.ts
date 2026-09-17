@@ -15,6 +15,8 @@ export interface AdminCatalogRow {
   precio_consumidor_final: number | ''; precio_mayorista: number | ''; moneda_precio: string
   costo: number | ''; moneda_costo: string; stock: number | ''; unidad_stock: string; fuente: string
   photo_path: string | null
+  /** Nota solo para el equipo interno (ej. qué trae un kit/combo). Nunca se imprime para el cliente. */
+  internal_note: string
 }
 
 async function fetchAll<T>(query: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
@@ -38,7 +40,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     fetchAll<AdminOverview['locations'][number]>((from, to) => supabase.from('inventory_locations').select('id,code,name,active').order('name').range(from, to)),
     supabase.from('catalog_import_jobs').select('id, import_type, file_name, status, created_at').order('created_at', { ascending: false }).limit(20),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_products').select('id,name,brand,family,subfamily,status,photo_path').range(from, to)),
-    fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_variants').select('id,product_id,sku,name,unit,active').range(from, to)),
+    fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_variants').select('id,product_id,sku,name,unit,active,internal_note').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('variant_prices').select('variant_id,price_list_id,amount,status,min_quantity').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('price_lists').select('id,name,currency,status').range(from, to)),
   ])
@@ -61,7 +63,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     const wholesale = withList.find((price) => /mayorista|distribuidor/i.test(String(price.list.name)))
     const consumer = withList.find((price) => !/mayorista|distribuidor/i.test(String(price.list.name)))
     const cost = latestCost.get(String(variant.id)); const stock = stockByVariant.get(String(variant.id)); const price = consumer ?? wholesale
-    return [{ product_id: String(product.id), variant_id: String(variant.id), active: variant.active !== false, product_status: String(product.status), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '', photo_path: (product.photo_path as string | null) ?? null }]
+    return [{ product_id: String(product.id), variant_id: String(variant.id), active: variant.active !== false, product_status: String(product.status), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '', photo_path: (product.photo_path as string | null) ?? null, internal_note: String(variant.internal_note ?? '') }]
   })
   return { isAdmin: true, costs, inventory, locations, imports: imports.data ?? [], catalog }
 }
@@ -80,6 +82,12 @@ export interface SkuConflict {
   productName: string
   variantName: string
   active: boolean
+}
+
+/** Nota visible solo para el equipo (ícono "i" al cotizar), nunca impresa. Útil para aclarar qué trae un kit/combo sin salir del sistema. */
+export async function updateCatalogVariantNote(variantId: string, note: string) {
+  const { error } = await supabase.from('catalog_variants').update({ internal_note: note.trim() || null, updated_at: new Date().toISOString() }).eq('id', variantId)
+  if (error) throw error
 }
 
 /** Se lanza cuando el SKU ya existe pero en una variante DESACTIVADA: el llamador puede ofrecer reactivarla en vez de bloquear el alta. */

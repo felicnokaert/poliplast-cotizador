@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, InactiveSkuConflictError, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
+import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, InactiveSkuConflictError, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantNote, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
 import { buildCatalogReview } from "../lib/catalogReview";
 import { formatRuleLabel, loadCommercialRules } from "../lib/commercialRules";
 import type { CommercialRule } from "../types/commercialRules";
@@ -32,6 +32,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const [newVariantDrafts, setNewVariantDrafts] = useState<Record<string, { sku: string; name: string; unit: string; unitsPerPack: string }>>({});
   const [rowDrafts, setRowDrafts] = useState<Record<string, RowDraft>>({});
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [rules, setRules] = useState<CommercialRule[]>([]);
@@ -524,6 +525,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                       <th>Mayorista (USD)</th>
                       <th title="El costo se carga sin IVA">Costo (USD, sin IVA)</th>
                       <th>Condición comercial</th>
+                      <th title="Solo para el equipo interno: nunca se imprime para el cliente. Útil para aclarar qué trae un kit/combo (ej. resina, poliuretano, poliurea).">Nota interna</th>
                       <th>Motivo del cambio</th>
                       <th>Activo</th>
                       <th></th>
@@ -546,6 +548,33 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                           <td><input type="number" min="0" step=".0001" value={draft.costo} placeholder="—" onChange={(event) => setDraft({ costo: event.target.value })} /></td>
                           <td className="catalog-grid-condition">
                             {conditionFor(row.variant_id) === "—" ? <span className="muted">—</span> : <span className="catalog-grid-info-icon" tabIndex={0} title={conditionFor(row.variant_id)}>i</span>}
+                          </td>
+                          <td className="catalog-grid-note">
+                            <input
+                              value={noteDrafts[row.variant_id] ?? row.internal_note}
+                              placeholder="Ej. trae 2L resina + 40ml catalizador"
+                              onChange={(event) => setNoteDrafts((current) => ({ ...current, [row.variant_id]: event.target.value }))}
+                            />
+                            {(noteDrafts[row.variant_id] ?? row.internal_note) !== row.internal_note && (
+                              <button
+                                className="secondary"
+                                disabled={busy === `note-${row.variant_id}`}
+                                onClick={async () => {
+                                  setBusy(`note-${row.variant_id}`);
+                                  try {
+                                    await updateCatalogVariantNote(row.variant_id, noteDrafts[row.variant_id] ?? "");
+                                    setNoteDrafts((current) => { const next = { ...current }; delete next[row.variant_id]; return next; });
+                                    await refresh(`Nota interna de ${row.sku} guardada.`);
+                                  } catch (error) {
+                                    setMessage(error instanceof Error ? error.message : "No se pudo guardar la nota.");
+                                  } finally {
+                                    setBusy("");
+                                  }
+                                }}
+                              >
+                                Guardar nota
+                              </button>
+                            )}
                           </td>
                           <td><input value={draft.reason} placeholder="Ej. lista confirmada por Felipe" disabled={!rowChanged} onChange={(event) => setDraft({ reason: event.target.value })} /></td>
                           <td>

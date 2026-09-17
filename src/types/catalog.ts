@@ -23,6 +23,8 @@ export interface CatalogVariant {
   unit: string
   attributes: Record<string, unknown>
   active: boolean
+  /** Nota solo para el equipo interno (ej. "trae 2L resina + 40ml catalizador"). Nunca se imprime para el cliente. */
+  internal_note?: string | null
 }
 
 export interface PriceList {

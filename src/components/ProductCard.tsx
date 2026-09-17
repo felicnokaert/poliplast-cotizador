@@ -21,7 +21,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
   }
   return (
     <div className="catalog-row">
-      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
+      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}{variant.internal_note && <span className="internal-note-icon" title={`Nota interna: ${variant.internal_note}`}>ⓘ</span>}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
       <span className="variant-sku">{variant.sku}<small className="pack-size">{pack > 1 ? `Caja x ${pack} — precio total de la caja` : 'Unidad'}</small><small className={variant.approvedStock ? 'stock-verified' : 'stock-unverified'}>{variant.approvedStock ? `Stock aprobado: ${new Intl.NumberFormat('es-AR').format(variant.approvedStock.quantity)} ${variant.approvedStock.unit}` : 'Stock sin verificar'}</small></span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
