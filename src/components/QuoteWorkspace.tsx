@@ -142,7 +142,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
   const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar', 'diego@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
-  const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar', 'diego@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
+  const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar', 'diego@grupopoliplast.com.ar', 'cowork@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
   const visibleQuotes = useMemo(() => {
     const needle = historySearch.trim().toLocaleLowerCase('es-AR')
     return savedQuotes
