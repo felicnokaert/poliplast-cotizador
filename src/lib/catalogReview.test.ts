@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildCatalogReview, suggestedSkuBase } from './catalogReview'
 import type { AdminCatalogRow } from './admin'
 
-const row = (sku: string, producto: string): AdminCatalogRow => ({ product_id: sku, variant_id: sku, active: true, product_status: 'vigente', sku, producto, variante: producto, marca: 'Resinplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 1, precio_mayorista: '', moneda_precio: 'USD', costo: '', moneda_costo: '', stock: '', unidad_stock: '', fuente: '' })
+const row = (sku: string, producto: string): AdminCatalogRow => ({ product_id: sku, variant_id: sku, active: true, product_status: 'vigente', sku, producto, variante: producto, marca: 'Resinplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 1, precio_mayorista: '', moneda_precio: 'USD', costo: '', moneda_costo: '', stock: '', unidad_stock: '', fuente: '', photo_path: null })
 
 describe('revisión asistida del catálogo', () => {
   it('obtiene la familia de presentaciones desde el SKU', () => {

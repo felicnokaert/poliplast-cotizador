@@ -3,7 +3,6 @@ import { CatalogBrowser } from './CatalogBrowser'
 import {
   addQuoteLine,
   automaticPricingSummary,
-  createQuoteNumber,
   linePricingDetails,
   quoteExpiry,
   quoteTotals,
@@ -21,7 +20,7 @@ import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { addCommercialClientPhone, loadCommercialClients, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
-import { loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
+import { deleteSharedQuote, loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, reserveQuoteNumber, type PaymentPolicy } from '../lib/paymentPolicies'
 
 const STORAGE_KEY = 'poliplast-cotizador-quotes-v1'
@@ -46,10 +45,10 @@ function loadWorkingDraft(): SavedQuote | null {
   } catch { return null }
 }
 
-function newMeta(existingQuotes: SavedQuote[] = loadSavedQuotes()): QuoteMeta {
+function newMeta(_existingQuotes: SavedQuote[] = loadSavedQuotes()): QuoteMeta {
   const now = new Date()
   return {
-    number: createQuoteNumber(now, existingQuotes.map((quote) => quote.meta.number)), client: '', contact: '', phone: '', email: '', notes: '',
+    number: '', client: '', contact: '', phone: '', email: '', notes: '',
     paymentMethod: 'transferencia', paymentTermDays: 0, priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0,
     exchangeRate: 0, outputCurrency: 'USD', status: 'borrador', createdAt: now.toISOString(),
   }
@@ -77,7 +76,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
         </div>
         <header className="preview-header">
           <div className="preview-brands"><BrandMark brand={principalBrand} />{principalBrand !== 'Grupo Poliplast' && <BrandMark brand="Grupo Poliplast" />}</div>
-          <div className="preview-number"><span>Cotización</span><strong>{quote.meta.number}</strong><small>{new Date(quote.meta.createdAt).toLocaleDateString('es-AR')}</small></div>
+          <div className="preview-number"><span>Cotización</span><strong>{quote.meta.number || 'Se asigna al guardar'}</strong><small>{new Date(quote.meta.createdAt).toLocaleDateString('es-AR')}</small></div>
         </header>
         <div className="preview-client">
           <div><span>Cliente</span><strong>{quote.meta.client || 'Consumidor final'}</strong></div>
@@ -123,6 +122,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [activeSection, setActiveSection] = useState<'catalogo' | 'cotizacion' | 'historial' | 'administracion'>('historial')
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [lastAdded, setLastAdded] = useState('')
+  const [busyQuoteDelete, setBusyQuoteDelete] = useState('')
+  const [deleteConfirmQuote, setDeleteConfirmQuote] = useState<SavedQuote | null>(null)
   const [historyStatus, setHistoryStatus] = useState<'todas' | QuoteMeta['status']>('todas')
   const [historySearch, setHistorySearch] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -140,8 +141,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
-  const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
-  const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
+  const canAdjustCommercialTerms = ['felipecnokaert@gmail.com', 'felipe@grupopoliplast.com.ar', 'diego@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
+  const canAccessAdministration = ['felipe@grupopoliplast.com.ar', 'juan@grupopoliplast.com.ar', 'diego@grupopoliplast.com.ar'].includes(userEmail.toLowerCase())
   const visibleQuotes = useMemo(() => {
     const needle = historySearch.trim().toLocaleLowerCase('es-AR')
     return savedQuotes
@@ -152,13 +153,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const editingSavedQuote = savedQuotes.some((quote) => quote.meta.number === meta.number)
 
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
-  useEffect(() => {
-    if (initialDraft) return
-    const createdAt = meta.createdAt
-    reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number)).then((number) => setMeta((current) => current.createdAt === createdAt ? { ...current, number } : current))
-    // La primera cotización también reserva su número; un borrador recuperado conserva el suyo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // El número se reserva recién al guardar (ver `save`), no al abrir el borrador,
+  // para no dejar huecos en la numeración con cotizaciones abiertas y descartadas.
 
   const refreshAutomaticExchange = () => {
     setExchangeMode('automatico')
@@ -201,25 +197,48 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   }
   const updateMeta = <K extends keyof QuoteMeta>(field: K, value: QuoteMeta[K]) => setMeta((current) => ({ ...current, [field]: value }))
   const snapshot = (): SavedQuote => ({ meta, lines, updatedAt: new Date().toISOString() })
-  const save = async () => {
-    const quote = snapshot()
+  // El número se reserva recién acá, la primera vez que la cotización se guarda de verdad
+  // (guardar, guardar-y-crear-otra o enviar por WhatsApp), no al abrir el borrador.
+  const save = async (): Promise<SavedQuote> => {
+    const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
+    if (!meta.number) setMeta((current) => ({ ...current, number }))
+    const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number } }
     setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
     setQuoteSyncStatus('guardando')
     try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
     window.setTimeout(() => setLastAdded(''), 2400)
+    return quote
   }
-  const startNew = async () => {
+  const startNew = () => {
     const draft = newMeta(savedQuotes)
     setMeta(draft); setLines([]); setProductPickerOpen(true); setActiveSection('cotizacion')
-    const number = await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
-    setMeta((current) => current.createdAt === draft.createdAt ? { ...current, number } : current)
   }
-  const saveAndStartNew = async () => { await save(); await startNew() }
+  const closeWithoutSaving = () => {
+    if (lines.length > 0 && !window.confirm('¿Cerrar esta cotización sin guardar los cambios?')) return
+    startNew()
+    setActiveSection('historial')
+  }
+  const saveAndStartNew = async () => { await save(); startNew() }
   const loadQuote = (quote: SavedQuote) => { setMeta({ ...quote.meta, outputCurrency: 'USD' }); setLines(quote.lines); setProductPickerOpen(false); setActiveSection('cotizacion') }
-  const sendWhatsApp = (phone = whatsappPhone) => {
-    const quote = snapshot()
+  const confirmDeleteQuote = async () => {
+    const quote = deleteConfirmQuote
+    if (!quote) return
+    setDeleteConfirmQuote(null)
+    setBusyQuoteDelete(quote.meta.number)
+    try {
+      await deleteSharedQuote(quote.meta.number)
+      setSavedQuotes((current) => current.filter((item) => item.meta.number !== quote.meta.number))
+      setLastAdded(`Cotización ${quote.meta.number} eliminada.`)
+    } catch (error) {
+      setLastAdded(error instanceof Error ? error.message : `No se pudo eliminar ${quote.meta.number}.`)
+    } finally {
+      setBusyQuoteDelete('')
+      window.setTimeout(() => setLastAdded(''), 2400)
+    }
+  }
+  const sendWhatsApp = async (phone = whatsappPhone) => {
+    const quote = await save()
     const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
-    void save()
     window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
     setWhatsappOpen(false)
   }
@@ -262,7 +281,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
         <main className="history-page">
           <div className="page-intro page-intro-actions"><div><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial sincronizado en todas tus computadoras.' : quoteSyncStatus === 'guardando' ? 'Sincronizando…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones…' : 'Modo local: la sincronización todavía no está disponible.'}</p></div><div className="history-actions">{lines.length > 0 && <button className="secondary-action" onClick={() => setActiveSection('cotizacion')}>Continuar borrador {meta.number}</button>}<button className="primary-action inline" onClick={startNew}>+ Nueva cotización</button></div></div>
           {savedQuotes.length > 0 && <div className="history-toolbar"><input type="search" aria-label="Buscar cotizaciones" placeholder="Buscar número, cliente, contacto, producto o SKU" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} /><div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div></div>}
-          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button></article>)}</div>}
+          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button><button className="quote-cancel-x" title="Eliminar definitivamente" aria-label={`Eliminar cotización ${quote.meta.number} para siempre`} disabled={busyQuoteDelete === quote.meta.number} onClick={() => setDeleteConfirmQuote(quote)}>✕</button></article>)}</div>}
+      {deleteConfirmQuote && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Confirmar eliminación"><section className="admin-confirm"><h2>Eliminar cotización</h2><p className="muted">¿Confirmás que querés eliminar la cotización Nº {deleteConfirmQuote.meta.number} ({deleteConfirmQuote.meta.client || 'sin cliente'})? No se puede deshacer.</p><div className="admin-actions"><button onClick={() => setDeleteConfirmQuote(null)}>No</button><button className="danger-outline" onClick={confirmDeleteQuote}>Sí, eliminar</button></div></section></div>}
         </main>
       ) : activeSection === 'catalogo' ? (
         <main className="catalog-page">
@@ -272,7 +292,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
       ) : (
         <main className="quote-page">
           <section className="quote-builder">
-            <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>{editingSavedQuote ? `Editando cotización ${meta.number}` : 'Nueva cotización'}</h1><p className="muted">{editingSavedQuote ? 'Los cambios conservarán el mismo número y quedarán disponibles para todo el equipo.' : 'Cotizá con el catálogo vigente y conservá el control antes de enviar.'}</p></div><div className="quote-status">{meta.number}</div></div>
+            <div className="quote-heading"><div><span className="eyebrow">Herramienta interna</span><h1>{editingSavedQuote ? `Editando cotización ${meta.number}` : 'Nueva cotización'}</h1><p className="muted">{editingSavedQuote ? 'Los cambios conservarán el mismo número y quedarán disponibles para todo el equipo.' : 'Cotizá con el catálogo vigente y conservá el control antes de enviar.'}</p></div><div className="quote-status">{meta.number || 'Se asigna al guardar'}</div></div>
             <div className={`client-card ${clientOpen ? 'open' : 'collapsed'}`}>
               <button className="client-toggle" onClick={() => setClientOpen((value) => !value)}><div className="section-title"><span>01</span><div><h2>{meta.client || 'Cliente opcional'}</h2><p>{clientOpen ? 'Datos que aparecerán en la propuesta.' : 'Podés cotizar sin completar datos.'}</p></div></div><strong>{clientOpen ? 'Ocultar' : 'Agregar datos'}</strong></button>
               {clientOpen && <div className="client-fields">
@@ -313,7 +333,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
             {stockWarnings.length > 0 && <p className="quote-warning">{stockWarnings.length} renglón/es superan el último stock aprobado. La cotización puede continuar, pero hay que confirmar disponibilidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong></div>{sourceCurrency === 'USD' && meta.exchangeRate > 0 && <><div className="peso-equivalent"><span>Equivalente estimado en pesos</span><strong>{money(totals.total * meta.exchangeRate, 'ARS')}</strong></div><small className="exchange-legend">USD {money(totals.total, 'USD')} × {money(meta.exchangeRate, 'ARS')} por dólar. {exchangeInfo.loading ? 'Actualizando cotización…' : exchangeInfo.error || exchangeInfo.source}.</small></>}</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
-            <div className="rail-actions"><button onClick={save}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear otra' : 'Guardar y crear otra'}</button></div>
+            <div className="rail-actions"><button onClick={save}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear otra' : 'Guardar y crear otra'}</button><button className="secondary" onClick={closeWithoutSaving}>Cerrar sin guardar</button></div>
           </section>
         </main>
       )}

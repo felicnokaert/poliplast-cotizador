@@ -30,8 +30,12 @@ export async function savePaymentPolicy(policy: PaymentPolicy): Promise<void> {
 }
 
 export async function reserveQuoteNumber(existingNumbers: string[]): Promise<string> {
-  const { data, error } = await supabase.rpc('reserve_sales_quote_number')
-  if (!error && typeof data === 'string') return data
+  try {
+    const { data, error } = await supabase.rpc('reserve_sales_quote_number')
+    if (!error && typeof data === 'string') return data
+  } catch {
+    // sin conexión o RPC no disponible: seguimos con el fallback local
+  }
   const max = existingNumbers.reduce((value, item) => /^\d+$/.test(item) ? Math.max(value, Number(item)) : value, 0)
   return String(max + 1).padStart(4, '0')
 }

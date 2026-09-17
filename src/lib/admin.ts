@@ -14,6 +14,7 @@ export interface AdminCatalogRow {
   sku: string; producto: string; variante: string; marca: string; familia: string; subfamilia: string; unidad: string
   precio_consumidor_final: number | ''; precio_mayorista: number | ''; moneda_precio: string
   costo: number | ''; moneda_costo: string; stock: number | ''; unidad_stock: string; fuente: string
+  photo_path: string | null
 }
 
 async function fetchAll<T>(query: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
@@ -36,7 +37,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     fetchAll<AdminOverview['inventory'][number]>((from, to) => supabase.from('inventory_balances').select('location_id, variant_id, approved_quantity, unit, approved_at').range(from, to)),
     fetchAll<AdminOverview['locations'][number]>((from, to) => supabase.from('inventory_locations').select('id,code,name,active').order('name').range(from, to)),
     supabase.from('catalog_import_jobs').select('id, import_type, file_name, status, created_at').order('created_at', { ascending: false }).limit(20),
-    fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_products').select('id,name,brand,family,subfamily,status').range(from, to)),
+    fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_products').select('id,name,brand,family,subfamily,status,photo_path').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('catalog_variants').select('id,product_id,sku,name,unit,active').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('variant_prices').select('variant_id,price_list_id,amount,status,min_quantity').range(from, to)),
     fetchAll<Record<string, unknown>>((from, to) => supabase.from('price_lists').select('id,name,currency,status').range(from, to)),
@@ -60,7 +61,7 @@ export async function loadAdminOverview(): Promise<AdminOverview> {
     const wholesale = withList.find((price) => /mayorista|distribuidor/i.test(String(price.list.name)))
     const consumer = withList.find((price) => !/mayorista|distribuidor/i.test(String(price.list.name)))
     const cost = latestCost.get(String(variant.id)); const stock = stockByVariant.get(String(variant.id)); const price = consumer ?? wholesale
-    return [{ product_id: String(product.id), variant_id: String(variant.id), active: variant.active !== false, product_status: String(product.status), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '' }]
+    return [{ product_id: String(product.id), variant_id: String(variant.id), active: variant.active !== false, product_status: String(product.status), sku: String(variant.sku), producto: String(product.name), variante: String(variant.name ?? ''), marca: String(product.brand ?? ''), familia: String(product.family ?? ''), subfamilia: String(product.subfamily ?? ''), unidad: String(variant.unit ?? ''), precio_consumidor_final: consumer ? Number(consumer.amount) : '', precio_mayorista: wholesale ? Number(wholesale.amount) : '', moneda_precio: String(price?.list.currency ?? ''), costo: cost ? Number(cost.amount) : '', moneda_costo: cost?.currency ?? '', stock: stock ? Number(stock.approved_quantity) : '', unidad_stock: stock?.unit ?? '', fuente: cost?.source ?? '', photo_path: (product.photo_path as string | null) ?? null }]
   })
   return { isAdmin: true, costs, inventory, locations, imports: imports.data ?? [], catalog }
 }
@@ -73,6 +74,56 @@ export async function updateCatalogClassification(productId: string, family: str
   return data
 }
 
+export async function updateCatalogVariantSku(variantId: string, sku: string) {
+  const cleanSku = sku.trim()
+  if (!cleanSku) throw new Error('El SKU no puede quedar vacío.')
+  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', cleanSku).neq('id', variantId).limit(1)
+  if (existing && existing.length > 0) throw new Error(`Ya existe otra variante con el SKU ${cleanSku}.`)
+  const { error } = await supabase.from('catalog_variants').update({ sku: cleanSku, updated_at: new Date().toISOString() }).eq('id', variantId)
+  if (error) throw error
+}
+
+export async function updateCatalogProductName(productId: string, name: string) {
+  const cleanName = name.trim()
+  if (cleanName.length < 3) throw new Error('El nombre debe tener al menos 3 caracteres.')
+  const { data, error } = await supabase.from('catalog_products').update({ name: cleanName, updated_at: new Date().toISOString() }).eq('id', productId).select('id').single()
+  if (error) throw error
+  return data
+}
+
+export interface NewProductInput { name: string; brand: string; family: string; subfamily: string; sku: string; unit: string }
+
+export async function createCatalogProduct(input: NewProductInput): Promise<string> {
+  const name = input.name.trim(); const brand = input.brand.trim() || 'Grupo Poliplast'; const family = input.family.trim(); const sku = input.sku.trim()
+  if (name.length < 3) throw new Error('Ingresá el nombre del producto.')
+  if (!family) throw new Error('Ingresá la familia.')
+  if (!sku) throw new Error('Ingresá el SKU de la primera variante.')
+  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
+  if (existing && existing.length > 0) throw new Error(`Ya existe una variante con el SKU ${sku}.`)
+  const canonicalKey = `${brand}-${name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const { data: product, error: productError } = await supabase.from('catalog_products').insert({
+    name, brand, family, subfamily: input.subfamily.trim(), status: 'vigente', source: 'Alta manual desde Administración', canonical_key: canonicalKey || crypto.randomUUID(),
+  }).select('id').single()
+  if (productError) throw productError
+  const { error: variantError } = await supabase.from('catalog_variants').insert({ product_id: product.id, sku, name, unit: input.unit.trim() || 'unidad', active: true, source: 'Alta manual desde Administración' })
+  if (variantError) throw variantError
+  return product.id as string
+}
+
+export interface NewVariantInput { sku: string; name: string; unit: string; unitsPerPack?: number }
+
+export async function createCatalogVariant(productId: string, input: NewVariantInput): Promise<string> {
+  const sku = input.sku.trim(); const name = input.name.trim(); const unit = input.unit.trim() || 'unidad'
+  if (!sku) throw new Error('Ingresá el SKU de la variante.')
+  if (!name) throw new Error('Ingresá el nombre de la variante.')
+  const { data: existing } = await supabase.from('catalog_variants').select('id').eq('sku', sku).limit(1)
+  if (existing && existing.length > 0) throw new Error(`Ya existe una variante con el SKU ${sku}.`)
+  const attributes = input.unitsPerPack && input.unitsPerPack > 1 ? { units_per_pack: input.unitsPerPack } : {}
+  const { data, error } = await supabase.from('catalog_variants').insert({ product_id: productId, sku, name, unit, attributes, active: true, source: 'Alta manual desde Administración' }).select('id').single()
+  if (error) throw error
+  return data.id as string
+}
+
 export async function setCatalogVariantActive(variantId: string, active: boolean) {
   const { data, error } = await supabase.from('catalog_variants').update({ active, updated_at: new Date().toISOString() }).eq('id', variantId).select('id,active').single()
   if (error) throw error
@@ -83,6 +134,14 @@ export async function setCatalogVariantPrice(variantId: string, kind: PriceImpor
   if (!Number.isFinite(amount) || amount < 0) throw new Error('Ingresá un precio válido.')
   if (reason.trim().length < 3) throw new Error('Indicá la fuente o motivo del cambio.')
   const { data, error } = await supabase.rpc('admin_set_variant_price', { p_variant_id: variantId, p_kind: kind, p_amount: amount, p_currency: currency, p_reason: reason.trim() })
+  if (error) throw error
+  return data as string
+}
+
+export async function setCatalogVariantCost(variantId: string, amount: number, currency: 'USD' | 'ARS', reason: string) {
+  if (!Number.isFinite(amount) || amount < 0) throw new Error('Ingresá un costo válido.')
+  if (reason.trim().length < 3) throw new Error('Indicá la fuente o motivo del cambio.')
+  const { data, error } = await supabase.rpc('admin_set_variant_cost', { p_variant_id: variantId, p_amount: amount, p_currency: currency, p_reason: reason.trim() })
   if (error) throw error
   return data as string
 }

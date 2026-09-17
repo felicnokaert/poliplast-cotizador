@@ -12,6 +12,7 @@ export interface CatalogProduct {
   status: ProductStatus
   source: string
   source_updated_at: string | null
+  photo_path?: string | null
 }
 
 export interface CatalogVariant {

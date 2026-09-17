@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { buildCostImportRows, buildPriceImportRows, csvEscape, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, rowsToCsv, type AdminCatalogRow } from './admin'
+import { describe, expect, it, vi } from 'vitest'
+import { makeQueryResult } from './supabaseTestUtils'
+
+vi.mock('./supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
+
+import { supabase } from './supabase'
+import { buildCostImportRows, buildPriceImportRows, createCatalogProduct, createCatalogVariant, csvEscape, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, rowsToCsv, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogProductName, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -7,7 +12,7 @@ describe('CSV administrativo', () => {
   it('tolera lotes vacíos', () => expect(rowsToCsv([])).toBe(''))
 })
 
-const catalog: AdminCatalogRow[] = [{ product_id: 'p1', variant_id: 'v1', active: true, product_status: 'vigente', sku: 'SKU-1', producto: 'Producto', variante: '', marca: 'Poliplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 12, precio_mayorista: '', moneda_precio: 'USD', costo: 8, moneda_costo: 'USD', stock: 10, unidad_stock: 'kg', fuente: 'Catálogo' }]
+const catalog: AdminCatalogRow[] = [{ product_id: 'p1', variant_id: 'v1', active: true, product_status: 'vigente', sku: 'SKU-1', producto: 'Producto', variante: '', marca: 'Poliplast', familia: 'Resinas', subfamilia: '', unidad: 'kg', precio_consumidor_final: 12, precio_mayorista: '', moneda_precio: 'USD', costo: 8, moneda_costo: 'USD', stock: 10, unidad_stock: 'kg', fuente: 'Catálogo', photo_path: null }]
 
 describe('vista previa de importación administrativa', () => {
   it('interpreta ACTIVE en español y valida variant_id contra SKU', () => {
@@ -39,5 +44,52 @@ describe('vista previa de importación administrativa', () => {
     const preview = previewAdminImport('sku;precio_consumidor_final;precio_mayorista;fuente\nSKU-1;14;9,5;Lista septiembre', catalog)
     expect(buildPriceImportRows(preview, 'consumidor_final')).toEqual([{ row_number: 2, sku: 'SKU-1', amount: 14, source: 'Lista septiembre' }])
     expect(buildPriceImportRows(preview, 'mayorista')).toEqual([{ row_number: 2, sku: 'SKU-1', amount: 9.5, source: 'Lista septiembre' }])
+  })
+})
+
+describe('validaciones de escritura sin tocar la base (no llegan a Supabase)', () => {
+  it('rechaza precio negativo o motivo demasiado corto antes de llamar al RPC', async () => {
+    await expect(setCatalogVariantPrice('v1', 'consumidor_final', -1, 'USD', 'motivo largo')).rejects.toThrow('precio válido')
+    await expect(setCatalogVariantPrice('v1', 'consumidor_final', 10, 'USD', 'hi')).rejects.toThrow('motivo del cambio')
+    expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+  it('rechaza costo negativo o motivo corto antes de llamar al RPC', async () => {
+    await expect(setCatalogVariantCost('v1', -5, 'USD', 'motivo largo')).rejects.toThrow('costo válido')
+    await expect(setCatalogVariantCost('v1', 5, 'USD', 'no')).rejects.toThrow('motivo del cambio')
+    expect(supabase.rpc).not.toHaveBeenCalled()
+  })
+  it('rechaza nombre de producto vacío o corto antes de escribir', async () => {
+    await expect(updateCatalogProductName('p1', 'ab')).rejects.toThrow('al menos 3 caracteres')
+    expect(supabase.from).not.toHaveBeenCalled()
+  })
+  it('rechaza variante nueva sin SKU o sin nombre antes de escribir', async () => {
+    await expect(createCatalogVariant('p1', { sku: '', name: 'Algo', unit: 'unidad' })).rejects.toThrow('SKU')
+    await expect(createCatalogVariant('p1', { sku: 'SKU-X', name: '', unit: 'unidad' })).rejects.toThrow('nombre')
+    expect(supabase.from).not.toHaveBeenCalled()
+  })
+  it('rechaza producto nuevo sin nombre, familia o SKU antes de escribir', async () => {
+    await expect(createCatalogProduct({ name: '', brand: '', family: 'F', subfamily: '', sku: 'S', unit: 'unidad' })).rejects.toThrow('nombre del producto')
+    await expect(createCatalogProduct({ name: 'Nombre largo', brand: '', family: '', subfamily: '', sku: 'S', unit: 'unidad' })).rejects.toThrow('familia')
+    await expect(createCatalogProduct({ name: 'Nombre largo', brand: '', family: 'F', subfamily: '', sku: '', unit: 'unidad' })).rejects.toThrow('SKU')
+    expect(supabase.from).not.toHaveBeenCalled()
+  })
+})
+
+describe('escrituras exitosas contra un Supabase simulado', () => {
+  it('renombra el producto', async () => {
+    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: { id: 'p1' }, error: null }) as never)
+    await updateCatalogProductName('p1', 'Nombre nuevo')
+    expect(supabase.from).toHaveBeenCalledWith('catalog_products')
+  })
+  it('crea una variante nueva cuando el SKU no existe todavía', async () => {
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce(makeQueryResult({ data: [], error: null }) as never)
+      .mockReturnValueOnce(makeQueryResult({ data: { id: 'v-nueva' }, error: null }) as never)
+    const id = await createCatalogVariant('p1', { sku: 'SKU-NUEVO', name: 'Variante nueva', unit: 'unidad' })
+    expect(id).toBe('v-nueva')
+  })
+  it('no crea la variante si el SKU ya existe', async () => {
+    vi.mocked(supabase.from).mockReturnValueOnce(makeQueryResult({ data: [{ id: 'existente' }], error: null }) as never)
+    await expect(createCatalogVariant('p1', { sku: 'SKU-1', name: 'x', unit: 'unidad' })).rejects.toThrow('Ya existe')
   })
 })

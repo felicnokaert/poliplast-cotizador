@@ -5,11 +5,18 @@ import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
 import { withoutKits } from '../lib/catalogVisibility'
+import { productPhotoUrl } from '../lib/productPhotos'
+import { groupByColorVariant, stripColorWord } from '../lib/colorVariants'
 
 const BRAND_LOGOS: Record<string, string> = {
   penosil: '/brands/penosil.png',
   purmac: '/brands/purmac.png',
   resinplast: '/brands/resinplast.jpg',
+}
+
+/** Muestra el SKU "base" del producto, sin el sufijo de cantidad por caja (-1, -12, -6...). */
+function baseSkuLabel(sku: string): string {
+  return sku.replace(/-\d+$/, '')
 }
 
 export function CatalogBrowser({
@@ -36,6 +43,7 @@ export function CatalogBrowser({
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
   const [page, setPage] = useState(1)
   const [printKind, setPrintKind] = useState<'consumer' | 'wholesale'>('consumer')
+  const [printLayout, setPrintLayout] = useState<'lista' | 'fotos'>('lista')
   const pageSize = 100
 
   useEffect(() => {
@@ -74,7 +82,19 @@ export function CatalogBrowser({
   const printBrands = [...new Set(visibleProducts.map((product) => product.brand))]
   const printBrand = printBrands.length === 1 ? printBrands[0] : 'Grupo Poliplast'
   const printBrandLogo = BRAND_LOGOS[printBrand.toLowerCase()]
+  const printThemeClass = `print-theme-${printBrand.toLowerCase().replace(/\W/g, '')}`
   const printVariants = visibleProducts.flatMap((product) => product.variants.map((variant) => ({ product, variant }))).filter(({ variant }) => Boolean(commercialPrices(variant)[printKind]))
+  const photoGroups = useMemo(() => {
+    const bySubfamily = new Map<string, { family: string; subfamily: string; products: typeof visibleProducts }>()
+    for (const product of visibleProducts) {
+      if (!product.variants.some((variant) => Boolean(commercialPrices(variant)[printKind]))) continue
+      const key = `${product.family}::${product.subfamily || 'Sin subfamilia'}`
+      const existing = bySubfamily.get(key)
+      if (existing) existing.products.push(product)
+      else bySubfamily.set(key, { family: product.family, subfamily: product.subfamily || 'Sin subfamilia', products: [product] })
+    }
+    return [...bySubfamily.values()].sort((a, b) => a.family.localeCompare(b.family, 'es-AR') || a.subfamily.localeCompare(b.subfamily, 'es-AR'))
+  }, [visibleProducts, printKind])
   const hasFilters = Boolean(search) || family !== 'todas' || subfamily !== 'todas' || brand !== 'todas' || priceFilter !== 'todos'
   const clearFilters = () => { setSearch(''); setFamily('todas'); setSubfamily('todas'); setBrand('todas'); setPriceFilter('todos'); setPage(1) }
 
@@ -124,10 +144,47 @@ export function CatalogBrowser({
         <p className="muted" aria-live="polite">{search.trim().length < minimumSearchLength
           ? `Escribí al menos ${minimumSearchLength} caracteres del nombre o SKU para buscar.`
           : `${visibleProducts.length} producto${visibleProducts.length === 1 ? '' : 's'} · ${data.products.length} en el catálogo total`}</p>
-        {allowPriceListPrint && <div className="price-list-actions no-print"><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => { setPrintKind(event.target.value as 'consumer' | 'wholesale'); setPage(1) }}><option value="consumer">Lista minorista</option><option value="wholesale">Lista mayorista</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
+        {allowPriceListPrint && <div className="price-list-actions no-print"><select aria-label="Lista para imprimir" value={printKind} onChange={(event) => { setPrintKind(event.target.value as 'consumer' | 'wholesale'); setPage(1) }}><option value="consumer">Lista minorista</option><option value="wholesale">Lista mayorista</option></select><select aria-label="Formato de la lista" value={printLayout} onChange={(event) => setPrintLayout(event.target.value as 'lista' | 'fotos')}><option value="lista">Formato tabla</option><option value="fotos">Formato catálogo con fotos</option></select><button onClick={() => window.print()}>Imprimir / guardar PDF</button></div>}
       </header>
 
-      {allowPriceListPrint && <section className="print-price-list"><header><div className="print-logos"><img src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC de referencia {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{variant.sku}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> })}</tbody></table>}</section>}
+      {allowPriceListPrint && printLayout === 'lista' && <section className={`print-price-list ${printThemeClass}`}><header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Lista de precios {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA {exchangeRate || '—'}</p></div></header>{printVariants.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : <table><thead><tr><th>SKU</th><th>Producto</th><th>Precio USD</th></tr></thead><tbody>{printVariants.map(({ product, variant }) => { const price = commercialPrices(variant)[printKind]; const amount = price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null; return <tr key={variant.id}><td>{baseSkuLabel(variant.sku)}</td><td>{product.name}</td><td>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</td></tr> })}</tbody></table>}</section>}
+
+      {allowPriceListPrint && printLayout === 'fotos' && (
+        <section className={`print-photo-catalog ${printThemeClass}`}>
+          <header><div className="print-logos"><img className="print-main-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" />{printBrandLogo ? <img className="print-brand-logo" src={printBrandLogo} alt={printBrand} /> : printBrand !== 'Grupo Poliplast' && <strong className={`print-family-brand brand-${printBrand.toLowerCase().replace(/\W/g, '')}`}>{printBrand}</strong>}</div><div><h1>Catálogo {printKind === 'consumer' ? 'minorista' : 'mayorista'}</h1><p>{family === 'todas' ? 'Todas las familias' : family} · Valores finales en USD · TC oficial billete BNA {exchangeRate || '—'}</p></div></header>
+          {photoGroups.length === 0 ? <p className="print-empty">No hay productos con variantes para esta selección.</p> : photoGroups.map((group) => {
+            const shownVariantOf = (product: ProductWithVariants) => product.variants.find((variant) => Boolean(commercialPrices(variant)[printKind])) ?? product.variants[0]
+            const amountOf = (product: ProductWithVariants) => {
+              const price = commercialPrices(shownVariantOf(product))[printKind]
+              return price ? price.amount / (price.price_list.currency === 'ARS' && exchangeRate > 0 ? exchangeRate : 1) : null
+            }
+            const colorGroups = groupByColorVariant(group.products, (product) => product.name, (product) => amountOf(product)?.toFixed(2) ?? 'sin-precio')
+            return (
+            <div key={`${group.family}-${group.subfamily}`} className="print-photo-section">
+              <h2>{group.family} · {group.subfamily}</h2>
+              <div className="print-photo-grid">
+                {colorGroups.map(({ representative: product, colorOptions }) => {
+                  const shownVariant = shownVariantOf(product)
+                  const amount = amountOf(product)
+                  const photoUrl = productPhotoUrl(product.photo_path)
+                  const packSizes = [...new Set(product.variants.map((variant) => (variant.attributes as { units_per_pack?: number } | undefined)?.units_per_pack ?? 1))].sort((a, b) => a - b)
+                  return (
+                    <article key={product.id} className="print-photo-card">
+                      {photoUrl ? <img src={photoUrl} alt={product.name} /> : <div className="print-photo-placeholder">Sin foto</div>}
+                      <strong>{colorOptions.length > 1 ? stripColorWord(product.name) : product.name}</strong>
+                      <span>{baseSkuLabel(shownVariant.sku)}</span>
+                      {colorOptions.length > 1 && <div className="print-photo-colors">{colorOptions.map((option) => <i key={option.color} style={{ background: option.hex }} title={option.color} />)}</div>}
+                      {packSizes.length > 1 && <div className="print-photo-variants">{packSizes.map((size) => <i key={size}>{size}</i>)}</div>}
+                      <em>{amount == null ? 'Consultar' : new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'USD' }).format(amount)}</em>
+                    </article>
+                  )
+                })}
+              </div>
+            </div>
+            )
+          })}
+        </section>
+      )}
 
       {data.products.length === 0 ? (
         <div className="empty-state">

@@ -84,3 +84,14 @@ export async function saveSharedQuote(quote: SavedQuote, userId: string, rules: 
     if (error) throw error
   }
 }
+
+/** Borra la cotización de forma definitiva (renglones y encabezado). No hay vuelta atrás. */
+export async function deleteSharedQuote(quoteNumber: string): Promise<void> {
+  const { data: header, error: headerError } = await supabase.from('sales_quotes').select('id').eq('quote_number', quoteNumber).maybeSingle()
+  if (headerError) throw headerError
+  if (!header) return
+  const { error: itemsError } = await supabase.from('sales_quote_items').delete().eq('quote_id', header.id)
+  if (itemsError) throw itemsError
+  const { error: quoteError } = await supabase.from('sales_quotes').delete().eq('id', header.id)
+  if (quoteError) throw quoteError
+}
