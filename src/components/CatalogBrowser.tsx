@@ -4,7 +4,6 @@ import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters
 import { ProductCard } from './ProductCard'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
-import { withoutKits } from '../lib/catalogVisibility'
 import { productPhotoUrl } from '../lib/productPhotos'
 import { groupByColorVariant, stripColorWord } from '../lib/colorVariants'
 import { unitsPerPack } from '../lib/packs'
@@ -67,7 +66,7 @@ export function CatalogBrowser({
   const filtered = useMemo(() => {
     if (!data) return []
     if (search.trim().length < minimumSearchLength) return []
-    return filterCatalog(withoutKits(data.products), { search, family, subfamily, brand, priceFilter })
+    return filterCatalog(data.products, { search, family, subfamily, brand, priceFilter })
   }, [data, search, family, subfamily, brand, priceFilter, minimumSearchLength])
   const subfamilies = useMemo(() => {
     if (!data) return []

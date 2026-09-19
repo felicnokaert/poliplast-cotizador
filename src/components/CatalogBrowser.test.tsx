@@ -14,7 +14,7 @@ const product = (id: string, name: string, item: VariantWithPricing): ProductWit
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('listas imprimibles del catálogo', () => {
-  it('oculta kits y en mayorista deja solo variantes con precio mayorista', async () => {
+  it('muestra los kits (lo oculto se controla con Activo en Administración) y en mayorista deja solo variantes con precio mayorista', async () => {
     vi.spyOn(catalogLib, 'loadCatalog').mockResolvedValue({
       products: [
         product('p1', 'Resina minorista', variant('SKU-MIN', 'Unidad', [{ id: 'cf1', name: 'Consumidor final', amount: 10 }])),
@@ -25,7 +25,7 @@ describe('listas imprimibles del catálogo', () => {
     render(<CatalogBrowser allowPriceListPrint exchangeRate={1500} />)
     expect((await screen.findAllByText('Resina minorista')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Resina mayorista').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Kit resina')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Kit resina').length).toBeGreaterThan(0)
     fireEvent.change(screen.getByLabelText('Lista para imprimir'), { target: { value: 'wholesale' } })
     expect(screen.queryAllByText('Resina minorista')).toHaveLength(0)
     expect(screen.getAllByText('Resina mayorista').length).toBeGreaterThan(0)
