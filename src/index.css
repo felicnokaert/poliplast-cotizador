@@ -599,6 +599,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .print-photo-card strong { font-size: 7.3pt; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.44em; word-break: break-word; hyphens: auto; }
   .print-photo-card span { font-size: 6.6pt; color: #777; letter-spacing: .01em; }
   .print-photo-card em { font-style: normal; font-weight: 700; font-size: 8pt; margin-top: 1px; color: var(--print-accent); }
+  .print-photo-pair-item { display: grid; gap: 1px; }
+  .print-photo-pair-item + .print-photo-pair-item { margin-top: 3px; padding-top: 3px; border-top: 1px dashed #ddd; }
   .print-photo-variant-list { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 1px; }
   .print-photo-variant-list li { display: flex; align-items: center; gap: 3px; font-size: 6.4pt; color: #444; }
   .print-photo-variant-list li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

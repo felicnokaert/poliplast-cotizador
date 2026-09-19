@@ -7,6 +7,7 @@ import { commercialPrices } from '../lib/pricing'
 import { productPhotoUrl } from '../lib/productPhotos'
 import { groupByColorVariant, stripColorWord } from '../lib/colorVariants'
 import { unitsPerPack } from '../lib/packs'
+import { pairPurmacGenerics, type PurmacPair } from '../lib/purmacPairs'
 
 const BRAND_LOGOS: Record<string, string> = {
   penosil: '/brands/penosil.png',
@@ -181,7 +182,10 @@ export function CatalogBrowser({
               }
               return prefix.replace(/-+$/, '')
             }
-            const colorGroups = groupByColorVariant(group.products, (product) => product.name, (product) => amountOf(product)?.toFixed(2) ?? 'sin-precio')
+            const { mains, pairs } = group.family === 'PURMAC'
+              ? pairPurmacGenerics(group.products, (product) => shownVariantOf(product).sku)
+              : { mains: group.products, pairs: new Map<string, PurmacPair<ProductWithVariants>>() }
+            const colorGroups = groupByColorVariant(mains, (product) => product.name, (product) => amountOf(product)?.toFixed(2) ?? 'sin-precio')
             return (
             <div key={`${group.family}-${group.subfamily}`} className="print-photo-section">
               <h2>{group.family} · {group.subfamily}</h2>
@@ -194,6 +198,21 @@ export function CatalogBrowser({
                   const isColorMerge = colorOptions.length > 1
                   const hasSizeBreakdown = !isColorMerge && priced.length > 1
                   const displaySku = hasSizeBreakdown ? (commonSkuPrefix(priced.map((v) => v.sku)) || baseSkuLabel(shownVariant.sku)) : baseSkuLabel(shownVariant.sku)
+                  const pair = pairs.get(product.id)
+                  if (pair) {
+                    return (
+                      <article key={product.id} className="print-photo-card">
+                        {photoUrl ? <img src={photoUrl} alt={pair.generic.name} /> : <div className="print-photo-placeholder">Sin foto</div>}
+                        {[pair.generic, pair.purmac].map((item) => (
+                          <div className="print-photo-pair-item" key={item.id}>
+                            <strong>{item.name}</strong>
+                            <span>{shownVariantOf(item).sku}</span>
+                            <em>{amountOf(item) == null ? 'Consultar' : `${money(amountOf(item))} / unidad`}</em>
+                          </div>
+                        ))}
+                      </article>
+                    )
+                  }
                   return (
                     <article key={product.id} className="print-photo-card">
                       {photoUrl ? <img src={photoUrl} alt={product.name} /> : <div className="print-photo-placeholder">Sin foto</div>}
