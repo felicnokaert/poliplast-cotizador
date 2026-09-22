@@ -573,7 +573,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .print-theme-resinplast { --print-accent: #0071bc; --print-accent-soft: #e3f0fa; }
   .print-price-list header, .print-photo-catalog > header { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 14px; padding: 10px 14px; border-bottom: 4px solid var(--print-accent); border-radius: 8px 8px 0 0; background: var(--print-accent-soft); }
   .print-logos { display: flex; align-items: center; gap: 18px; height: 46px; }
-  .print-main-logo, .print-brand-logo { height: 46px; width: auto; max-width: 170px; object-fit: contain; object-position: left center; }
+  .print-main-logo, .print-brand-logo { height: 46px; width: auto; max-width: 190px; object-fit: contain; object-position: left center; }
   .print-family-brand { padding-left: 18px; border-left: 1px solid #bbb; font-size: 17pt; letter-spacing: -.04em; color: var(--print-accent); }
   .print-price-list h1, .print-price-list p, .print-photo-catalog h1, .print-photo-catalog p { margin: 0; }
   .print-price-list h1, .print-photo-catalog h1 { font-size: 16pt; line-height: 1.05; color: var(--print-accent); }
