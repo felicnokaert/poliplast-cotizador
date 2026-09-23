@@ -525,7 +525,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                       <th>Mayorista (USD)</th>
                       <th title="El costo se carga sin IVA">Costo (USD, sin IVA)</th>
                       <th>Condición comercial</th>
-                      <th title="Solo para el equipo interno: nunca se imprime para el cliente. Útil para aclarar qué trae un kit/combo (ej. resina, poliuretano, poliurea).">Nota interna</th>
+                      <th title="Se muestra al cotizar este producto (arriba del nombre y en la línea de la cotización). Útil para presentación/medida (ej. rollo de 300m, caja x 20, bulto cerrado), qué trae un kit, o cualquier aviso para el vendedor. Nunca se imprime en el PDF para el cliente.">Aviso al cotizar</th>
                       <th>Motivo del cambio</th>
                       <th>Activo</th>
                       <th></th>
@@ -552,7 +552,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                           <td className="catalog-grid-note">
                             <input
                               value={noteDrafts[row.variant_id] ?? row.internal_note}
-                              placeholder="Ej. trae 2L resina + 40ml catalizador"
+                              placeholder="Ej. rollo de 300m, caja cerrada x 20, trae 2L resina + 40ml catalizador"
                               onChange={(event) => setNoteDrafts((current) => ({ ...current, [row.variant_id]: event.target.value }))}
                             />
                             {(noteDrafts[row.variant_id] ?? row.internal_note) !== row.internal_note && (

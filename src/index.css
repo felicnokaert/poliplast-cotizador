@@ -167,7 +167,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .variant-sku { display: flex; flex-direction: column; gap: 2px; }
 .variant-sku small { font-size: .66rem; font-weight: 600; white-space: normal; }
 .variant-sku small.pack-size { color: #9c6b1f; font-weight: 700; }
-.internal-note-icon { display: inline-block; margin-left: 4px; color: #1565c0; font-size: .82em; cursor: help; }
+.product-note { display: block; margin-top: 1px; color: #9c6b1f; background: #fff8e8; border-radius: 4px; padding: 1px 5px; font-weight: 600; white-space: normal; }
 .stock-verified { color: #2f7764; }
 .stock-unverified { color: var(--muted); }
 .technical-link { width: fit-content; border: 0; background: transparent; padding: 1px 0; color: #a71915; font-size: .68rem; font-weight: 750; text-decoration: underline; text-underline-offset: 2px; }
