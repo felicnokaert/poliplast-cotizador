@@ -4,7 +4,7 @@ import { makeQueryResult } from './supabaseTestUtils'
 vi.mock('./supabase', () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), storage: { from: vi.fn() } } }))
 
 import { supabase } from './supabase'
-import { buildCostImportRows, buildPriceImportRows, createCatalogProduct, createCatalogVariant, csvEscape, InactiveSkuConflictError, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogProductName, type AdminCatalogRow } from './admin'
+import { buildCostImportRows, buildPriceImportRows, createCatalogProduct, createCatalogVariant, csvEscape, InactiveSkuConflictError, parseAdminCsv, previewAdminImport, previewCatalogActiveReview, reactivateCatalogVariant, releaseInactiveVariantSku, rowsToCsv, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogProductName, type AdminCatalogRow } from './admin'
 
 describe('CSV administrativo', () => {
   it('escapa comas y comillas', () => expect(csvEscape('Resina, "A"')).toBe('"Resina, ""A"""'))
@@ -108,5 +108,11 @@ describe('escrituras exitosas contra un Supabase simulado', () => {
     vi.mocked(supabase.from).mockReturnValueOnce(result as never)
     await reactivateCatalogVariant('v-vieja', { name: 'x', unit: 'unidad', productId: 'p-destino' })
     expect(result.update).toHaveBeenCalledWith(expect.objectContaining({ product_id: 'p-destino', active: true }))
+  })
+  it('libera el SKU de una variante desactivada renombrandolo, sin tocar su historial', async () => {
+    const result = makeQueryResult({ data: null, error: null })
+    vi.mocked(supabase.from).mockReturnValueOnce(result as never)
+    await releaseInactiveVariantSku('v-vieja', 'JUNTA-TORICA-6')
+    expect(result.update).toHaveBeenCalledWith(expect.objectContaining({ sku: expect.stringMatching(/^JUNTA-TORICA-6-desactivado-/) }))
   })
 })

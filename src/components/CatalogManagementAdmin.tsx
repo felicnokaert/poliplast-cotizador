@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, InactiveSkuConflictError, previewCatalogActiveReview, reactivateCatalogVariant, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantNote, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
+import { applyCatalogActiveReview, createCatalogProduct, createCatalogVariant, downloadCsv, InactiveSkuConflictError, previewCatalogActiveReview, reactivateCatalogVariant, releaseInactiveVariantSku, rowsToCsv, setCatalogVariantActive, setCatalogVariantCost, setCatalogVariantPrice, updateCatalogClassification, updateCatalogProductName, updateCatalogVariantNote, updateCatalogVariantSku, type AdminCatalogRow, type CatalogActiveReviewPreview } from "../lib/admin";
 import { buildCatalogReview } from "../lib/catalogReview";
 import { formatRuleLabel, loadCommercialRules } from "../lib/commercialRules";
 import type { CommercialRule } from "../types/commercialRules";
@@ -145,7 +145,17 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
     }
     setBusy(row.variant_id);
     try {
-      if (changedSku) await updateCatalogVariantSku(row.variant_id, draft.sku);
+      if (changedSku) {
+        try {
+          await updateCatalogVariantSku(row.variant_id, draft.sku);
+        } catch (error) {
+          if (error instanceof InactiveSkuConflictError) {
+            if (!window.confirm(`${error.message}\n\n¿Liberarlo (renombrar esa variante desactivada) para poder usarlo acá?`)) return;
+            await releaseInactiveVariantSku(error.conflict.variantId, draft.sku.trim());
+            await updateCatalogVariantSku(row.variant_id, draft.sku);
+          } else throw error;
+        }
+      }
       if (changedMinorista) await setCatalogVariantPrice(row.variant_id, "consumidor_final", Number(draft.minorista), "USD", draft.reason);
       if (changedMayorista) await setCatalogVariantPrice(row.variant_id, "mayorista", Number(draft.mayorista), "USD", draft.reason);
       if (changedCosto) await setCatalogVariantCost(row.variant_id, Number(draft.costo), "USD", draft.reason);

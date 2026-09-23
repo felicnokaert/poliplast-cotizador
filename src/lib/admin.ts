@@ -122,6 +122,13 @@ export async function reactivateCatalogVariant(variantId: string, updates: { nam
   if (error) throw error
 }
 
+/** Le cambia el SKU a una variante DESACTIVADA para liberar su código original (ej. "SKU" -> "SKU-desactivado-<hora>"), sin tocar su historial de precios. */
+export async function releaseInactiveVariantSku(variantId: string, currentSku: string): Promise<void> {
+  const freedSku = `${currentSku}-desactivado-${Date.now().toString(36)}`
+  const { error } = await supabase.from('catalog_variants').update({ sku: freedSku, updated_at: new Date().toISOString() }).eq('id', variantId)
+  if (error) throw error
+}
+
 export async function updateCatalogVariantSku(variantId: string, sku: string) {
   const cleanSku = sku.trim()
   if (!cleanSku) throw new Error('El SKU no puede quedar vacío.')
