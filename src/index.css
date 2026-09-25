@@ -275,6 +275,9 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .preview-table td { border-bottom: 1px solid var(--border); padding: 11px 10px; vertical-align: top; }
 .preview-table td small { display: block; color: var(--muted); margin-top: 3px; }
 .preview-table th:nth-last-child(-n+3), .preview-table td:nth-last-child(-n+3) { text-align: right; }
+.preview-table-group-header td { background: var(--surface, #f5f5f5); font-weight: 700; text-transform: uppercase; font-size: .72rem; letter-spacing: .03em; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.preview-table-group-subtotal td { font-weight: 700; border-bottom: 2px solid var(--border); text-align: right; }
+.preview-table-group-subtotal td:first-child { text-align: left; color: var(--muted); font-weight: 600; }
 .preview-summary { width: min(380px, 100%); margin: 24px 0 24px auto; display: flex; flex-direction: column; gap: 8px; }
 .preview-summary > div { display: flex; justify-content: space-between; gap: 20px; }
 .preview-grand { border-top: 2px solid var(--preview-accent); padding-top: 10px; color: var(--preview-accent); font-size: 1.25rem; }
@@ -1069,7 +1072,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .quote-product-picker .catalog-header h1 { font-size: .9rem; }
 .quote-empty-main { min-height: 180px; margin: 0; display: grid; place-content: center; gap: 4px; background: rgba(var(--surface-rgb), .5); }
 
-.quote-page .quote-lines-main { display: grid; grid-template-columns: 1fr; gap: 7px; margin: 0; }
+.quote-page .quote-lines-main { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 0; }
+.quote-line-group { display: grid; gap: 7px; }
+.quote-line-group-header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 2px 4px; border-bottom: 1px solid var(--border); }
+.quote-line-group-header span { font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.quote-line-group-header small { color: var(--muted); font-size: .74rem; white-space: nowrap; }
 .quote-page .quote-line-main {
   position: relative;
   display: grid;

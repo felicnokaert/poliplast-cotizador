@@ -3,6 +3,8 @@ import { CatalogBrowser } from './CatalogBrowser'
 import {
   addQuoteLine,
   automaticPricingSummary,
+  groupLinesByFamily,
+  groupSubtotalsByCurrency,
   linePricingDetails,
   quoteExpiry,
   quoteTotals,
@@ -86,11 +88,23 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
         </div>
         <table className="preview-table">
           <thead><tr><th>Producto</th><th>SKU</th><th>Cantidad</th><th>Unitario</th><th>Total</th></tr></thead>
-          <tbody>{quote.lines.map((line) => {
-            const details = linePricingDetails(line, quote.meta.priceMode, rules, quote.lines, quote.meta.exchangeRate)
-            const price = details.price
-            return <tr key={line.id}><td><strong>{line.productName}</strong><small>{line.family} · {details.priceLabel}</small><small className="rule-note">{details.condition} {details.outcome}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}<small>{details.physicalUnits} u. físicas</small></td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack * conversion, quote.meta.outputCurrency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
-          })}</tbody>
+          {groupLinesByFamily(quote.lines).map((group) => {
+            const groupTotal = group.lines.reduce((sum, line) => {
+              const price = linePricingDetails(line, quote.meta.priceMode, rules, quote.lines, quote.meta.exchangeRate).price
+              return sum + (price ? price.amount * line.quantity * conversion : 0)
+            }, 0)
+            return (
+            <tbody key={group.family} className="preview-table-group">
+              <tr className="preview-table-group-header"><td colSpan={5}>{group.family}</td></tr>
+              {group.lines.map((line) => {
+                const details = linePricingDetails(line, quote.meta.priceMode, rules, quote.lines, quote.meta.exchangeRate)
+                const price = details.price
+                return <tr key={line.id}><td><strong>{line.productName}</strong><small>{details.priceLabel}</small><small className="rule-note">{details.condition} {details.outcome}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}<small>{details.physicalUnits} u. físicas</small></td><td>{price ? money(price.amount * conversion, quote.meta.outputCurrency) : 'A confirmar'}{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack * conversion, quote.meta.outputCurrency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}</td><td>{price ? money(price.amount * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
+              })}
+              {group.lines.length > 1 && <tr className="preview-table-group-subtotal"><td colSpan={4}>Subtotal {group.family}</td><td>{money(groupTotal, quote.meta.outputCurrency)}</td></tr>}
+            </tbody>
+            )
+          })}
         </table>
         <div className="preview-summary">
           <div><span>Subtotal</span><strong>{money(totals.subtotal * conversion, quote.meta.outputCurrency)}</strong></div>
@@ -313,11 +327,22 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
             </div>
             <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Productos, cantidades y precios aplicados.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
             {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
-            {lines.length === 0 ? <button className="quote-empty quote-empty-action quote-empty-main" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar el primer producto</strong><span>Buscá por nombre o SKU; los resultados aparecen desde 3 caracteres.</span></button> : <div className="quote-lines quote-lines-main">{lines.map((line) => {
+            {lines.length === 0 ? <button className="quote-empty quote-empty-action quote-empty-main" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar el primer producto</strong><span>Buscá por nombre o SKU; los resultados aparecen desde 3 caracteres.</span></button> : <div className="quote-lines quote-lines-main">{groupLinesByFamily(lines).map((group) => {
+              const subtotals = groupSubtotalsByCurrency(group.lines, meta.priceMode, rules, lines, meta.exchangeRate)
+              return (
+              <section className="quote-line-group" key={group.family}>
+                <header className="quote-line-group-header">
+                  <span>{group.family}</span>
+                  <small>{group.lines.length} ítem{group.lines.length === 1 ? '' : 's'}{subtotals.size > 0 && ' · ' + [...subtotals].map(([currency, amount]) => money(amount, currency)).join(' + ')}</small>
+                </header>
+                {group.lines.map((line) => {
               const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
               const price = details.price
               const exceedsApprovedStock = line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity
               return <article className="quote-line quote-line-main" key={line.id}><div className="quote-line-identity"><span className={`brand-dot brand-dot-${line.brand.toLowerCase().replace(/\W/g, '')}`} aria-hidden="true" /><div><strong>{line.productName}</strong><span className="quote-line-meta">{line.variant.sku} · {line.brand} · {details.priceLabel}</span></div></div><label className="quote-line-quantity">Cantidad<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(e) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity: Math.max(.01, Number(e.target.value) || .01) } : item))} /></label><div className="quote-line-price"><span>{price ? `${money(price.amount, price.currency)} / ${line.variant.unit}` : 'Precio pendiente'}</span>{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack, price.currency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}<strong>{price ? money(price.amount * line.quantity, price.currency) : '—'}</strong></div><button className="remove-line" aria-label={`Quitar ${line.productName}`} onClick={() => setLines((current) => current.filter((item) => item.id !== line.id))}>×</button>{exceedsApprovedStock && <div className="stock-warning quote-line-message">Cantidad supera el último saldo aprobado ({line.variant.approvedStock!.quantity} {line.variant.approvedStock!.unit}). Confirmar disponibilidad.</div>}{line.variant.internal_note && <div className="quote-line-message product-note">ⓘ {line.variant.internal_note}</div>}<details className="price-details"><summary>Ver cálculo</summary><p><strong>{details.physicalUnits} unidades físicas.</strong> {details.condition} {details.outcome}</p></details></article>
+                })}
+              </section>
+              )
             })}</div>}
           </section>
 

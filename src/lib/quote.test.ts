@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, automaticPricingSummary, createQuoteNumber, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
+import { addQuoteLine, automaticPricingSummary, createQuoteNumber, groupLinesByFamily, groupSubtotalsByCurrency, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -205,5 +205,23 @@ describe('quote', () => {
     const above = [{ ...below[0], quantity: 182 }]
     expect(automaticPricingSummary(above, 'consumidor_final')).toContain('1 SKU con mayorista pendiente')
     expect(linePricingDetails(above[0], 'consumidor_final', [], above).outcome).toContain('mayorista pendiente')
+  })
+
+  it('agrupa las líneas por familia respetando el orden en que se agregó cada una', () => {
+    const baldes = { ...product, id: 'p2', family: 'Baldes', variants: [{ ...variant, id: 'v2' }] }
+    const penosil = { ...product, id: 'p3', family: 'Penosil', variants: [{ ...variant, id: 'v3' }] }
+    let lines = addQuoteLine([], variant, product)
+    lines = addQuoteLine(lines, baldes.variants[0], baldes)
+    lines = addQuoteLine(lines, penosil.variants[0], penosil)
+    lines = addQuoteLine(lines, { ...variant, id: 'v4' }, { ...product, id: 'p4', variants: [] })
+    const groups = groupLinesByFamily(lines)
+    expect(groups.map((g) => g.family)).toEqual(['Otros', 'Baldes', 'Penosil'])
+    expect(groups[0].lines).toHaveLength(2)
+  })
+
+  it('el subtotal de un grupo suma el precio de cada linea en su moneda', () => {
+    const lines = addQuoteLine(addQuoteLine([], variant, product), { ...variant, id: 'v2', prices: [{ ...variant.prices[0], id: 'vp3', variant_id: 'v2' }] }, product)
+    const subtotals = groupSubtotalsByCurrency(lines, 'consumidor_final', [], lines, 1)
+    expect(subtotals.get('USD')).toBe(200)
   })
 })

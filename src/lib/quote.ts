@@ -401,6 +401,38 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
   return { ...raw, discount, surcharge, total, convertedTotal: total, appliedPriceMode }
 }
 
+export interface QuoteLineGroup {
+  family: string
+  lines: QuoteLine[]
+}
+
+/**
+ * Agrupa las líneas por familia, preservando el orden en que se agregó cada
+ * familia por primera vez (no alfabético), para que una cotización mixta
+ * (ej. Penosil + Baldes + Purmac) se lea agrupada en vez de como lista plana.
+ */
+export function groupLinesByFamily(lines: QuoteLine[]): QuoteLineGroup[] {
+  const order: string[] = []
+  const byFamily = new Map<string, QuoteLine[]>()
+  for (const line of lines) {
+    const key = line.family || 'Sin familia'
+    if (!byFamily.has(key)) { byFamily.set(key, []); order.push(key) }
+    byFamily.get(key)!.push(line)
+  }
+  return order.map((family) => ({ family, lines: byFamily.get(family)! }))
+}
+
+/** Subtotal de un grupo de líneas por moneda (una cotización puede mezclar USD/ARS si las listas base difieren). */
+export function groupSubtotalsByCurrency(lines: QuoteLine[], mode: PriceMode, rules: CommercialRule[], allLines: QuoteLine[], exchangeRate: number): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const line of lines) {
+    const price = linePricingDetails(line, mode, rules, allLines, exchangeRate).price
+    if (!price) continue
+    totals.set(price.currency, (totals.get(price.currency) ?? 0) + price.amount * line.quantity)
+  }
+  return totals
+}
+
 export function quoteExpiry(createdAt: string, validDays: number): Date {
   const date = new Date(createdAt)
   date.setDate(date.getDate() + validDays)
