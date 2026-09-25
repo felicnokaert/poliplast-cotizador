@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, automaticPricingSummary, createQuoteNumber, groupLinesByFamily, groupSubtotalsByCurrency, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
+import { addQuoteLine, automaticPricingSummary, createQuoteNumber, groupLinesByFamily, groupSubtotalsByCurrency, lineDiscountPercent, lineUnitAmountAfterDiscount, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -223,5 +223,22 @@ describe('quote', () => {
     const lines = addQuoteLine(addQuoteLine([], variant, product), { ...variant, id: 'v2', prices: [{ ...variant.prices[0], id: 'vp3', variant_id: 'v2' }] }, product)
     const subtotals = groupSubtotalsByCurrency(lines, 'consumidor_final', [], lines, 1)
     expect(subtotals.get('USD')).toBe(200)
+  })
+
+  it('el descuento por linea se acota a 0-100 y se aplica sobre el precio unitario', () => {
+    expect(lineDiscountPercent({} as never)).toBe(0)
+    const line = addQuoteLine([], variant, product)[0]
+    expect(lineUnitAmountAfterDiscount(null, line)).toBeNull()
+    expect(lineUnitAmountAfterDiscount({ amount: 100 }, { ...line, discountPercent: 150 })).toBe(0)
+    expect(lineUnitAmountAfterDiscount({ amount: 100 }, { ...line, discountPercent: -10 })).toBe(100)
+    expect(lineUnitAmountAfterDiscount({ amount: 100 }, { ...line, discountPercent: 20 })).toBe(80)
+  })
+
+  it('el descuento por linea reduce el subtotal de quoteTotals sin tocar las lineas sin descuento', () => {
+    const [withDiscount] = addQuoteLine([], variant, product)
+    const sinDescuento = addQuoteLine([], variant, product)[0]
+    const lines = [{ ...withDiscount, discountPercent: 50 }, { ...sinDescuento, id: 'v-otro', variant: { ...variant, id: 'v-otro' } }]
+    const totals = quoteTotals(lines, 0, 0, 1, 'USD', 'consumidor_final', [])
+    expect(totals.subtotal).toBe(50 + 100)
   })
 })

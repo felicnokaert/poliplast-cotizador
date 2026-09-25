@@ -19,6 +19,18 @@ export interface QuoteLine {
   family: string
   variant: VariantWithPricing
   quantity: number
+  /** Descuento comercial puntual de este renglón (0-100), aparte del descuento global de la cotización. */
+  discountPercent?: number
+}
+
+export function lineDiscountPercent(line: QuoteLine): number {
+  return Math.max(0, Math.min(100, line.discountPercent ?? 0))
+}
+
+/** Precio unitario de la línea ya con su descuento puntual aplicado (antes del descuento global de la cotización). */
+export function lineUnitAmountAfterDiscount(price: { amount: number } | null | undefined, line: QuoteLine): number | null {
+  if (!price) return null
+  return price.amount * (1 - lineDiscountPercent(line) / 100)
 }
 
 export interface QuoteMeta {
@@ -384,7 +396,7 @@ export function quoteTotals(lines: QuoteLine[], discountPercent = 0, surchargePe
         totals.pendingLines += 1
         return totals
       }
-      const gross = price.amount * line.quantity
+      const gross = lineUnitAmountAfterDiscount(price, line)! * line.quantity
       totals.subtotal += gross
       totals.vat += gross * price.vatRate / (1 + price.vatRate)
       totals.currencies.add(price.currency)
@@ -428,7 +440,7 @@ export function groupSubtotalsByCurrency(lines: QuoteLine[], mode: PriceMode, ru
   for (const line of lines) {
     const price = linePricingDetails(line, mode, rules, allLines, exchangeRate).price
     if (!price) continue
-    totals.set(price.currency, (totals.get(price.currency) ?? 0) + price.amount * line.quantity)
+    totals.set(price.currency, (totals.get(price.currency) ?? 0) + lineUnitAmountAfterDiscount(price, line)! * line.quantity)
   }
   return totals
 }
@@ -447,7 +459,8 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
   const body = lines.map((line) => {
     const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
     const price = details.price
-    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(price.amount * line.quantity * conversion) : 'consultar'}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
+    const discountNote = lineDiscountPercent(line) > 0 ? ` (desc. ${lineDiscountPercent(line)}%)` : ''
+    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(lineUnitAmountAfterDiscount(price, line)! * line.quantity * conversion) : 'consultar'}${discountNote}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
   }).join('\n')
   const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
   const pesoReference = totals.currencies.size === 1 && totals.currencies.has('USD') && meta.exchangeRate > 0

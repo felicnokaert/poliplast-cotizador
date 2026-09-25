@@ -1106,6 +1106,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .quote-line-price { grid-area: price; min-width: 150px; display: grid; justify-items: end; gap: 2px; text-align: right; font-variant-numeric: tabular-nums; }
 .quote-line-price span, .quote-line-price small { color: var(--text-tertiary); font-size: .63rem; }
 .quote-line-price strong { font-size: .84rem; }
+.quote-line-price s { color: var(--text-tertiary); margin-right: 3px; }
+.quote-line-discount { display: flex; align-items: center; gap: 4px; font-size: .6rem; font-weight: 650; color: var(--text-secondary); }
+.quote-line-discount input { width: 46px; min-height: 24px; padding: 2px 4px; text-align: right; }
 .remove-line { grid-area: remove; width: 34px; height: 34px; border: 0; border-radius: 7px; background: transparent; color: var(--text-tertiary); font-size: 1.1rem; }
 .remove-line:hover { background: var(--error-soft); color: var(--danger); }
 .quote-line-message { grid-area: message; margin: 0; }
