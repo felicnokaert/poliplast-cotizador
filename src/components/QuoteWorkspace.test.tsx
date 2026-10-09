@@ -98,7 +98,6 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     openCatalog()
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
     openActiveQuote()
-    fireEvent.click(screen.getByRole('button', { name: /Agregar datos/ }))
     fireEvent.change(await screen.findByLabelText('Elegir del CRM'), { target: { value: 'c1' } })
     fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar a WhatsApp' }))

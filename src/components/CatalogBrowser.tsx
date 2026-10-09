@@ -27,7 +27,7 @@ export function CatalogBrowser({
   exchangeRate = 0,
   allowPriceListPrint = false,
 }: {
-  onAdd?: (variant: VariantWithPricing, product: ProductWithVariants) => void
+  onAdd?: (variant: VariantWithPricing, product: ProductWithVariants, quantity?: number) => void
   title?: string
   minimumSearchLength?: number
   exchangeRate?: number

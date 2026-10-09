@@ -361,11 +361,12 @@ export function addQuoteLine(
   lines: QuoteLine[],
   variant: VariantWithPricing,
   product: ProductWithVariants,
+  quantity = 1,
 ): QuoteLine[] {
   const existing = lines.find((line) => line.variant.id === variant.id)
   if (existing) {
     return lines.map((line) =>
-      line.variant.id === variant.id ? { ...line, quantity: line.quantity + 1 } : line,
+      line.variant.id === variant.id ? { ...line, quantity: line.quantity + quantity } : line,
     )
   }
   return [
@@ -377,7 +378,7 @@ export function addQuoteLine(
       brand: product.brand,
       family: product.family,
       variant,
-      quantity: 1,
+      quantity,
     },
   ]
 }

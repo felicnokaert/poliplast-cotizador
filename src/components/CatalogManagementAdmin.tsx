@@ -527,7 +527,19 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                     </button>
                   </div>
                 </div>
+                <div className="catalog-grid-table-wrap">
                 <table className="catalog-grid-table">
+                  <colgroup>
+                    <col className="col-variant" />
+                    <col className="col-price" />
+                    <col className="col-price" />
+                    <col className="col-price" />
+                    <col className="col-condition" />
+                    <col className="col-note" />
+                    <col className="col-reason" />
+                    <col className="col-active" />
+                    <col className="col-save" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Variante</th>
@@ -616,6 +628,7 @@ export function CatalogManagementAdmin({ catalog, onChanged }: { catalog: AdminC
                     })}
                   </tbody>
                 </table>
+                </div>
                 {(() => {
                   const newVariant = newVariantDrafts[group.product_id] ?? { sku: "", name: "", unit: "unidad", unitsPerPack: "" };
                   const setNewVariant = (patch: Partial<typeof newVariant>) => setNewVariantDrafts((current) => ({ ...current, [group.product_id]: { ...newVariant, ...patch } }));
