@@ -350,9 +350,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 
 .product-list { display: flex; flex-direction: column; margin-top: 12px; background: white; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .catalog-table-head, .catalog-row { display: grid; grid-template-columns: minmax(330px, 1.8fr) 120px minmax(110px, .65fr) minmax(120px, .7fr) 125px 125px 64px; align-items: center; column-gap: 8px; }
-.catalog-row.resinplast-row { grid-template-columns: minmax(300px, 1.8fr) 110px minmax(110px, .65fr) minmax(120px, .7fr) 190px 64px; }
 .resinplast-price { gap: 3px; }
-.wholesale-hint { color: #6b7a5e; font-weight: 700; }
 .quantity-stepper { display: flex; align-items: center; gap: 3px; margin-top: 2px; }
 .quantity-stepper button { width: 20px; height: 20px; border-radius: 5px; border: 1px solid var(--border); background: white; font-weight: 700; line-height: 1; padding: 0; }
 .quantity-stepper input { width: 52px; text-align: center; border: 1px solid var(--border); border-radius: 5px; padding: 2px 3px; font-size: .72rem; }
@@ -937,8 +935,6 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .catalog-row > .catalog-family, .catalog-row > .catalog-subfamily { display: none; }
   .catalog-row > .catalog-price:nth-child(5) { grid-area: consumer; align-items: flex-start; text-align: left; }
   .catalog-row > .catalog-price:nth-child(6) { grid-area: wholesale; }
-  .catalog-row.resinplast-row { grid-template-areas: "product product" "sku action" "consumer consumer"; }
-  .catalog-row.resinplast-row .resinplast-price { grid-area: consumer; align-items: flex-start; text-align: left; }
   .catalog-row > .catalog-price:nth-child(5)::before { content: "Consumidor final"; }
   .catalog-row > .catalog-price:nth-child(6)::before { content: "Mayorista"; }
   .catalog-row > .catalog-price::before { margin-bottom: 2px; color: var(--muted); font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
@@ -1243,8 +1239,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .quote-line-price { justify-items: start; text-align: left; }
 }
 
-/* Barra lateral estilo CRM (poliplast-sales-copilot/DESIGN.md): grafito + franja roja en el ítem activo. Solo escritorio. */
-@media (min-width: 960px) {
+/* Barra lateral estilo CRM (poliplast-sales-copilot/DESIGN.md): grafito + franja roja en el ítem activo. Solo pantallas anchas (>=1320px); debajo queda la barra superior. */
+@media (min-width: 1320px) {
   .app-shell { max-width: none; margin: 0; padding-left: calc(238px + clamp(16px, 2.2vw, 32px)); }
   .workspace-nav {
     position: fixed; inset: 0 auto 0 0; z-index: 30; width: 238px; min-height: 100vh; margin: 0;
@@ -1275,3 +1271,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media print {
   .app-shell { padding-left: 0 !important; }
 }
+
+/* Catálogo: con la barra lateral el ancho útil baja; familia/subfamilia ya figuran bajo el nombre del producto. */
+@media (min-width: 621px) {
+  .catalog-table-head, .catalog-row { grid-template-columns: minmax(240px, 1fr) 124px 138px 112px 84px; }
+  .catalog-table-head span:nth-child(3), .catalog-table-head span:nth-child(4),
+  .catalog-row .catalog-family, .catalog-row .catalog-subfamily { display: none; }
+  .catalog-table-head span:nth-child(5), .catalog-table-head span:nth-child(6) { text-align: right; }
+  .page-intro-actions > .primary-action.inline { width: auto; margin: 0; padding: 10px 18px; white-space: nowrap; }
+}
+
+/* El rojo queda para la acción principal de cada pantalla; "Ver cotización" va en grafito. */
+.page-intro-actions > .primary-action.inline:not(:only-child) { background: #292929; }
+.catalog-page .page-intro-actions > .primary-action.inline, .page-intro-actions > .primary-action.inline:only-child { background: #292929; }
+.page-intro-actions > .primary-action.inline:hover { background: #1c1c1c; }
+.history-actions .primary-action { background: var(--accent); }
+.history-actions .primary-action:hover { background: var(--accent-hover); }

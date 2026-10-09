@@ -58,6 +58,8 @@ function newMeta(_existingQuotes: SavedQuote[] = loadSavedQuotes()): QuoteMeta {
   }
 }
 
+function formatQuantity(quantity: number) { return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(quantity) }
+
 function BrandMark({ brand }: { brand: string }) {
   if (brand === 'Grupo Poliplast') return <img className="brand-logo" src="/poliplast-isotipo-color.png" alt="Grupo Poliplast" />
   return <div className={`brand-mark brand-mark-${brand.toLowerCase().replace(/\W/g, '')}`}><span>línea</span><strong>{brand}</strong></div>
@@ -103,7 +105,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
                 const price = details.price
                 const discountPercent = lineDiscountPercent(line)
                 const discountedUnit = lineUnitAmountAfterDiscount(price, line)
-                return <tr key={line.id}><td><strong>{line.productName}</strong><small>{details.priceLabel}</small><small className="rule-note">{details.condition} {details.outcome}</small></td><td>{line.variant.sku}</td><td>{line.quantity} {line.variant.unit}<small>{details.physicalUnits} u. físicas</small></td><td>{price ? money(discountedUnit! * conversion, quote.meta.outputCurrency) : 'A confirmar'}{price && discountPercent > 0 && <small>Desc. {discountPercent}% (antes {money(price.amount * conversion, quote.meta.outputCurrency)})</small>}{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack * conversion, quote.meta.outputCurrency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}</td><td>{price ? money(discountedUnit! * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
+                return <tr key={line.id}><td><strong>{line.productName}</strong>{details.outcome.startsWith('Regla aplicada') && <><small>{details.priceLabel}</small><small className="rule-note">{details.condition} {details.outcome}</small></>}</td><td>{line.variant.sku}</td><td>{formatQuantity(line.quantity)}{details.physicalUnits !== line.quantity && <small>{formatQuantity(details.physicalUnits)} u. físicas</small>}</td><td>{price ? money(discountedUnit! * conversion, quote.meta.outputCurrency) : 'A confirmar'}{price && discountPercent > 0 && <small>Desc. {discountPercent}% (antes {money(price.amount * conversion, quote.meta.outputCurrency)})</small>}{price && <small>Neto {money((details.netUnitAmount ?? 0) * details.unitsPerPack * conversion, quote.meta.outputCurrency)} + IVA {(price.vatRate * 100).toFixed(0)}%</small>}</td><td>{price ? money(discountedUnit! * line.quantity * conversion, quote.meta.outputCurrency) : 'A confirmar'}</td></tr>
               })}
               {group.lines.length > 1 && <tr className="preview-table-group-subtotal"><td colSpan={4}>Subtotal {group.family}</td><td>{money(groupTotal, quote.meta.outputCurrency)}</td></tr>}
             </tbody>

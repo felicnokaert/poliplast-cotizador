@@ -11,8 +11,8 @@ function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(amount)
 }
 
-function formatPlain(amount: number) {
-  return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+function formatQty(quantity: number) {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(quantity)
 }
 
 /** Menor `min_quantity` con precio confirmado, para arrancar el selector de cantidad en el primer tramo real (ej. 0,1 en vez de 1). */
@@ -25,6 +25,7 @@ function ResinplastRow({ product, variant, onAdd }: { product: ProductWithVarian
   const prices = commercialPrices(variant)
   const [quantity, setQuantity] = useState(() => firstTierQuantity(variant))
   const tierPrice = priceForQuantity(variant, quantity, 'consumidor_final')
+  const tierCount = new Set(variant.prices.filter((price) => price.status === 'confirmado' && /consumidor|minorista|maestro/i.test(price.price_list.name)).map((price) => price.min_quantity)).size
   const openDocument = async () => {
     const document = variant.technicalDocuments?.[0]; if (!document) return
     const popup = window.open('about:blank', '_blank')
@@ -36,17 +37,18 @@ function ResinplastRow({ product, variant, onAdd }: { product: ProductWithVarian
   return (
     <div className="catalog-row resinplast-row">
       <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.internal_note && <details className="note-toggle"><summary className="note-icon" aria-label="Ver consejo de uso">i</summary><p className="product-note">{variant.internal_note}</p></details>}{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
-      <span className="variant-sku">{variant.sku}{prices.wholesale && <small className="wholesale-hint">May. {prices.wholesale.price_list.currency} {formatPlain(prices.wholesale.amount)}</small>}</span>
+      <span className="variant-sku">{variant.sku}</span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
-      <span className="catalog-price resinplast-price">
-        {tierPrice ? <><strong>{formatMoney(tierPrice.amount, tierPrice.price_list.currency)}</strong><small>/{variant.unit} · IVA incluido</small></> : <em>Consultar</em>}
+      <div className="catalog-price resinplast-price">
+        {tierPrice ? <><strong>{formatMoney(tierPrice.amount, tierPrice.price_list.currency)}</strong><small>IVA incluido{tierCount > 1 ? ` · desde ${formatQty(tierPrice.min_quantity)}` : ''}</small></> : <em>Consultar</em>}
         <div className="quantity-stepper">
           <button type="button" aria-label="Restar" onClick={() => setQuantity((current) => Math.max(0.01, Number((current - 1).toFixed(2))))}>−</button>
-          <input type="number" min="0.01" step="0.01" value={quantity} onChange={(event) => setQuantity(Math.max(0.01, Number(event.target.value) || 0.01))} />
+          <input type="number" aria-label="Cantidad" min="0.01" step="0.01" value={quantity} onChange={(event) => setQuantity(Math.max(0.01, Number(event.target.value) || 0.01))} />
           <button type="button" aria-label="Sumar" onClick={() => setQuantity((current) => Number((current + 1).toFixed(2)))}>+</button>
         </div>
-      </span>
+      </div>
+      <span className="catalog-price">{prices.wholesale ? <><strong>{formatMoney(prices.wholesale.amount, prices.wholesale.price_list.currency)}</strong><small>IVA incluido</small></> : <em>Consultar</em>}</span>
       {onAdd ? <button className="add-button" onClick={() => onAdd(variant, product, quantity)}>Agregar</button> : <span />}
     </div>
   )

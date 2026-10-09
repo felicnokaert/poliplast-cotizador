@@ -102,6 +102,14 @@ export function createQuoteNumber(_now = new Date(), existingNumbers: string[] =
   return String(highest + 1).padStart(4, '0')
 }
 
+/** Los nombres de lista son internos (ej. "Catalogo Maestro - importacion inicial"); al vendedor y al cliente se les muestra un rótulo claro. */
+export function friendlyListName(name: string): string {
+  const normalized = name.toLocaleLowerCase('es-AR')
+  if (/mayorista|distribuidor/.test(normalized)) return 'Precio mayorista'
+  if (/catalogo maestro|importacion|consumidor|\bcf\b|minorista/.test(normalized)) return 'Precio de lista'
+  return name
+}
+
 function listMatchesMode(name: string, mode: PriceMode) {
   const normalized = name.toLocaleLowerCase('es-AR')
   if (mode === 'mayorista') return /mayorista|distribuidor/.test(normalized)
@@ -321,7 +329,7 @@ export function linePricingDetails(
       : `Se usa consumidor final: faltan USD ${Math.max(0, RESINPLAST_WHOLESALE_THRESHOLD_USD - cfTotal).toFixed(2)} para el mínimo mayorista.`
   }
 
-  return { price, physicalUnits: linePhysical, unitsPerPack: perPack, countedUnits: nextRule?.scopeUnits ?? linePhysical, countScope: 'renglón', priceLabel: price?.listName ?? 'Sin precio confirmado', condition, outcome, netUnitAmount, grossUnitAmount }
+  return { price, physicalUnits: linePhysical, unitsPerPack: perPack, countedUnits: nextRule?.scopeUnits ?? linePhysical, countScope: 'renglón', priceLabel: price ? friendlyListName(price.listName) : 'Sin precio confirmado', condition, outcome, netUnitAmount, grossUnitAmount }
 }
 
 export function automaticPricingSummary(lines: QuoteLine[], appliedMode: Exclude<PriceMode, 'automatico'>, _rules: CommercialRule[] = []): string {
@@ -461,7 +469,7 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
     const details = linePricingDetails(line, meta.priceMode, rules, lines, meta.exchangeRate)
     const price = details.price
     const discountNote = lineDiscountPercent(line) > 0 ? ` (desc. ${lineDiscountPercent(line)}%)` : ''
-    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(lineUnitAmountAfterDiscount(price, line)! * line.quantity * conversion) : 'consultar'}${discountNote}\n  ${details.priceLabel}. ${details.condition} ${details.outcome}`
+    return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(lineUnitAmountAfterDiscount(price, line)! * line.quantity * conversion) : 'consultar'}${discountNote}${details.outcome.startsWith('Regla aplicada') ? `\n  ${details.priceLabel}. ${details.condition} ${details.outcome}` : ''}`
   }).join('\n')
   const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
   const pesoReference = totals.currencies.size === 1 && totals.currencies.has('USD') && meta.exchangeRate > 0

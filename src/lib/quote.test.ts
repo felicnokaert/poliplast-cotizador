@@ -194,7 +194,8 @@ describe('quote', () => {
     const text = serializeQuoteForWhatsApp({ meta: { number: 'GP-1', client: 'Cliente', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-09-11T00:00:00Z' }, lines, updatedAt: '2026-09-11T00:00:00Z' })
     expect(text).toContain('GP-1')
     expect(text).toContain('SKU-1')
-    expect(text).toContain('Base')
+    // El nombre interno de la lista no se le muestra al cliente cuando no aplicó ninguna regla comercial.
+    expect(text).not.toContain('Base')
   })
 
   it('explica Resinplast debajo del umbral y con mayorista pendiente', () => {
