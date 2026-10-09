@@ -1287,3 +1287,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .page-intro-actions > .primary-action.inline:hover { background: #1c1c1c; }
 .history-actions .primary-action { background: var(--accent); }
 .history-actions .primary-action:hover { background: var(--accent-hover); }
+
+@media (max-width: 620px) {
+  .price-list-actions { flex-wrap: wrap; justify-content: stretch; }
+  .price-list-actions select { flex: 1 1 140px; min-width: 0; }
+  .price-list-actions button { flex: 1 1 100%; min-height: 40px; }
+  .preview-actions { flex-wrap: wrap; }
+  .preview-actions button { flex: 1 1 auto; }
+}

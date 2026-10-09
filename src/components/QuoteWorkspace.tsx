@@ -78,6 +78,7 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
       <section className={`quote-preview preview-${principalBrand.toLowerCase().replace(/\W/g, '')}`}>
         <div className="preview-actions no-print">
           <button onClick={onClose}>Volver</button>
+          <button onClick={() => window.print()}>Imprimir / guardar PDF</button>
           <button className="primary-action inline" onClick={async () => { await navigator.clipboard.writeText(serializeQuoteForWhatsApp(quote, rules)); setCopied(true); window.setTimeout(() => setCopied(false), 1800) }}>{copied ? 'Copiado ✓' : 'Copiar mensaje'}</button>
         </div>
         <header className="preview-header">
