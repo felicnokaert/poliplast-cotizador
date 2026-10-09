@@ -122,7 +122,6 @@ function QuotePreview({ quote, rules, onClose }: { quote: SavedQuote; rules: Com
           {totals.currencies.size === 1 && totals.currencies.has('USD') && quote.meta.exchangeRate > 0 && <div><span>Equivalente estimado en pesos</span><strong>{money(totals.total * quote.meta.exchangeRate, 'ARS')}</strong></div>}
         </div>
         <footer className="preview-footer">
-          <p><strong>Política de precios:</strong> {quote.meta.priceMode === 'automatico' ? automaticPricingSummary(quote.lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${quote.meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`}</p>
           <p><strong>Condición:</strong> {quote.meta.paymentMethod.replace('_', ' ')}{quote.meta.paymentMethod === 'cheque' ? ` a ${quote.meta.paymentTermDays ?? 0} días` : ''} · <strong>Validez:</strong> hasta {expires.toLocaleDateString('es-AR')}</p>
           <p>Todos los precios indicados incluyen IVA.</p>
           {quote.meta.outputCurrency === 'USD' && <p>Esta cotización está expresada en dólares estadounidenses. Si se cancela en pesos argentinos, el importe se calculará al tipo de cambio vendedor para dólar billete del Banco de la Nación Argentina correspondiente al día hábil anterior a la acreditación efectiva del pago.</p>}

@@ -471,12 +471,11 @@ export function serializeQuoteForWhatsApp(quote: SavedQuote, rules: CommercialRu
     const discountNote = lineDiscountPercent(line) > 0 ? ` (desc. ${lineDiscountPercent(line)}%)` : ''
     return `• ${line.productName} (${line.variant.sku}) — ${line.quantity} ${line.variant.unit} / ${details.physicalUnits} u. físicas: ${price ? money(lineUnitAmountAfterDiscount(price, line)! * line.quantity * conversion) : 'consultar'}${discountNote}${details.outcome.startsWith('Regla aplicada') ? `\n  ${details.priceLabel}. ${details.condition} ${details.outcome}` : ''}`
   }).join('\n')
-  const policy = meta.priceMode === 'automatico' ? automaticPricingSummary(lines, totals.appliedPriceMode, rules) : `Lista seleccionada: ${meta.priceMode === 'mayorista' ? 'Mayorista' : 'Consumidor final'}.`
   const pesoReference = totals.currencies.size === 1 && totals.currencies.has('USD') && meta.exchangeRate > 0
     ? `\nEquivalente estimado: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(totals.total * meta.exchangeRate)} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(meta.exchangeRate)} por USD).`
     : ''
   const paymentName = paymentPolicy?.name ?? meta.paymentMethod.replace('_', ' ')
   const paymentTerm = meta.paymentMethod === 'cheque' ? ` a ${meta.paymentTermDays ?? 0} días` : ''
   const paymentText = paymentPolicy?.customerText ? ` ${paymentPolicy.customerText}` : ''
-  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}Política: ${policy}\n\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${paymentName}${paymentTerm}.${paymentText}\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
+  return `*Grupo Poliplast — Cotización ${meta.number}*\n${meta.client ? `Cliente: ${meta.client}\n` : ''}\n${body}\n\n*Total: ${money(totals.convertedTotal)}* (IVA incluido)${pesoReference}\nForma de pago: ${paymentName}${paymentTerm}.${paymentText}\nValidez: ${meta.validDays} días.${meta.notes ? `\nObservaciones: ${meta.notes}` : ''}`
 }
