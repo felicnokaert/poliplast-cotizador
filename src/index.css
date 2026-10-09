@@ -1295,3 +1295,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .preview-actions { flex-wrap: wrap; }
   .preview-actions button { flex: 1 1 auto; }
 }
+
+/* Admin del catálogo: columnas ajustadas para que la tabla entre sin scroll con la barra lateral. */
+.catalog-grid-table { min-width: 900px; }
+.catalog-grid-table col.col-variant { width: 160px; }
+.catalog-grid-table col.col-price { width: 84px; }
+.catalog-grid-table col.col-condition { width: 52px; }
+.catalog-grid-table col.col-note { width: 170px; }
+.catalog-grid-table col.col-reason { width: 112px; }
+.catalog-grid-table col.col-active { width: 84px; }
+.catalog-grid-table col.col-save { width: 76px; }
+.catalog-grid-table th, .catalog-grid-table td { padding-inline: 7px; }
+.catalog-grid-table th { white-space: normal; line-height: 1.2; }
