@@ -1,0 +1,146 @@
+/*
+ * Capa visual "glass" (mismo lenguaje que el CRM Poliplast).
+ * Es solo presentación: no toca lógica ni estructura. Para revertirla, quitar el import de main.tsx.
+ */
+:root {
+  --brand-red: #ed1c24;
+  --brand-red-dark: #c9151c;
+  --brand-charcoal: #292929;
+  --brand-gray: #999b9e;
+  --glass-bg: rgba(255, 255, 255, .78);
+  --glass-border: rgba(255, 255, 255, .7);
+  --glass-shadow: 0 14px 40px rgba(41, 41, 41, .08);
+  --glass-blur: blur(14px);
+  --focus: #ed1c24;
+  --focus-rgb: 237, 28, 36;
+}
+
+/* Fondo: degradé gris muy claro + halo rojo apenas visible que se mueve lento */
+body { background: linear-gradient(160deg, #f7f7f8 0%, #efeff1 55%, #f5f5f6 100%) fixed; }
+body::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(circle at 78% 18%, rgba(237, 28, 36, .10), transparent 38%);
+  animation: halo-drift 28s ease-in-out infinite alternate;
+}
+@keyframes halo-drift {
+  from { transform: translate3d(-3%, -2%, 0) scale(1); }
+  to { transform: translate3d(4%, 5%, 0) scale(1.12); }
+}
+
+@keyframes glass-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Paneles, tarjetas y modales */
+.client-card, .quote-rail, .history-toolbar, .history-list article, .admin-section, .admin-metrics article,
+.product-list, .login-card, .admin-confirm, .empty-state, .catalog-search-prompt, .quote-product-picker,
+.catalog-grid-product, .commercial-rule-list article {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
+}
+.quote-line-main { background: rgba(255, 255, 255, .82); border: 1px solid var(--glass-border); border-radius: 14px; box-shadow: 0 8px 24px rgba(41, 41, 41, .06); }
+.client-card, .quote-rail, .history-list article, .admin-section, .login-card, .admin-confirm, .quote-line-main, .product-list, .catalog-grid-product {
+  animation: glass-rise .4s ease both;
+}
+.quote-line-main:nth-child(2) { animation-delay: .04s; }
+.quote-line-main:nth-child(3) { animation-delay: .08s; }
+.quote-line-main:nth-child(4) { animation-delay: .12s; }
+.quote-line-main:nth-child(n+5) { animation-delay: .16s; }
+.modal-backdrop { background: rgba(41, 41, 41, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.quote-preview { background: rgba(255, 255, 255, .96); border-radius: 16px; animation: glass-rise .4s ease both; }
+.nav-user .new-quote-button, .workspace-nav { backdrop-filter: none; }
+
+/* Botones */
+.primary-action, .add-button, .new-quote-button, .nav-user .new-quote-button, .login-card button:not(:disabled) {
+  background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark));
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(237, 28, 36, .22);
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+.primary-action:hover:not(:disabled), .add-button:hover:not(:disabled), .new-quote-button:hover:not(:disabled), .nav-user .new-quote-button:hover, .login-card button:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--brand-red), var(--brand-red-dark));
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(237, 28, 36, .32);
+  filter: saturate(1.08);
+}
+.primary-action:active:not(:disabled), .add-button:active:not(:disabled), .new-quote-button:active { transform: translateY(0); box-shadow: 0 4px 10px rgba(237, 28, 36, .22); }
+.page-intro-actions > .primary-action.inline { background: linear-gradient(135deg, #3a3a3a, var(--brand-charcoal)); box-shadow: 0 6px 16px rgba(41, 41, 41, .22); }
+.page-intro-actions > .primary-action.inline:hover:not(:disabled) { background: linear-gradient(135deg, #3a3a3a, var(--brand-charcoal)); box-shadow: 0 10px 22px rgba(41, 41, 41, .3); }
+
+.secondary-action, button.secondary, .rail-actions button:not(.primary-action), .preview-actions > button:not(.primary-action), .history-list article button {
+  background: rgba(255, 255, 255, .7);
+  border: 1px solid rgba(153, 155, 158, .55);
+  color: var(--brand-charcoal);
+  border-radius: 10px;
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease;
+}
+.secondary-action:hover:not(:disabled), button.secondary:hover:not(:disabled), .rail-actions button:not(.primary-action):hover:not(:disabled), .preview-actions > button:not(.primary-action):hover, .history-list article button:hover:not(:disabled) {
+  background: rgba(237, 28, 36, .07);
+  border-color: rgba(237, 28, 36, .45);
+  color: var(--brand-red-dark);
+}
+
+/* Inputs */
+input:not([type='checkbox']):not([type='radio']), select, textarea {
+  background: rgba(255, 255, 255, .72);
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+input:not([type='checkbox']):not([type='radio']):focus, select:focus, textarea:focus {
+  background: rgba(255, 255, 255, .95);
+  border-color: var(--brand-red);
+  box-shadow: 0 0 0 3px rgba(237, 28, 36, .18);
+  outline: 0;
+}
+
+/* Tablas y listados */
+.catalog-table-head { background: #ececee; color: var(--brand-charcoal); }
+.catalog-row { transition: background-color .2s ease; }
+.catalog-row:hover { background: rgba(237, 28, 36, .04); }
+.catalog-grid-table th { background: rgba(236, 236, 238, .8); color: var(--brand-charcoal); }
+.catalog-grid-table tbody tr:hover td { background: rgba(237, 28, 36, .04); }
+.history-list article { transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.history-list article:hover { transform: translateY(-1px); box-shadow: 0 18px 44px rgba(41, 41, 41, .12); }
+
+/* Celular: menos blur para cuidar la batería y el rendimiento */
+@media (max-width: 620px) {
+  :root { --glass-blur: blur(10px); }
+  .quote-line-main { animation-duration: .3s; }
+}
+
+/* Sin backdrop-filter o con transparencia reducida: fondo sólido */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass-bg: #fff; }
+  .modal-backdrop { background: rgba(41, 41, 41, .72); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-bg: #fff; --glass-border: #dcdcde; }
+  .client-card, .quote-rail, .history-toolbar, .history-list article, .admin-section, .admin-metrics article, .product-list, .login-card,
+  .admin-confirm, .empty-state, .catalog-search-prompt, .quote-product-picker, .catalog-grid-product, .commercial-rule-list article,
+  .modal-backdrop, .quote-line-main, .quote-preview { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: #fff; }
+  .modal-backdrop { background-color: rgba(41, 41, 41, .72); }
+}
+
+/* Sin animaciones si el usuario lo pide */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Impresión / PDF: la salida queda limpia, sin vidrio, sombras ni animaciones */
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  html, body { background: #fff !important; }
+  body::before { display: none !important; }
+  .client-card, .quote-rail, .history-list article, .admin-section, .quote-line-main, .product-list, .quote-preview { background: #fff !important; box-shadow: none !important; }
+  .modal-backdrop { background: #fff !important; }
+}
