@@ -48,7 +48,7 @@ body::before {
   box-shadow: var(--glass-shadow);
 }
 .quote-line-main { background: rgba(255, 255, 255, .82); border: 1px solid var(--glass-border); border-radius: 14px; box-shadow: 0 8px 24px rgba(41, 41, 41, .06); }
-.client-card, .quote-rail, .history-list article, .admin-section, .login-card, .admin-confirm, .quote-line-main, .product-list, .catalog-grid-product {
+.client-card, .quote-rail, .history-list article, .admin-section, .login-card, .admin-confirm, .quote-line-main {
   animation: glass-rise .4s ease both;
 }
 .quote-line-main:nth-child(2) { animation-delay: .04s; }
