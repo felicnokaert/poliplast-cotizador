@@ -23,6 +23,8 @@ import type { CommercialRule } from '../types/commercialRules'
 import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { useCountUp } from '../lib/useCountUp'
+import { Calculator, ExternalLink, FileText, LayoutGrid, LogOut, Settings } from 'lucide-react'
+import { QuoteInsights } from './QuoteInsights'
 import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 import { deleteSharedQuote, loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
@@ -344,16 +346,30 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   }
 
   return (
-    <>
-      <nav className="workspace-nav" aria-label="Navegación principal">
-        <div className="nav-brand"><BrandMark brand="Grupo Poliplast" /><span>Cotizador comercial</span></div>
-        <div className="nav-tabs"><button aria-current={activeSection === 'historial' || activeSection === 'cotizacion' ? 'page' : undefined} className={activeSection === 'historial' || activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('historial')}><b aria-hidden="true">▤</b>Cotizaciones <span>{savedQuotes.length}</span></button><button aria-current={activeSection === 'catalogo' ? 'page' : undefined} className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><b aria-hidden="true">▦</b>Catálogo</button>{canAccessAdministration && <button aria-current={activeSection === 'administracion' ? 'page' : undefined} className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><b aria-hidden="true">⚙</b>Administración</button>}</div>
-        <div className="nav-user">{activeSection !== 'historial' && <button className="new-quote-button" onClick={startNew}>+ Nueva cotización</button>}<span title={userEmail}>{userEmail}</span>{onSignOut && <button className="sign-out-button" onClick={onSignOut}>Salir</button>}</div>
-      </nav>
+    <div className="crm-layout">
+      {/* Menú lateral oscuro, igual al del CRM (misma estructura y estilo; ver crm-theme.css). */}
+      <aside className="crm-sidebar" aria-label="Navegación principal">
+        <div className="crm-brand"><img className="crm-brand-logo" src="/poliplast-logo.png" alt="Grupo Poliplast" /></div>
+        <nav className="crm-nav">
+          <span className="crm-nav-title">Cotizador</span>
+          <button aria-current={activeSection === 'historial' ? 'page' : undefined} className={activeSection === 'historial' ? 'active' : ''} onClick={() => setActiveSection('historial')}><FileText size={18} /> Cotizaciones <span className="crm-nav-badge">{savedQuotes.length}</span></button>
+          <button aria-current={activeSection === 'cotizacion' ? 'page' : undefined} className={activeSection === 'cotizacion' ? 'active' : ''} onClick={() => setActiveSection('cotizacion')}><Calculator size={18} /> Cotización activa{lines.length > 0 && <span className="crm-nav-badge">{lines.length}</span>}</button>
+          <button aria-current={activeSection === 'catalogo' ? 'page' : undefined} className={activeSection === 'catalogo' ? 'active' : ''} onClick={() => setActiveSection('catalogo')}><LayoutGrid size={18} /> Catálogo</button>
+          {canAccessAdministration && <button aria-current={activeSection === 'administracion' ? 'page' : undefined} className={activeSection === 'administracion' ? 'active' : ''} onClick={() => setActiveSection('administracion')}><Settings size={18} /> Administración</button>}
+          <span className="crm-nav-title">Poliplast</span>
+          <a className="crm-nav-link" href="https://poli-crm.vercel.app/" target="_blank" rel="noreferrer"><ExternalLink size={18} /> Abrir el CRM</a>
+        </nav>
+        <div className="crm-sidebar-note">
+          <span className="crm-eyebrow">Sesión</span>
+          <p title={userEmail}>{userEmail}</p>
+          {onSignOut && <button className="crm-link-button" onClick={onSignOut}><LogOut size={13} /> Salir</button>}
+        </div>
+      </aside>
 
       {activeSection === 'administracion' ? <AdminPanel userEmail={userEmail} /> : activeSection === 'historial' ? (
         <main className="history-page">
           <div className="page-intro page-intro-actions"><div><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial sincronizado en todas tus computadoras.' : quoteSyncStatus === 'guardando' ? 'Sincronizando…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones…' : 'Modo local: la sincronización todavía no está disponible.'}</p></div><div className="history-actions">{lines.length > 0 && <button className="secondary-action" onClick={() => setActiveSection('cotizacion')}>Continuar borrador {meta.number}</button>}<button className="primary-action inline" onClick={startNew}>+ Nueva cotización</button></div></div>
+          {savedQuotes.length > 0 && <QuoteInsights quotes={savedQuotes} rules={rules} />}
           {savedQuotes.length > 0 && <div className="history-toolbar"><input type="search" aria-label="Buscar cotizaciones" placeholder="Buscar número, cliente, contacto, producto o SKU" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} /><div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div></div>}
           {savedQuotes.length === 0 ? <div className="empty-state">Todavía no guardaste cotizaciones.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span></div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button><button className="quote-cancel-x" title="Eliminar definitivamente" aria-label={`Eliminar cotización ${quote.meta.number} para siempre`} disabled={busyQuoteDelete === quote.meta.number} onClick={() => setDeleteConfirmQuote(quote)}>✕</button></article>)}</div>}
       {deleteConfirmQuote && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Confirmar eliminación"><section className="admin-confirm"><h2>Eliminar cotización</h2><p className="muted">¿Confirmás que querés eliminar la cotización Nº {deleteConfirmQuote.meta.number} ({deleteConfirmQuote.meta.client || 'sin cliente'})? No se puede deshacer.</p><div className="admin-actions"><button onClick={() => setDeleteConfirmQuote(null)}>No</button><button className="danger-outline" onClick={confirmDeleteQuote}>Sí, eliminar</button></div></section></div>}
@@ -433,6 +449,6 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
 
       {previewOpen && <QuotePreview quote={snapshot()} rules={rules} onClose={() => setPreviewOpen(false)} />}
       {whatsappOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Elegir número de WhatsApp"><section className="admin-confirm"><h2>Enviar cotización por WhatsApp</h2><p className="muted">Elegí uno de los números guardados o agregá otro sin borrar los anteriores.</p>{availablePhones.length > 0 ? <div className="stack">{availablePhones.map((phone) => <label key={phone}><input type="radio" name="whatsapp-phone" checked={whatsappPhone === phone} onChange={() => setWhatsappPhone(phone)} /> {phone}</label>)}</div> : <p className="quote-warning">Este cliente todavía no tiene teléfonos guardados.</p>}<label>Agregar número<input value={newWhatsappPhone} onChange={(event) => setNewWhatsappPhone(event.target.value)} placeholder="Ej. 11 5555-1234" /></label>{!matchingClient && newWhatsappPhone && <p className="quote-warning">Elegí primero una empresa del CRM para guardar el número en su ficha.</p>}<div className="admin-actions"><button onClick={() => setWhatsappOpen(false)}>Cancelar</button><button disabled={!matchingClient || newWhatsappPhone.replace(/\D/g, '').length < 8} onClick={saveNewPhone}>Guardar número</button><button className="primary-action inline" disabled={!whatsappPhone} onClick={() => sendWhatsApp()}>Continuar a WhatsApp</button></div></section></div>}
-    </>
+    </div>
   )
 }

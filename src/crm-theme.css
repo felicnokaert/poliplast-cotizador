@@ -1,0 +1,127 @@
+/*
+ * Tema del CRM Poliplast para el cotizador (16/10): mismas letras, colores, menú lateral, tarjetas,
+ * botones y controles que poli-crm, para que se vean como una sola herramienta y después se pueda
+ * llevar adentro del CRM sin rediseñar. Valores copiados de poliplast-sales-copilot/src/styles.css.
+ * Es una capa aparte: para volver atrás alcanza con sacar su import en main.tsx.
+ */
+:root {
+  font-family: 'DM Sans', sans-serif;
+  --bg: #f5f5f6;
+  --surface: #fff;
+  --border: #dfe5e1;
+  --text: #282828;
+  --muted: #5c5d60;
+  --accent: #ed1c24;
+  --accent-dark: #c9151c;
+  --brand-red: #ed1c24;
+  --brand-red-dark: #c9151c;
+  --crm-forest: #1c1c1c;
+  --crm-gray: #797a7d;
+  --crm-radius: 16px;
+  --crm-radius-sm: 10px;
+}
+body {
+  font-size: 14px;
+  color: var(--text);
+  background: radial-gradient(1100px 560px at 88% -8%, #ed1c240f, transparent 62%), radial-gradient(900px 520px at -8% 12%, #99999e22, transparent 58%), #f5f5f6;
+  background-attachment: fixed;
+}
+body::before { display: none; }
+h1, h2, h3, .section-title h2, .rail-title h2 { font-family: 'Manrope', sans-serif; color: var(--crm-forest); }
+
+/* ---------- Estructura: menú lateral + contenido (como .app-shell / .sidebar del CRM) ---------- */
+.app-shell { max-width: none; margin: 0; padding: 0; }
+.crm-layout { display: grid; grid-template-columns: 238px minmax(0, 1fr); min-height: 100vh; align-items: start; }
+.crm-layout > main { grid-column: 2; min-width: 0; padding: 30px 36px 56px; margin: 0; max-width: none; width: auto; }
+.crm-sidebar {
+  grid-column: 1; grid-row: 1 / span 20; position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 12px; background: #242424; color: #fff;
+}
+.crm-brand { padding: 0 6px 4px; }
+.crm-brand-logo { width: 100%; max-width: 190px; height: auto; display: block; filter: brightness(0) invert(1); }
+.crm-nav { display: grid; gap: 2px; }
+.crm-nav-title { color: #7c8683; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 10px 10px 3px; }
+.crm-nav button, .crm-nav .crm-nav-link {
+  border: 0; color: #c7c7c9; background: transparent; display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  border-radius: 10px; font: 500 13.5px 'DM Sans', sans-serif; text-align: left; text-decoration: none; width: 100%;
+  transition: background .2s ease, transform .2s ease;
+}
+.crm-nav button:hover, .crm-nav .crm-nav-link:hover { background: #ffffff10; color: #fff; transform: translateX(2px); }
+.crm-nav button.active { background: #3a3a3c; color: #fff; box-shadow: inset 3px 0 0 var(--brand-red); }
+.crm-nav-badge { margin-left: auto; background: #454547; color: #e6e6e7; font-size: 10px; font-weight: 700; border-radius: 999px; padding: 1px 7px; }
+.crm-nav button.active .crm-nav-badge { background: var(--brand-red); color: #fff; }
+.crm-sidebar-note { margin-top: auto; border-top: 1px solid #3a3a3c; padding: 10px 8px 0; }
+.crm-sidebar-note p { margin: 3px 0 6px; color: #b9babc; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-eyebrow { color: #7c8683; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.crm-link-button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 0; color: #c7c7c9; font-size: 12px; font-weight: 700; }
+.crm-link-button:hover { color: #fff; }
+
+/* ---------- Encabezados de página (como .topbar del CRM) ---------- */
+.eyebrow { color: var(--crm-gray); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+.page-intro h1, .quote-heading h1 { font: 800 28px 'Manrope', sans-serif; color: var(--crm-forest); margin: 3px 0 4px; }
+.history-page, .catalog-page, .quote-page { max-width: 1240px; margin: 0; padding-top: 0; }
+
+/* ---------- Tarjetas (como .panel del CRM, versión glass) ---------- */
+.client-card, .quote-rail, .history-toolbar, .history-list article, .admin-section, .admin-metrics article,
+.product-list, .admin-confirm, .empty-state, .catalog-search-prompt, .quote-product-picker,
+.catalog-grid-product, .commercial-rule-list article, .quote-line-main, .crm-metric, .crm-chart-card {
+  background: #ffffffc4; border: 1px solid #ffffffd9; border-radius: var(--crm-radius);
+  box-shadow: 0 8px 28px #29292911, inset 0 1px 0 #ffffffe6;
+  -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15);
+}
+.history-list article { transition: transform .25s ease, box-shadow .25s ease; }
+.history-list article:hover { transform: translateY(-2px); box-shadow: 0 14px 34px #29292922, inset 0 1px 0 #fff; }
+
+/* ---------- Botones (como .primary / .secondary del CRM) ---------- */
+.primary, .primary-action, .add-button, .new-quote-button, .rail-actions .primary-action {
+  border: 0; border-radius: var(--crm-radius-sm); color: #fff; font-weight: 700;
+  background: linear-gradient(135deg, #ed1c24, #c9151c); box-shadow: 0 6px 18px #ed1c2440;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;
+  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+.primary:hover:not(:disabled), .primary-action:hover:not(:disabled), .add-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0343b, #d4181f); transform: translateY(-1px); box-shadow: 0 10px 24px #ed1c2455;
+}
+.add-button { padding: 7px 12px; font-size: 12.5px; }
+.secondary-action, .rail-actions button:not(.primary-action), .history-actions button:not(.primary-action), .admin-actions button:not(.primary-action):not(.danger-outline) {
+  border: 1px solid #29292914; border-radius: var(--crm-radius-sm); background: #ffffffb3; color: #292929; font-weight: 700;
+  transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.secondary-action:hover:not(:disabled), .rail-actions button:not(.primary-action):hover:not(:disabled), .history-actions button:not(.primary-action):hover:not(:disabled) {
+  background: #fff; color: #292929; border-color: #29292914; transform: translateY(-1px); box-shadow: 0 6px 16px #29292914;
+}
+.rail-actions button { border-radius: var(--crm-radius-sm); font-size: 12px; }
+
+/* ---------- Pestañas y filtros (como .segmented del CRM) ---------- */
+.history-filters { gap: 0; padding: 3px; border-radius: var(--crm-radius-sm); background: #eeeeef; display: inline-flex; flex-wrap: wrap; }
+.history-filters button { border: 0; background: transparent; color: #64656a; border-radius: 8px; padding: 7px 11px; }
+.history-filters button.active { background: #fff; color: var(--crm-forest); border: 0; box-shadow: 0 2px 8px #0000001a; }
+
+/* ---------- Campos (como los inputs del CRM) ---------- */
+input, select, textarea { border-radius: var(--crm-radius-sm); border-color: #d9e1dd; background-color: #fbfcfb; }
+input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none; box-shadow: 0 0 0 3px #ed1c2414; }
+
+/* ---------- Resumen y gráfico de Cotizaciones (como el historial de Ventas del CRM) ---------- */
+.crm-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 14px; }
+.crm-metric { padding: 16px 18px; display: grid; gap: 4px; }
+.crm-metric span { font-size: 12.5px; color: var(--muted); }
+.crm-metric strong { font: 800 26px 'Manrope', sans-serif; color: var(--crm-forest); }
+.crm-metric small { color: #82908c; font-size: 11.5px; }
+.crm-chart-card { padding: 16px 18px; margin-bottom: 14px; }
+.crm-chart-card h2 { margin: 2px 0 0; font: 700 16px 'Manrope', sans-serif; }
+.crm-chart-card p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+.crm-chart { width: 100%; height: auto; max-height: 220px; display: block; margin-top: 8px; color: #3d3e40; }
+.crm-chart .crm-bar rect { transition: opacity .2s ease; }
+.crm-chart .crm-bar:hover rect { opacity: .82; }
+
+@media (max-width: 900px) { .crm-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .crm-metric strong { font-size: 21px; } }
+@media (max-width: 760px) {
+  .crm-layout { grid-template-columns: minmax(0, 1fr); }
+  .crm-sidebar { grid-row: auto; position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
+  .crm-brand { flex: 1 1 auto; } .crm-brand-logo { max-width: 140px; }
+  .crm-nav { display: flex; width: 100%; overflow-x: auto; gap: 6px; }
+  .crm-nav-title, .crm-sidebar-note, .crm-nav .crm-nav-link { display: none; }
+  .crm-nav button { flex: 0 0 auto; width: auto; }
+  .crm-layout > main { grid-column: 1; padding: 20px 15px 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .crm-nav button, .primary, .primary-action, .history-list article { transition: none !important; } }
