@@ -23,7 +23,7 @@ import type { CommercialRule } from '../types/commercialRules'
 import { AdminPanel } from './AdminPanel'
 import { fetchOfficialDollar } from '../lib/exchange'
 import { useCountUp } from '../lib/useCountUp'
-import { addCommercialClientPhone, loadCommercialClients, type CommercialClient } from '../lib/clients'
+import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 import { deleteSharedQuote, loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, reserveQuoteNumber, type PaymentPolicy } from '../lib/paymentPolicies'
@@ -160,6 +160,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [exchangeInfo, setExchangeInfo] = useState({ source: 'Dólar oficial (venta)', fetchedAt: '', loading: true, error: '' })
   const [exchangeMode, setExchangeMode] = useState<'automatico' | 'manual'>('automatico')
   const [clients, setClients] = useState<CommercialClient[]>([])
+  const [crmNotice, setCrmNotice] = useState('')
+  const findCrmClient = (name: string) => { const key = normalizeCompany(name); return key ? clients.find((item) => normalizeCompany(item.company) === key) : undefined }
   const [rules, setRules] = useState<CommercialRule[]>([])
   const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
   const [quoteSyncStatus, setQuoteSyncStatus] = useState<'cargando' | 'compartido' | 'local' | 'guardando'>('cargando')
@@ -234,6 +236,10 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
       const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number } }
       setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
       setQuoteSyncStatus('guardando')
+      // "Coticé hoy" en la ficha del CRM, solo si la empresa ya está en el CRM (si no, está el botón
+      // "Agregar al CRM" en los datos del cliente). Nunca se registra como venta.
+      const crmClient = findCrmClient(quote.meta.client)
+      if (crmClient) markQuotedInCrm(userId, userEmail, crmClient).then(() => setCrmNotice(`Marcado en el CRM: coticé hoy a ${crmClient.company}.`)).catch((error) => setCrmNotice(error instanceof Error ? error.message : 'No se pudo marcar en el CRM.'))
       try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
       window.setTimeout(() => setLastAdded(''), 2400)
       return quote
@@ -275,7 +281,18 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
     setWhatsappOpen(false)
   }
-  const matchingClient = clients.find((item) => item.company.trim().toLowerCase() === meta.client.trim().toLowerCase())
+  const matchingClient = findCrmClient(meta.client)
+  const addToCrm = async () => {
+    const company = meta.client.trim()
+    if (!company) return
+    try {
+      await markQuotedInCrm(userId, userEmail, { company, contact: meta.contact, phone: meta.phone, email: meta.email })
+      setClients((current) => [...current, { id: company, company, legalName: '', cuit: '', contact: meta.contact, phone: meta.phone, phones: meta.phone ? [meta.phone] : [], email: meta.email, origin: 'mio' }])
+      setCrmNotice(`${company} se agregó a tus empresas del CRM, marcada como cotizada hoy.`)
+    } catch (error) {
+      setCrmNotice(error instanceof Error ? error.message : 'No se pudo agregar al CRM.')
+    }
+  }
   const availablePhones = [...new Set([...(matchingClient?.phones ?? []), meta.phone].filter(Boolean))]
   const openWhatsApp = () => { setWhatsappPhone(availablePhones[0] ?? ''); setNewWhatsappPhone(''); setWhatsappOpen(true) }
   const saveNewPhone = async () => {
@@ -292,10 +309,14 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     }
   }
   const canPreview = lines.length > 0 && totals.pendingLines === 0 && totals.currencies.size <= 1 && (meta.outputCurrency === 'USD' || meta.exchangeRate > 0)
-  const selectClient = (clientId: string) => {
-    const client = clients.find((item) => item.id === clientId)
-    if (!client) return
-    setMeta((current) => ({ ...current, client: client.company, contact: client.contact, phone: client.phone, email: client.email }))
+  // Al escribir o elegir de la lista: si coincide con una empresa del CRM, completa contacto,
+  // WhatsApp y email (solo los que están vacíos, para no pisar lo que ya se cargó a mano).
+  const pickClient = (value: string) => {
+    setCrmNotice('')
+    const client = findCrmClient(value)
+    setMeta((current) => client
+      ? { ...current, client: value, contact: current.contact || client.contact, phone: current.phone || client.phone, email: current.email || client.email }
+      : { ...current, client: value })
   }
   const selectPaymentPolicy = (id: string) => {
     const policy = paymentPolicies.find((item) => item.id === id)
@@ -329,8 +350,11 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
             <div className={`client-card ${clientOpen ? 'open' : 'collapsed'}`}>
               <button className="client-toggle" onClick={() => setClientOpen((value) => !value)}><div className="section-title"><span>01</span><div><h2>{meta.client || 'Cliente opcional'}</h2><p>{clientOpen ? 'Datos que aparecerán en la propuesta.' : 'Podés cotizar sin completar datos.'}</p></div></div><strong>{clientOpen ? 'Ocultar' : 'Agregar datos'}</strong></button>
               {clientOpen && <div className="client-fields">
-                {clients.length > 0 && <label className="crm-client-picker">Elegir del CRM<select defaultValue="" onChange={(event) => selectClient(event.target.value)}><option value="">Buscar entre {clients.length} empresas…</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.company}{client.contact ? ` · ${client.contact}` : ''}</option>)}</select></label>}
-                <label>Empresa o cliente<input value={meta.client} onChange={(e) => updateMeta('client', e.target.value)} placeholder="Razón social o nombre" /></label>
+                <label className="crm-client-picker">Empresa o cliente<input list="crm-clients" value={meta.client} onChange={(e) => pickClient(e.target.value)} placeholder={clients.length ? `Escribí para buscar entre ${clients.length} empresas del CRM` : 'Razón social o nombre'} />
+                  <datalist id="crm-clients">{clients.map((client) => <option key={client.id} value={client.company}>{client.contact || ''}</option>)}</datalist>
+                  {meta.client.trim() && <span className="crm-client-status">{matchingClient ? (matchingClient.origin === 'mio' ? 'Está en tus empresas del CRM: al guardar se marca "Coticé hoy".' : 'Está en el directorio del equipo: al guardar se suma a tus empresas y se marca "Coticé hoy".') : <>No está en el CRM. <button type="button" className="link-action" onClick={addToCrm}>Agregar al CRM</button></>}</span>}
+                  {crmNotice && <span className="crm-client-status ok">{crmNotice}</span>}
+                </label>
                 <label>Persona de contacto<input value={meta.contact} onChange={(e) => updateMeta('contact', e.target.value)} placeholder="Nombre y apellido" /></label>
                 <label>WhatsApp<input value={meta.phone} onChange={(e) => updateMeta('phone', e.target.value)} placeholder="54911..." /></label>
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>

@@ -1307,3 +1307,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .catalog-grid-table col.col-save { width: 76px; }
 .catalog-grid-table th, .catalog-grid-table td { padding-inline: 7px; }
 .catalog-grid-table th { white-space: normal; line-height: 1.2; }
+
+/* Cliente del CRM: estado debajo del campo y acción para sumarlo al CRM. */
+.crm-client-status { display: block; margin-top: 6px; color: var(--muted); font-size: .8rem; font-weight: 500; line-height: 1.4; }
+.crm-client-status.ok { color: #1d6b4f; }
+.link-action { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }

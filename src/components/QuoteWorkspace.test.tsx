@@ -91,17 +91,21 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
   it('protege la cotización antes de abrir WhatsApp', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
-    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([{ id: 'c1', company: 'Cliente Alfa', legalName: 'Cliente Alfa SA', cuit: '', contact: '', phone: '5491155551234', phones: ['5491155551234'], email: '' }])
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([{ id: 'c1', company: 'Cliente Alfa', legalName: 'Cliente Alfa SA', cuit: '', contact: '', phone: '5491155551234', phones: ['5491155551234'], email: '', origin: 'mio' }])
     const saveShared = vi.spyOn(sharedQuotesLib, 'saveSharedQuote').mockResolvedValue()
     const open = vi.spyOn(window, 'open').mockImplementation(() => null)
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
     openCatalog()
     fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
     openActiveQuote()
-    fireEvent.change(await screen.findByLabelText('Elegir del CRM'), { target: { value: 'c1' } })
+    const markQuoted = vi.spyOn(clientsLib, 'markQuotedInCrm').mockResolvedValue({ added: false })
+    fireEvent.change(await screen.findByPlaceholderText(/Escribí para buscar entre 1 empresas del CRM/), { target: { value: 'Cliente Alfa' } })
+    expect(await screen.findByText(/al guardar se marca "Coticé hoy"/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Continuar a WhatsApp' }))
     await waitFor(() => expect(saveShared).toHaveBeenCalled())
+    // Cotizar marca "Coticé hoy" en la ficha del CRM (nunca una venta).
+    await waitFor(() => expect(markQuoted).toHaveBeenCalledWith('u1', 'marketing@grupopoliplast.com.ar', expect.objectContaining({ id: 'c1', company: 'Cliente Alfa' })))
     expect(open).toHaveBeenCalledWith(expect.stringContaining('wa.me/5491155551234'), '_blank', 'noopener,noreferrer')
   })
 
