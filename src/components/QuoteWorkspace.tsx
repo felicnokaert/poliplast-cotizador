@@ -202,6 +202,26 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt }))
   }, [meta, lines])
   useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
+  // Desde el CRM ("Cotizar" en la ficha del cliente) se llega con ?cliente=Empresa: arranca una
+  // cotización nueva con esa empresa elegida. Se lee una sola vez y se saca de la dirección.
+  // Acepta ?cliente= (o ?empresa=, como mandaba el CRM antes) y ?telefono=.
+  const [{ crmClientParam, crmPhoneParam }] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return { crmClientParam: (params.get('cliente') ?? params.get('empresa') ?? '').trim(), crmPhoneParam: (params.get('telefono') ?? '').trim() }
+  })
+  useEffect(() => {
+    if (!crmClientParam) return
+    setActiveSection('cotizacion'); setClientOpen(true)
+    // Si había otra empresa en el borrador, sus datos de contacto no se arrastran a esta.
+    setMeta((current) => current.client === crmClientParam ? current : { ...current, client: crmClientParam, contact: '', phone: crmPhoneParam, email: '' })
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [crmClientParam, crmPhoneParam])
+  useEffect(() => {
+    if (!crmClientParam || !clients.length) return
+    const client = findCrmClient(crmClientParam)
+    if (client) setMeta((current) => current.client === crmClientParam ? { ...current, contact: current.contact || client.contact, phone: current.phone || client.phone, email: current.email || client.email } : current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crmClientParam, clients])
   useEffect(() => { loadPaymentPolicies().then(setPaymentPolicies) }, [])
   useEffect(() => {
     // Se carga una sola vez por sesión (no depende de líneas/cantidad/fecha):

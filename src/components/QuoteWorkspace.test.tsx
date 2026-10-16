@@ -218,3 +218,28 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     expect(screen.queryByText(/Mayorista Almohadas/)).not.toBeInTheDocument()
   })
 })
+
+describe('QuoteWorkspace — llegada desde el CRM', () => {
+  it('con ?cliente= abre una cotización con esa empresa y completa su contacto', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([{ id: 'c1', company: 'Cliente Alfa', legalName: '', cuit: '', contact: 'Ana', phone: '5491155551234', phones: ['5491155551234'], email: 'ana@alfa.com', origin: 'mio' }])
+    window.history.replaceState(null, '', '/?cliente=Cliente%20Alfa')
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    expect(await screen.findByDisplayValue('Cliente Alfa')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('Ana')).toBeInTheDocument()
+    expect(window.location.search).toBe('')
+  })
+})
+
+describe('QuoteWorkspace — link viejo del CRM', () => {
+  it('también entiende ?empresa= y ?telefono=', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([])
+    window.history.replaceState(null, '', '/?empresa=Beta%20SRL&telefono=5491100000000')
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    expect(await screen.findByDisplayValue('Beta SRL')).toBeInTheDocument()
+    expect(await screen.findByDisplayValue('5491100000000')).toBeInTheDocument()
+  })
+})
