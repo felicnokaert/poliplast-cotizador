@@ -138,3 +138,18 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
 .cot-embedded .crm-nav button.active { background: #fff; color: var(--crm-forest); box-shadow: 0 2px 8px #0000001a; }
 .cot-embedded .crm-nav-badge { background: #dadbd7; color: #3d3e40; }
 .cot-embedded .crm-layout > main { grid-column: 1; padding: 20px 20px 40px; }
+
+/* Adentro del CRM, más compacto (16/10): menos aire entre las pestañas y el título de la sección. */
+.cot-embedded .crm-sidebar { padding: 6px 10px; }
+.cot-embedded .crm-layout > main { padding: 10px 18px 32px; }
+.cot-embedded .page-intro .eyebrow, .cot-embedded .quote-heading .eyebrow { display: none; }
+.cot-embedded .page-intro h1, .cot-embedded .quote-heading h1 { margin-top: 0; font-size: 24px; }
+.cot-embedded .page-intro-actions { margin-bottom: 12px; }
+
+/* PDF de la cotización: el documento arranca arriba de la hoja (antes la vista previa lo centraba y
+   dejaba un hueco grande arriba) y con márgenes parejos de 10 mm. */
+@media print {
+  .modal-backdrop { display: block !important; place-items: unset !important; }
+  .quote-preview { padding: 0 !important; border-radius: 0 !important; border-top: 0 !important; }
+  @page { size: A4; margin: 10mm; }
+}
