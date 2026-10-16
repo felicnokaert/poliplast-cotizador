@@ -153,3 +153,8 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
   .quote-preview { padding: 0 !important; border-radius: 0 !important; border-top: 0 !important; }
   @page { size: A4; margin: 10mm; }
 }
+
+/* Adentro del CRM la pestaña ya dice la sección: sin el título grande repetido debajo (16/10). */
+.cot-embedded .page-intro h1, .cot-embedded .quote-heading h1 { display: none; }
+.cot-embedded .page-intro .muted, .cot-embedded .quote-heading .muted { margin-top: 0; }
+.cot-embedded .page-intro-actions { align-items: center; }
