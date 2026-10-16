@@ -116,7 +116,7 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
 
 @media (max-width: 900px) { .crm-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .crm-metric strong { font-size: 21px; } }
 @media (max-width: 760px) {
-  .crm-layout { grid-template-columns: minmax(0, 1fr); }
+  .crm-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .crm-sidebar { grid-row: auto; position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
   .crm-brand { flex: 1 1 auto; } .crm-brand-logo { max-width: 140px; }
   .crm-nav { display: flex; width: 100%; overflow-x: auto; gap: 6px; }
@@ -129,7 +129,8 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
 /* Adentro del CRM (pestaña Cotizador): sin un segundo menú lateral; las secciones van como pestañas
    arriba y el CRM ya muestra la sesión. */
 .cot-embedded body { background: transparent; }
-.cot-embedded .crm-layout { grid-template-columns: minmax(0, 1fr); }
+/* Dos filas (pestañas y contenido): sin esto el alto sobrante se repartía y, con pocas cotizaciones, quedaba un hueco arriba (16/10). */
+.cot-embedded .crm-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
 .cot-embedded .crm-sidebar { grid-row: auto; position: sticky; top: 0; z-index: 5; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; background: #f5f5f6ee; border-bottom: 1px solid var(--border); backdrop-filter: blur(8px); }
 .cot-embedded .crm-brand, .cot-embedded .crm-sidebar-note, .cot-embedded .crm-nav-title, .cot-embedded .crm-nav .crm-nav-link { display: none; }
 .cot-embedded .crm-nav { display: flex; gap: 4px; overflow-x: auto; padding: 3px; border-radius: var(--crm-radius-sm); background: #eeeeef; }

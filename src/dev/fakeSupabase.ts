@@ -40,6 +40,8 @@ tablas.sales_quotes = [
   cotizacion('0010', 'Frío Patagónico SA', 'aceptada', '2026-10-09T09:30:00Z', [['v5', 30], ['v6', 220]]),
   cotizacion('0009', 'Aislaciones del Sur SRL', 'enviada', '2026-09-28T16:00:00Z', [['v7', 1]]),
 ]
+// Maqueta sin cotizaciones (para ver cómo se ve vacío): ?vacio=1
+if (new URLSearchParams(window.location.search).has('vacio')) tablas.sales_quotes = []
 
 function builder(table: string) {
   let single = false
