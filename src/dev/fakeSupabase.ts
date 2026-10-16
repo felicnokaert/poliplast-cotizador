@@ -67,6 +67,7 @@ export const supabase: any = {
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
     signOut: async () => ({}),
     signInWithPassword: async () => ({ error: null }),
+    setSession: async () => ({ data: { session }, error: null }),
   },
   storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: '' }, error: null }), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
 }
