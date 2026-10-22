@@ -96,3 +96,20 @@ button.product-thumb:hover { transform: scale(1.08); border-color: #bd211d; box-
 @media (prefers-reduced-motion: reduce) { .together-suggestions { animation: none !important; } }
 .crm-repeaters li { border-color: #e6c3c1; border-left-color: #bd211d; background: #fff7f6; }
 .crm-repeaters li small { color: #8a5a58; }
+
+/* ---- Ficha del cliente ---- */
+.customer-history { margin: 4px 0 2px; padding: 12px 14px; border: 1px solid #dfe3de; border-radius: 12px; background: linear-gradient(180deg, #fbfcfb, #f4f6f3); animation: pop-in .28s ease-out both; }
+.customer-history header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.customer-history .badge-status { font-style: normal; font-size: .7rem; font-weight: 800; padding: 3px 10px; border-radius: 99px; background: #e8e9e6; color: #59615b; }
+.customer-history .badge-status.ok { background: #e1f3e6; color: #1f7a3a; }
+.customer-history .badge-status.warn { background: #fdf0d4; color: #946200; }
+.customer-history .badge-status.off { background: #f6dedd; color: #a0211d; }
+.customer-history dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.customer-history dt { font-size: .64rem; text-transform: uppercase; letter-spacing: .03em; color: #7c857f; }
+.customer-history dd { margin: 2px 0 0; font-size: .86rem; font-weight: 750; }
+.customer-history dd small { font-weight: 500; color: #7c857f; font-size: .7rem; }
+.customer-history p { margin: 8px 0 0; }
+.customer-history-insights { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.customer-history-insights li { padding: 8px 10px; border-left: 3px solid #bd211d; border-radius: 6px; background: #fff; font-size: .78rem; box-shadow: 0 1px 3px rgba(20, 20, 18, .06); }
+@media (max-width: 700px) { .customer-history dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .customer-history { animation: none !important; } }

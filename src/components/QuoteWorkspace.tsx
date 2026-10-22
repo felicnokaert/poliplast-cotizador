@@ -26,6 +26,7 @@ import { useCountUp } from '../lib/useCountUp'
 import { Calculator, ExternalLink, FileText, LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { QuoteInsights } from './QuoteInsights'
 import { ProductThumb } from './ProductThumb'
+import { CustomerHistoryCard } from './CustomerHistoryCard'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { frequentlyTogether } from '../lib/suggestions'
 import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
@@ -416,6 +417,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
+              {clientOpen && <CustomerHistoryCard names={[meta.client, matchingClient?.company ?? '', matchingClient?.legalName ?? '']} quotes={savedQuotes} currentNumber={meta.number} />}
             </div>
             <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Productos, cantidades y precios aplicados.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
             {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
