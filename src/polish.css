@@ -113,3 +113,20 @@ button.product-thumb:hover { transform: scale(1.08); border-color: #bd211d; box-
 .customer-history-insights li { padding: 8px 10px; border-left: 3px solid #bd211d; border-radius: 6px; background: #fff; font-size: .78rem; box-shadow: 0 1px 3px rgba(20, 20, 18, .06); }
 @media (max-width: 700px) { .customer-history dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .customer-history { animation: none !important; } }
+
+/* ---- Plantillas ---- */
+.quote-templates { margin: 10px 0 4px; padding: 10px 14px; border: 1px dashed #cfd4cc; border-radius: 12px; background: #fafbf9; }
+.quote-templates-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.quote-templates-head .secondary-action { display: inline-flex; align-items: center; gap: 6px; }
+.quote-templates-form { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.quote-templates-form input { flex: 1; min-width: 200px; }
+.quote-templates ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+.quote-templates li { display: inline-flex; align-items: stretch; border: 1px solid #d8dcd5; border-radius: 10px; background: #fff; overflow: hidden; transition: box-shadow .16s ease, transform .16s ease; animation: pop-in .24s ease-out both; }
+.quote-templates li:hover { box-shadow: 0 4px 14px rgba(20, 20, 18, .1); transform: translateY(-1px); }
+.quote-template-use { display: grid; gap: 1px; text-align: left; padding: 7px 12px; border: 0; background: transparent; cursor: pointer; }
+.quote-template-use:disabled { opacity: .5; cursor: progress; }
+.quote-template-use small { color: #7c857f; font-size: .66rem; }
+.quote-template-use:not(:disabled):hover strong { color: #bd211d; }
+.quote-template-delete { border: 0; border-left: 1px solid #ecefe9; background: transparent; padding: 0 9px; color: #9a9b95; cursor: pointer; }
+.quote-template-delete:hover { background: #f6dedd; color: #a0211d; }
+@media (prefers-reduced-motion: reduce) { .quote-templates li { animation: none !important; } }

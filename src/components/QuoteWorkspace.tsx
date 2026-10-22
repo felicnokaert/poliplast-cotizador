@@ -27,6 +27,9 @@ import { Calculator, ExternalLink, FileText, LayoutGrid, LogOut, Settings } from
 import { QuoteInsights } from './QuoteInsights'
 import { ProductThumb } from './ProductThumb'
 import { CustomerHistoryCard } from './CustomerHistoryCard'
+import { QuoteTemplates } from './QuoteTemplates'
+import { loadTemplates, resolveTemplate, saveTemplates, templateFromLines, type QuoteTemplate } from '../lib/templates'
+import { followUpDueDate, syncQuoteFollowUpInCrm } from '../lib/quoteFollowUp'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { frequentlyTogether } from '../lib/suggestions'
 import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
@@ -173,7 +176,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [quoteSyncStatus, setQuoteSyncStatus] = useState<'cargando' | 'compartido' | 'local' | 'guardando'>('cargando')
   const [paymentPolicies, setPaymentPolicies] = useState<PaymentPolicy[]>(DEFAULT_PAYMENT_POLICIES)
   const [catalogForSuggestions, setCatalogForSuggestions] = useState<CatalogData | null>(null)
-  const needsCatalog = lines.length > 0 && savedQuotes.length > 1
+  const [templates, setTemplates] = useState<QuoteTemplate[]>(() => loadTemplates())
+  const needsCatalog = (lines.length > 0 && savedQuotes.length > 1) || templates.length > 0
   useEffect(() => {
     if (!needsCatalog || catalogForSuggestions) return
     let cancelled = false
@@ -266,6 +270,24 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     setLastAdded(`${product.name} agregado a la cotización`)
     window.setTimeout(() => setLastAdded(''), 2200)
   }
+  const saveTemplate = (name: string) => {
+    const next = [templateFromLines(name, lines, crypto.randomUUID()), ...templates]
+    setTemplates(next); saveTemplates(next)
+    setLastAdded(`Plantilla "${name.trim()}" guardada en este equipo`)
+    window.setTimeout(() => setLastAdded(''), 2400)
+  }
+  const deleteTemplate = (template: QuoteTemplate) => {
+    if (!window.confirm(`¿Borrar la plantilla "${template.name}"?`)) return
+    const next = templates.filter((item) => item.id !== template.id)
+    setTemplates(next); saveTemplates(next)
+  }
+  const useTemplate = (template: QuoteTemplate) => {
+    if (!catalogForSuggestions) return
+    const { items, missing } = resolveTemplate(template, catalogForSuggestions.products)
+    setLines((current) => items.reduce((acc, item) => addQuoteLine(acc, item.variant, item.product, item.quantity), current))
+    setLastAdded(missing.length ? `Plantilla "${template.name}": se agregaron ${items.length}; ${missing.length} ya no están en el catálogo (${missing.map((item) => item.sku).join(', ')})` : `Plantilla "${template.name}" agregada con los precios de hoy`)
+    window.setTimeout(() => setLastAdded(''), 3600)
+  }
   const updateMeta = <K extends keyof QuoteMeta>(field: K, value: QuoteMeta[K]) => setMeta((current) => ({ ...current, [field]: value }))
   const snapshot = (): SavedQuote => ({ meta, lines, updatedAt: new Date().toISOString() })
   // El número se reserva recién acá, la primera vez que la cotización se guarda de verdad
@@ -283,6 +305,11 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
       // "Agregar al CRM" en los datos del cliente). Nunca se registra como venta.
       const crmClient = findCrmClient(quote.meta.client)
       if (crmClient) markQuotedInCrm(userId, userEmail, crmClient).then(() => setCrmNotice(`Marcado en el CRM: coticé hoy a ${crmClient.company}.`)).catch((error) => setCrmNotice(error instanceof Error ? error.message : 'No se pudo marcar en el CRM.'))
+      // Enviada → tarea de seguimiento en el CRM (a 2 días hábiles); aceptada o rechazada → se cierra. Nunca bloquea el guardado.
+      syncQuoteFollowUpInCrm(userId, userEmail, quote, crmClient?.id ?? '').then((change) => {
+        if (change === 'creada') setCrmNotice(`Se creó la tarea de seguimiento en el CRM para el ${followUpDueDate().split('-').reverse().join('/')}.`)
+        else if (change === 'cerrada') setCrmNotice('Se marcó como hecho el seguimiento de esta cotización en el CRM.')
+      }).catch(() => { /* sin sesión del CRM o sin conexión: la cotización igual queda guardada */ })
       try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
       window.setTimeout(() => setLastAdded(''), 2400)
       return quote
@@ -419,6 +446,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
               </div>}
               {clientOpen && <CustomerHistoryCard names={[meta.client, matchingClient?.company ?? '', matchingClient?.legalName ?? '']} quotes={savedQuotes} currentNumber={meta.number} />}
             </div>
+            <QuoteTemplates templates={templates} canSave={lines.length > 0} ready={Boolean(catalogForSuggestions)} onSave={saveTemplate} onUse={useTemplate} onDelete={deleteTemplate} />
             <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Productos, cantidades y precios aplicados.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
             {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
             {lines.length === 0 ? <button className="quote-empty quote-empty-action quote-empty-main" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar el primer producto</strong><span>Buscá por nombre o SKU; los resultados aparecen desde 3 caracteres.</span></button> : <div className="quote-lines quote-lines-main">{groupLinesByFamily(lines).map((group) => {
