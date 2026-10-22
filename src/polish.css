@@ -182,3 +182,7 @@ small, .small { font-size: max(.75rem, 12px); }
   .quote-page { padding-bottom: 72px; }
 }
 @media (prefers-reduced-motion: reduce) { .crm-metric:hover, .crm-followups li:hover, button.product-thumb:hover, .together-suggestions li:hover, .quote-templates li:hover { transform: none !important; } }
+
+/* Foto ampliada: siempre completa y centrada */
+.photo-lightbox figure { display: grid; gap: 6px; max-height: 92vh; }
+.photo-lightbox img { width: auto; height: auto; max-width: 100%; max-height: 78vh; object-fit: contain; }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
@@ -28,9 +29,12 @@ export function Modal({ label, onClose, className = '', closeOnBackdrop = false,
     root.addEventListener('keydown', onKey)
     return () => { root.removeEventListener('keydown', onKey); previous?.focus?.() }
   }, [])
-  return (
+  // En un portal sobre <body>: un modal dentro de una fila o tarjeta con transform/filter/backdrop-filter queda
+  // encerrado en esa caja (la foto ampliada se veía solo en la franja del producto).
+  return createPortal(
     <div ref={ref} tabIndex={-1} className={`modal-backdrop ${className}`.trim()} role="dialog" aria-modal="true" aria-label={label} onClick={closeOnBackdrop ? () => closeRef.current() : undefined}>
       {children}
-    </div>
+    </div>,
+    document.body,
   )
 }

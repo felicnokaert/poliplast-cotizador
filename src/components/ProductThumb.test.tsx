@@ -17,7 +17,10 @@ describe('ProductThumb', () => {
     const { container } = render(<ProductThumb photoPath="https://cdn.shopify.com/x/balde.png" name="Balde 10 litros" />)
     expect(container.querySelector('img')?.getAttribute('src')).toBe('https://cdn.shopify.com/x/balde.png')
     fireEvent.click(screen.getByRole('button', { name: 'Ver foto de Balde 10 litros' }))
-    expect(screen.getByRole('dialog', { name: 'Foto de Balde 10 litros' })).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: 'Foto de Balde 10 litros' })
+    expect(dialog).toBeInTheDocument()
+    // Va directo en <body> (no dentro de la fila), así la foto se ve completa sin quedar encerrada en la franja del producto.
+    expect(dialog.parentElement).toBe(document.body)
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
