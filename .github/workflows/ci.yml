@@ -1,0 +1,21 @@
+name: CI
+# Pruebas automáticas en cada pull request y en cada subida a master: tipos, lint, pruebas y build.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npx oxlint
+      - run: npx vitest run
+      - run: npx vite build

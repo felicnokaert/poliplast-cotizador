@@ -28,6 +28,7 @@ import { QuoteInsights } from './QuoteInsights'
 import { ProductThumb } from './ProductThumb'
 import { CustomerHistoryCard } from './CustomerHistoryCard'
 import { QuoteTemplates } from './QuoteTemplates'
+import { Modal } from './Modal'
 import { currentLines, priceChangeSummary, quotePriceChanges, type PriceChange } from '../lib/priceDrift'
 import { productPhotoUrl } from '../lib/productPhotos'
 import { loadTemplates, resolveTemplate, saveTemplates, templateFromLines, type QuoteTemplate } from '../lib/templates'
@@ -91,7 +92,7 @@ function QuotePreview({ quote, rules, photos, onClose }: { quote: SavedQuote; ru
   const expires = quoteExpiry(quote.meta.createdAt, quote.meta.validDays)
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Vista previa del mensaje de cotización">
+    <Modal label="Vista previa del mensaje de cotización" onClose={onClose}>
       <section className={`quote-preview preview-${principalBrand.toLowerCase().replace(/\W/g, '')}`}>
         <div className="preview-actions no-print">
           <button onClick={onClose}>Volver</button>
@@ -147,7 +148,7 @@ function QuotePreview({ quote, rules, photos, onClose }: { quote: SavedQuote; ru
           <p className="preview-legal">Documento comercial no fiscal · Precios y disponibilidad sujetos a confirmación · Grupo Poliplast</p>
         </footer>
       </section>
-    </div>
+    </Modal>
   )
 }
 
@@ -223,7 +224,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   }, [savedQuotes, historyStatus, historySearch])
   const editingSavedQuote = savedQuotes.some((quote) => quote.meta.number === meta.number)
 
-  useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)), [savedQuotes])
+  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(savedQuotes)) } catch { /* sin espacio o bloqueado: sigue funcionando sin copia local */ } }, [savedQuotes])
   // El número se reserva recién al guardar (ver `save`), no al abrir el borrador,
   // para no dejar huecos en la numeración con cotizaciones abiertas y descartadas.
 
@@ -242,7 +243,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   }, [])
   useEffect(() => {
     const updatedAt = new Date().toISOString()
-    localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt }))
+    try { localStorage.setItem(WORKING_DRAFT_KEY, JSON.stringify({ meta, lines, updatedAt })) } catch { /* ídem */ }
   }, [meta, lines])
   useEffect(() => { loadCommercialClients(userId).then(setClients).catch(() => setClients([])) }, [userId])
   // Desde el CRM ("Cotizar" en la ficha del cliente) se llega con ?cliente=Empresa: arranca una
@@ -322,13 +323,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   // El número se reserva recién acá, la primera vez que la cotización se guarda de verdad
   // (guardar, guardar-y-crear-otra o enviar por WhatsApp), no al abrir el borrador.
   const savingRef = useRef<Promise<SavedQuote> | null>(null)
-  const save = (overrides: Partial<QuoteMeta> = {}): Promise<SavedQuote> => {
-    if (savingRef.current) return savingRef.current
-    const run = async (): Promise<SavedQuote> => {
-      const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
-      if (!meta.number) setMeta((current) => ({ ...current, number }))
-      const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number, ...overrides } }
-      if (Object.keys(overrides).length) setMeta((current) => ({ ...current, ...overrides }))
+  // Guarda una cotización ya armada (historial local, "Coticé hoy", seguimiento en el CRM y base compartida).
+  const persistQuote = async (quote: SavedQuote): Promise<SavedQuote> => {
       setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
       setQuoteSyncStatus('guardando')
       // "Coticé hoy" en la ficha del CRM, solo si la empresa ya está en el CRM (si no, está el botón
@@ -339,14 +335,29 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
       syncQuoteFollowUpInCrm(userId, userEmail, quote, crmClient?.id ?? '').then((change) => {
         if (change === 'creada') setCrmNotice(`Se creó la tarea de seguimiento en el CRM para el ${followUpDueDate().split('-').reverse().join('/')}.`)
         else if (change === 'cerrada') setCrmNotice('Se marcó como hecho el seguimiento de esta cotización en el CRM.')
-      }).catch(() => { /* sin sesión del CRM o sin conexión: la cotización igual queda guardada */ })
+        else if (change === 'sin_espacio') setCrmNotice('No se creó el seguimiento: abrí el CRM una vez con tu cuenta para poder crear tareas desde acá.')
+      }).catch(() => setCrmNotice('No se pudo crear o actualizar el seguimiento en el CRM. La cotización quedó guardada; volvé a guardarla o creá la tarea a mano.'))
       try { await saveSharedQuote(quote, userId, rules); setQuoteSyncStatus('compartido'); setLastAdded(`Cotización ${quote.meta.number} guardada`) } catch { setQuoteSyncStatus('local'); setLastAdded(`Cotización ${quote.meta.number} guardada en este equipo; falta sincronizar`) }
       window.setTimeout(() => setLastAdded(''), 2400)
       return quote
+  }
+  // Si ya hay un guardado en curso se espera a que termine; si ese pedido traía cambios de estado (ej. pasar a Enviada), se
+  // guardan encima del resultado del primero (sin reservar otro número) en vez de perderse.
+  const save = (overrides: Partial<QuoteMeta> = {}): Promise<SavedQuote> => {
+    const hasOverrides = Object.keys(overrides).length > 0
+    if (hasOverrides) setMeta((current) => ({ ...current, ...overrides }))
+    let promise: Promise<SavedQuote>
+    const track = (work: Promise<SavedQuote>) => {
+      promise = work.finally(() => { if (savingRef.current === promise) savingRef.current = null })
+      savingRef.current = promise
+      return promise
     }
-    const promise = run().finally(() => { savingRef.current = null })
-    savingRef.current = promise
-    return promise
+    if (savingRef.current) return hasOverrides ? track(savingRef.current.then((first) => persistQuote({ ...first, meta: { ...first.meta, ...overrides } }))) : savingRef.current
+    return track((async () => {
+      const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
+      if (!meta.number) setMeta((current) => ({ ...current, number }))
+      return persistQuote({ ...snapshot(), meta: { ...meta, number, ...overrides } })
+    })())
   }
   const startNew = () => {
     const draft = newMeta(savedQuotes)
@@ -376,10 +387,21 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     }
   }
   const sendWhatsApp = async (phone = whatsappPhone) => {
-    // Mandarla por WhatsApp la deja como "Enviada" (y dispara el seguimiento en el CRM); si ya tenía otro estado, se respeta.
-    const quote = await save(meta.status === 'borrador' ? { status: 'enviada' } : {})
-    const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
-    window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
+    // La pestaña se abre ya, dentro del toque del usuario (los navegadores bloquean ventanas abiertas después de esperar
+    // al servidor), y se completa cuando termina el guardado.
+    const popup = window.open('about:blank', '_blank')
+    if (popup) popup.opener = null
+    try {
+      // Mandarla por WhatsApp la deja como "Enviada" (y dispara el seguimiento en el CRM); si ya tenía otro estado, se respeta.
+      const quote = await save(meta.status === 'borrador' ? { status: 'enviada' } : {})
+      const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
+      const url = whatsappUrl(phone, message)
+      if (popup) popup.location.href = url
+      else window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      popup?.close()
+      throw error
+    }
     setWhatsappOpen(false)
   }
   const matchingClient = findCrmClient(meta.client)
@@ -451,7 +473,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
           {savedQuotes.length > 0 && <QuoteInsights quotes={savedQuotes} rules={rules} onOpen={loadQuote} />}
           {savedQuotes.length > 0 && <div className="history-toolbar"><input type="search" aria-label="Buscar cotizaciones" placeholder="Buscar número, cliente, contacto, producto o SKU" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} /><div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div></div>}
           {savedQuotes.length === 0 ? <div className="empty-state">Todavía no hay cotizaciones guardadas. Tocá <strong>+ Nueva cotización</strong> para armar la primera.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span>{priceChangesByQuote.has(quote.meta.number) && <em className="price-alert" title="Abrí la cotización para ver los renglones y actualizar los precios">⚠ Precios cambiaron: {priceChangeSummary(priceChangesByQuote.get(quote.meta.number)!)}</em>}</div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button><button className="quote-cancel-x" title="Eliminar definitivamente" aria-label={`Eliminar cotización ${quote.meta.number} para siempre`} disabled={busyQuoteDelete === quote.meta.number} onClick={() => setDeleteConfirmQuote(quote)}>✕</button></article>)}</div>}
-      {deleteConfirmQuote && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Confirmar eliminación"><section className="admin-confirm"><h2>Eliminar cotización</h2><p className="muted">¿Confirmás que querés eliminar la cotización Nº {deleteConfirmQuote.meta.number} ({deleteConfirmQuote.meta.client || 'sin cliente'})? No se puede deshacer.</p><div className="admin-actions"><button onClick={() => setDeleteConfirmQuote(null)}>No</button><button className="danger-outline" onClick={confirmDeleteQuote}>Sí, eliminar</button></div></section></div>}
+      {deleteConfirmQuote && <Modal label="Confirmar eliminación" onClose={() => setDeleteConfirmQuote(null)}><section className="admin-confirm"><h2>Eliminar cotización</h2><p className="muted">¿Confirmás que querés eliminar la cotización Nº {deleteConfirmQuote.meta.number} ({deleteConfirmQuote.meta.client || 'sin cliente'})? No se puede deshacer.</p><div className="admin-actions"><button onClick={() => setDeleteConfirmQuote(null)}>No</button><button className="danger-outline" onClick={confirmDeleteQuote}>Sí, eliminar</button></div></section></Modal>}
         </main>
       ) : activeSection === 'catalogo' ? (
         <main className="catalog-page">
@@ -547,10 +569,17 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
       )}
 
       {lastAdded && <div className="add-toast" role="status">✓ {lastAdded}</div>}
+      {activeSection === 'cotizacion' && lines.length > 0 && (
+        <div className="active-quote-bar" role="region" aria-label="Total de la cotización">
+          <span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span>
+          <strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong>
+          <a href="#quote-summary">Ver resumen ↓</a>
+        </div>
+      )}
       {activeSection === 'catalogo' && lines.length > 0 && <button className="mobile-quote-bar" onClick={() => setActiveSection('cotizacion')}><span>{lines.length} producto{lines.length === 1 ? '' : 's'}</span><strong>{money(totals.convertedTotal, meta.outputCurrency)}</strong><b>Ver cotización →</b></button>}
 
       {previewOpen && <QuotePreview quote={snapshot()} rules={rules} photos={photoByProduct} onClose={() => setPreviewOpen(false)} />}
-      {whatsappOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Elegir número de WhatsApp"><section className="admin-confirm"><h2>Enviar cotización por WhatsApp</h2><p className="muted">Elegí uno de los números guardados o agregá otro sin borrar los anteriores.</p>{availablePhones.length > 0 ? <div className="stack">{availablePhones.map((phone) => <label key={phone}><input type="radio" name="whatsapp-phone" checked={whatsappPhone === phone} onChange={() => setWhatsappPhone(phone)} /> {phone}</label>)}</div> : <p className="quote-warning">Este cliente todavía no tiene teléfonos guardados.</p>}<label>Agregar número<input value={newWhatsappPhone} onChange={(event) => setNewWhatsappPhone(event.target.value)} placeholder="Ej. 11 5555-1234" /></label>{!matchingClient && newWhatsappPhone && <p className="quote-warning">Elegí primero una empresa del CRM para guardar el número en su ficha.</p>}<div className="admin-actions"><button onClick={() => setWhatsappOpen(false)}>Cancelar</button><button disabled={!matchingClient || newWhatsappPhone.replace(/\D/g, '').length < 8} onClick={saveNewPhone}>Guardar número</button><button className="primary-action inline" disabled={!whatsappPhone} onClick={() => sendWhatsApp()}>Continuar a WhatsApp</button></div></section></div>}
+      {whatsappOpen && <Modal label="Elegir número de WhatsApp" onClose={() => setWhatsappOpen(false)}><section className="admin-confirm"><h2>Enviar cotización por WhatsApp</h2><p className="muted">Elegí uno de los números guardados o agregá otro sin borrar los anteriores.</p>{meta.status === 'borrador' && <p className="muted small">Al continuar la cotización se guarda y queda como <strong>Enviada</strong>, y se crea el seguimiento en el CRM.</p>}{availablePhones.length > 0 ? <div className="stack">{availablePhones.map((phone) => <label key={phone}><input type="radio" name="whatsapp-phone" checked={whatsappPhone === phone} onChange={() => setWhatsappPhone(phone)} /> {phone}</label>)}</div> : <p className="quote-warning">Este cliente todavía no tiene teléfonos guardados.</p>}<label>Agregar número<input value={newWhatsappPhone} onChange={(event) => setNewWhatsappPhone(event.target.value)} placeholder="Ej. 11 5555-1234" /></label>{!matchingClient && newWhatsappPhone && <p className="quote-warning">Elegí primero una empresa del CRM para guardar el número en su ficha.</p>}<div className="admin-actions"><button onClick={() => setWhatsappOpen(false)}>Cancelar</button><button disabled={!matchingClient || newWhatsappPhone.replace(/\D/g, '').length < 8} onClick={saveNewPhone}>Guardar número</button><button className="primary-action inline" disabled={!whatsappPhone} onClick={() => sendWhatsApp()}>Continuar a WhatsApp</button></div></section></Modal>}
     </div>
   )
 }

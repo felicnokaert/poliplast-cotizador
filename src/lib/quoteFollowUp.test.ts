@@ -9,10 +9,10 @@ const quote = (status: SavedQuote['meta']['status'], number = '0007') => ({ meta
 const ids = () => { let n = 0; return () => `task-${++n}` }
 
 describe('seguimiento de cotizaciones en el CRM', () => {
-  it('vence a 2 días y salta el fin de semana (hora de Argentina)', () => {
+  it('vence a 2 días hábiles y salta el fin de semana (hora de Argentina)', () => {
     expect(followUpDueDate('2026-10-20T15:00:00Z')).toBe('2026-10-22') // martes → jueves
-    expect(followUpDueDate('2026-10-22T15:00:00Z')).toBe('2026-10-26') // jueves → sábado → lunes
-    expect(followUpDueDate('2026-10-23T15:00:00Z')).toBe('2026-10-26') // viernes → domingo → lunes
+    expect(followUpDueDate('2026-10-22T15:00:00Z')).toBe('2026-10-26') // jueves → viernes, lunes (2 días hábiles)
+    expect(followUpDueDate('2026-10-23T15:00:00Z')).toBe('2026-10-27') // viernes → lunes, martes
   })
   it('enviada crea una sola tarea con la forma de las tareas del CRM', () => {
     const first = applyQuoteFollowUp([], quote('enviada'), { clientId: 'c1', newId: ids(), now: '2026-10-20T15:00:00Z' })

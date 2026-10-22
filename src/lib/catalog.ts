@@ -15,6 +15,8 @@ export interface CatalogData {
   products: ProductWithVariants[]
   families: string[]
   brands: string[]
+  /** Avisos de datos complementarios que no se pudieron leer (fotos, fichas); el catálogo en sí está completo. */
+  warnings?: string[]
 }
 
 export interface RawCatalogRows {
@@ -132,19 +134,13 @@ export async function fetchAll<T>(
 }
 
 export async function loadCatalog(): Promise<CatalogData> {
-  const linksPromise = (async () => {
-    try {
-      const { data } = await supabase.from('product_document_links').select('document_id,scope_type,product_id,variant_id,family,subfamily')
-      return (data ?? []) as ProductDocumentLink[]
-    } catch { return [] as ProductDocumentLink[] }
-  })()
-  // Fotos aprobadas desde Mercado Libre en el CRM: si la tabla no existe o falla, el cotizador sigue igual.
-  const approvedPhotosPromise = (async () => {
-    try {
-      const { data } = await supabase.from('catalog_product_photos').select('product_id,url')
-      return (data ?? []) as ApprovedMlPhoto[]
-    } catch { return [] as ApprovedMlPhoto[] }
-  })()
+  // Enlaces a fichas y fotos aprobadas son complementos: si fallan el cotizador sigue, pero lo avisa (warnings) en vez de
+  // mostrar "sin ficha" o "sin foto" como si fuera verdad. Se paginan igual que el resto (tope de 1000 filas por consulta).
+  const warnings: string[] = []
+  const linksPromise = fetchAll<ProductDocumentLink>((from, to) => supabase.from('product_document_links').select('document_id,scope_type,product_id,variant_id,family,subfamily').range(from, to))
+    .catch(() => { warnings.push('No se pudieron leer los vínculos con las fichas técnicas: puede que algún producto figure sin ficha.'); return [] as ProductDocumentLink[] })
+  const approvedPhotosPromise = fetchAll<ApprovedMlPhoto>((from, to) => supabase.from('catalog_product_photos').select('product_id,url').order('product_id').range(from, to))
+    .catch(() => { warnings.push('No se pudieron leer las fotos del catálogo: puede que algún producto figure sin foto.'); return [] as ApprovedMlPhoto[] })
   const [products, variants, priceListsRes, prices, docsRes, inventory, documentLinks, approvedPhotos] = await Promise.all([
     fetchAll<CatalogProduct>((from, to) =>
       supabase.from('catalog_products').select('*').order('family').order('name').range(from, to),
@@ -161,7 +157,7 @@ export async function loadCatalog(): Promise<CatalogData> {
   if (priceListsRes.error) throw priceListsRes.error
   if (docsRes.error) throw docsRes.error
 
-  return assembleCatalog({
+  return { ...assembleCatalog({
     products: applyApprovedPhotos(products, approvedPhotos),
     variants,
     priceLists: (priceListsRes.data ?? []) as PriceList[],
@@ -169,7 +165,7 @@ export async function loadCatalog(): Promise<CatalogData> {
     docs: (docsRes.data ?? []) as TechnicalDocument[],
     inventory,
     documentLinks,
-  })
+  }), warnings }
 }
 
 export async function technicalDocumentUrl(document: TechnicalDocument): Promise<string | null> {

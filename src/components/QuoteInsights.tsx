@@ -127,6 +127,9 @@ export function QuoteInsights({ quotes, rules, onOpen }: { quotes: SavedQuote[];
               )
             })}
           </svg>
+          <ul className="crm-chart-list" aria-label="Montos cotizados por mes">
+            {data.bars.map((bar) => <li key={bar.key}><span>{bar.label}</span><b>{bar.usd > 0 ? usd(bar.usd) : '—'}</b><small>{bar.count} cotiz.</small></li>)}
+          </ul>
         </section>
         <StatusDonut quotes={quotes} />
       </div>

@@ -18,7 +18,7 @@ describe('ProductThumb', () => {
     expect(container.querySelector('img')?.getAttribute('src')).toBe('https://cdn.shopify.com/x/balde.png')
     fireEvent.click(screen.getByRole('button', { name: 'Ver foto de Balde 10 litros' }))
     expect(screen.getByRole('dialog', { name: 'Foto de Balde 10 litros' })).toBeInTheDocument()
-    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
   it('si la foto no carga vuelve a las iniciales', () => {

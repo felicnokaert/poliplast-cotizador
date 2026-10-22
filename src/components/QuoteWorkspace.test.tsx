@@ -6,6 +6,7 @@ import * as catalogLib from '../lib/catalog'
 import * as clientsLib from '../lib/clients'
 import * as exchangeLib from '../lib/exchange'
 import * as sharedQuotesLib from '../lib/sharedQuotes'
+import * as paymentPoliciesLib from '../lib/paymentPolicies'
 import type { CommercialRule } from '../types/commercialRules'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 
@@ -332,5 +333,29 @@ describe('QuoteWorkspace — link viejo del CRM', () => {
     fireEvent.click(repeat)
     expect(await screen.findByText(/Cotización 0001: se cargaron 1; 1 ya no están en el catálogo \(OLD-1\)/)).toBeInTheDocument()
     expect(screen.getAllByText('Almohada clásica').length).toBeGreaterThan(0)
+  })
+
+  it('si se toca "Solo guardar" y enseguida WhatsApp, la cotización igual queda Enviada con un solo número', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([{ id: 'c1', company: 'Cliente Alfa', legalName: '', cuit: '', contact: '', phone: '5491155551234', phones: ['5491155551234'], email: '', origin: 'mio' }])
+    let release: (value: string) => void = () => {}
+    const reserve = vi.spyOn(paymentPoliciesLib, 'reserveQuoteNumber').mockImplementation(() => new Promise<string>((resolve) => { release = resolve }))
+    const saveShared = vi.spyOn(sharedQuotesLib, 'saveSharedQuote').mockResolvedValue()
+    vi.spyOn(window, 'open').mockImplementation(() => null)
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    openCatalog()
+    fireEvent.click(await screen.findByRole('button', { name: 'Agregar' }))
+    openActiveQuote()
+    fireEvent.change(await screen.findByPlaceholderText(/Escribí para buscar entre 1 empresas del CRM/), { target: { value: 'Cliente Alfa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Solo guardar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'WhatsApp' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Continuar a WhatsApp' }))
+    release('0042')
+    await waitFor(() => expect(saveShared).toHaveBeenCalledTimes(2))
+    expect(reserve).toHaveBeenCalledTimes(1)
+    const sent = saveShared.mock.calls.map((call) => call[0])
+    expect(sent.every((quote) => quote.meta.number === '0042')).toBe(true)
+    expect(sent.at(-1)?.meta.status).toBe('enviada')
   })
 })

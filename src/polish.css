@@ -150,3 +150,35 @@ button.product-thumb:hover { transform: scale(1.08); border-color: #bd211d; box-
 .customer-history-repeat { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #d8dcd5; display: grid; gap: 6px; }
 .customer-history-repeat > div { display: flex; gap: 8px; flex-wrap: wrap; }
 .customer-history-repeat .secondary-action { font-size: .76rem; }
+
+/* ---- Accesibilidad (revisión 22/10): foco visible único, contraste AA, objetivos táctiles, celular ---- */
+:focus-visible { outline: 2px solid #1c1c1c !important; outline-offset: 2px !important; box-shadow: 0 0 0 4px #fff !important; }
+.crm-followup-actions a { background: #1f7a38; border-color: #1f7a38; }
+.crm-followup-actions a.disabled { opacity: 1; background: #d9dcd6; border-color: #d9dcd6; color: #59615b; }
+.primary-action, .primary-action.inline { background: #c9151c; }
+.primary-action:hover, .primary-action.inline:hover { background: #a91016; }
+.crm-eyebrow, .eyebrow { color: #59615b; }
+.crm-nav-badge { font-size: .75rem; }
+small, .small { font-size: max(.75rem, 12px); }
+.customer-history dd small, .together-suggestions small, .crm-followups small { color: #59615b; }
+.crm-chart-list { display: none; list-style: none; margin: 8px 0 0; padding: 0; gap: 6px; }
+.crm-chart-list li { display: grid; grid-template-columns: 3rem 1fr auto; gap: 8px; align-items: baseline; font-size: .85rem; }
+.crm-chart-list b { text-align: right; font-variant-numeric: tabular-nums; }
+.crm-chart-list small { color: #59615b; }
+.active-quote-bar { display: none; }
+.history-list article .quote-cancel-x { margin-left: 14px; }
+@media (pointer: coarse) {
+  button, .secondary-action, .crm-followup-actions a, .crm-followup-actions button, .add-button, .quote-cancel-x { min-height: 44px; min-width: 44px; }
+  .product-thumb-sm { width: 44px; height: 44px; }
+}
+@media (max-width: 600px) {
+  .crm-chart { display: none; }
+  .crm-chart-list { display: grid; }
+}
+@media (max-width: 719px) {
+  .active-quote-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: #272625; color: #fff; box-shadow: 0 -6px 20px rgba(0, 0, 0, .25); }
+  .active-quote-bar strong { font: 800 1.1rem 'Manrope', sans-serif; }
+  .active-quote-bar a { color: #fff; font-weight: 700; font-size: .82rem; text-decoration: underline; }
+  .quote-page { padding-bottom: 72px; }
+}
+@media (prefers-reduced-motion: reduce) { .crm-metric:hover, .crm-followups li:hover, button.product-thumb:hover, .together-suggestions li:hover, .quote-templates li:hover { transform: none !important; } }

@@ -239,6 +239,7 @@ export function CatalogBrowser({
         </section>
       )}
 
+      {data.warnings?.map((warning) => <p key={warning} className="quote-warning" role="status">{warning}</p>)}
       {data.products.length === 0 ? (
         <div className="empty-state">
           <p>Todavía no hay productos cargados en el catálogo compartido.</p>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { customerInsights, loadCustomerComprobantes, ownQuotesFor, summarizeCustomer, type ComprobanteRow } from '../lib/customerHistory'
+import { COMPROBANTES_LIMIT, customerInsights, loadCustomerComprobantes, ownQuotesFor, summarizeCustomer, type ComprobanteRow } from '../lib/customerHistory'
 import type { SavedQuote } from '../lib/quote'
 
 const STATUS: Record<string, { label: string; tone: string }> = { activo: { label: 'Activo', tone: 'ok' }, dormido: { label: 'Dormido', tone: 'warn' }, inactivo: { label: 'Inactivo', tone: 'off' } }
@@ -22,7 +22,9 @@ export function CustomerHistoryCard({ names, quotes, currentNumber, repeatReady 
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, [key])
   const current = state.key === key ? state : { key, status: 'loading' as const, rows: [] }
-  const history = useMemo(() => (current.status === 'ready' ? summarizeCustomer(current.rows, names) : null), [current.status, current.rows, names])
+  // `key` (texto) y no `names` (arreglo nuevo en cada render) para no recalcular el resumen sin necesidad.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const history = useMemo(() => (current.status === 'ready' ? summarizeCustomer(current.rows, names) : null), [current.status, current.rows, key])
   const own = useMemo(() => ownQuotesFor(quotes, names, currentNumber), [quotes, names, currentNumber])
   const insights = customerInsights(history, own)
   if (!names.some((name) => name.trim().length >= 4)) return null
@@ -35,6 +37,7 @@ export function CustomerHistoryCard({ names, quotes, currentNumber, repeatReady 
       {current.status === 'loading' && <p className="muted small">Mirando su historial en Contabilium…</p>}
       {current.status === 'error' && <p className="muted small">No se pudo leer la facturación de Contabilium ahora.</p>}
       {current.status === 'ready' && !history && <p className="muted small">No encontré facturas con ese nombre en Contabilium (puede figurar con otra razón social).</p>}
+      {current.status === 'ready' && current.rows.length >= COMPROBANTES_LIMIT && <p className="muted small">Hay muchísimas facturas con palabras de ese nombre: el resumen puede estar incompleto.</p>}
       {history && (
         <dl>
           <div><dt>Última compra</dt><dd>{history.lastPurchase ? <>{dateText(history.lastPurchase)}<small> · hace {history.daysSince} días</small></> : '—'}</dd></div>

@@ -40,7 +40,8 @@ export function resolveTemplate(template: QuoteTemplate, products: ProductWithVa
   for (const item of template.items) {
     const product = byId.get(item.productId)
     const variant = product?.variants.find((candidate) => candidate.id === item.variantId)
-    if (product && variant) items.push({ product, variant, quantity: item.quantity })
+    // Lo que el catálogo normal oculta (pendiente de revisión, excluido) no se vuelve a agregar por la puerta de atrás.
+    if (product && variant && (!product.status || product.status === 'vigente')) items.push({ product, variant, quantity: item.quantity })
     else missing.push(item)
   }
   return { items, missing }

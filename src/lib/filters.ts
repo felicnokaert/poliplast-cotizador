@@ -52,7 +52,7 @@ function searchScore(product: ProductWithVariants, term: string): number {
   let score = 0
   for (const token of normalize(term).split(/\s+/).filter(Boolean)) {
     if (haystack.includes(token)) score += name.includes(token) ? 3 : 2
-    else if (token.length >= 5 && [...words].some((word) => word.length >= 4 && withinOneEdit(token, word))) score += 1
+    else if (token.length >= 5 && !/[0-9]/.test(token) && [...words].some((word) => word.length >= 4 && withinOneEdit(token, word))) score += 1
     else return 0
   }
   return score

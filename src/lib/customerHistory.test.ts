@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('./supabase', () => ({ supabase: { from: vi.fn() } }))
 
-import { customerInsights, nameKey, ownQuotesFor, parseArNumber, searchWord, summarizeCustomer, type ComprobanteRow } from './customerHistory'
+import { customerInsights, nameKey, ownQuotesFor, parseArNumber, searchWord, searchWords, summarizeCustomer, type ComprobanteRow } from './customerHistory'
 import type { SavedQuote } from './quote'
 
 const row = (tipo: string, fecha: string, total: string, cliente = 'Carrocerías Norte S.A.', company = 'COMARG'): ComprobanteRow => ({ company, tipo, fecha, cliente, total })
@@ -28,6 +28,7 @@ describe('ficha del cliente desde Contabilium', () => {
   it('busca por la palabra más característica, con comodín en los acentos', () => {
     expect(searchWord('Carrocerías Norte S.A.')).toBe('Carrocerias')
     expect(searchWord('SA')).toBe('')
+    expect(searchWords('Distribuidora Carrocerías Norte S.A.')).toEqual(['Distribuidora', 'Carrocerias'])
   })
   it('avisa cuando dejó de comprar o cotiza y no cierra, y calla cuando no hay nada para decir', () => {
     const quote = (n: string, status: SavedQuote['meta']['status']) => ({ meta: { number: n, client: 'Carrocerías Norte', status }, lines: [], updatedAt: '' }) as unknown as SavedQuote

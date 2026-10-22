@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { X } from 'lucide-react'
 import { productPhotoUrl } from '../lib/productPhotos'
+import { Modal } from './Modal'
 
 function initials(name: string) {
   const words = name.normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^A-Za-z]+/).filter((word) => word.length > 1)
@@ -12,12 +13,6 @@ export function ProductThumb({ photoPath, name, size = 'md' }: { photoPath?: str
   const url = productPhotoUrl(photoPath)
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
   const [zoom, setZoom] = useState(false)
-  useEffect(() => {
-    if (!zoom) return undefined
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setZoom(false) }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [zoom])
   if (!url || failedUrl === url) return <span className={`product-thumb product-thumb-${size} product-thumb-empty`} aria-hidden="true">{initials(name)}</span>
   return (
     <>
@@ -25,13 +20,13 @@ export function ProductThumb({ photoPath, name, size = 'md' }: { photoPath?: str
         <img src={url} alt="" loading="lazy" decoding="async" onError={() => setFailedUrl(url)} />
       </button>
       {zoom && (
-        <div className="modal-backdrop photo-lightbox no-print" role="dialog" aria-modal="true" aria-label={`Foto de ${name}`} onClick={() => setZoom(false)}>
+        <Modal className="photo-lightbox no-print" label={`Foto de ${name}`} onClose={() => setZoom(false)} closeOnBackdrop>
           <figure onClick={(event) => event.stopPropagation()}>
             <img src={url} alt={name} />
             <figcaption>{name}</figcaption>
             <button type="button" className="photo-lightbox-close" aria-label="Cerrar foto" onClick={() => setZoom(false)}><X size={18} /></button>
           </figure>
-        </div>
+        </Modal>
       )}
     </>
   )

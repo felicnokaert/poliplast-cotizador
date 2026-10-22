@@ -1,4 +1,5 @@
 import { quoteTotals, type SavedQuote } from './quote'
+import { monthKeyAR } from './dates'
 import type { CommercialRule } from '../types/commercialRules'
 
 // Resumen del historial de cotizaciones (mismas ideas que el historial de Ventas del CRM): cuánto se
@@ -25,7 +26,7 @@ export function quoteInsights(quotes: SavedQuote[], rules: CommercialRule[] = []
   }
   const byKey = new Map(bars.map((bar) => [bar.key, bar]))
   for (const quote of quotes) {
-    const bar = byKey.get(String(quote.meta.createdAt || '').slice(0, 7))
+    const bar = byKey.get(quote.meta.createdAt ? monthKeyAR(quote.meta.createdAt) : '')
     if (!bar) continue
     bar.usd += quoteUsd(quote, rules)
     bar.count += 1

@@ -23,5 +23,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    // Valores de relleno: las pruebas no hablan con Supabase, pero src/lib/supabase.ts exige estas variables al cargarse.
+    env: { VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test-anon-key' },
   },
 }))

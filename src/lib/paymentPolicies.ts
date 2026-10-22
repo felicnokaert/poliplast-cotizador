@@ -36,6 +36,9 @@ export async function reserveQuoteNumber(existingNumbers: string[]): Promise<str
   } catch {
     // sin conexión o RPC no disponible: seguimos con el fallback local
   }
+  // Sin el contador del servidor dos personas podrían elegir el mismo número y una pisaría la cotización de la otra:
+  // el número de emergencia lleva un sufijo al azar (no cuenta para el próximo número normal).
   const max = existingNumbers.reduce((value, item) => /^\d+$/.test(item) ? Math.max(value, Number(item)) : value, 0)
-  return String(max + 1).padStart(4, '0')
+  const suffix = Math.floor(Math.random() * 36 ** 3).toString(36).toUpperCase().padStart(3, '0')
+  return `${String(max + 1).padStart(4, '0')}-${suffix}`
 }

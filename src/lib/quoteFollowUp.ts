@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { SavedQuote } from './quote'
+import { addBusinessDays, todayAR } from './dates'
 
 // Seguimiento de cotizaciones en el CRM: al dejar una cotización como "enviada" se crea una tarea en Tareas del CRM
 // (a 2 días hábiles, igual que el primer contacto en Prospección); si después se acepta o se rechaza, la tarea se
@@ -10,14 +11,9 @@ export const QUOTE_FOLLOW_UP_DAYS = 2
 
 export interface CrmTask { id: string; autoKey?: string; done?: boolean; [key: string]: unknown }
 
-const addDays = (date: string, days: number) => { const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10) }
-const isWeekend = (date: string) => [0, 6].includes(new Date(`${date}T12:00:00Z`).getUTCDay())
-
-/** Fecha de vencimiento: `days` días corridos desde hoy (hora de Argentina), salteando sábado y domingo. */
+/** Fecha de vencimiento: `days` días HÁBILES desde hoy (hora de Argentina), sin contar sábado ni domingo. */
 export function followUpDueDate(now = new Date().toISOString(), days = QUOTE_FOLLOW_UP_DAYS): string {
-  let due = addDays(new Date(Date.parse(now) - 3 * 3_600_000).toISOString().slice(0, 10), days)
-  while (isWeekend(due)) due = addDays(due, 1)
-  return due
+  return addBusinessDays(todayAR(now), days)
 }
 
 export function quoteFollowUpTask(quote: SavedQuote, { taskId, clientId = '', now = new Date().toISOString() }: { taskId: string; clientId?: string; now?: string }): CrmTask {
@@ -55,12 +51,12 @@ export function applyQuoteFollowUp(tasks: CrmTask[], quote: SavedQuote, { client
   return { tasks, change: '' }
 }
 
-export async function syncQuoteFollowUpInCrm(userId: string, email: string, quote: SavedQuote, clientId = ''): Promise<'creada' | 'cerrada' | ''> {
+export async function syncQuoteFollowUpInCrm(userId: string, email: string, quote: SavedQuote, clientId = ''): Promise<'creada' | 'cerrada' | 'sin_espacio' | ''> {
   if (!['enviada', 'aceptada', 'rechazada'].includes(quote.meta.status) || !quote.meta.number) return ''
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data: row, error } = await supabase.from('workspace_states').select('data,updated_at').eq('workspace_key', userId).maybeSingle()
     if (error) throw error
-    if (!row) return ''
+    if (!row) return 'sin_espacio'
     const state = (row.data ?? {}) as { tasks?: CrmTask[] }
     const result = applyQuoteFollowUp(Array.isArray(state.tasks) ? state.tasks : [], quote, { clientId, newId: () => crypto.randomUUID() })
     if (!result.change) return ''

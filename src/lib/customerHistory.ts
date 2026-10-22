@@ -99,25 +99,36 @@ export function summarizeCustomer(rows: ComprobanteRow[], names: string[], today
   }
 }
 
-/** Palabra más larga del nombre, con comodines `_` en lo que no sea letra o número (acentos), para buscar con ilike. */
-export function searchWord(name: string): string {
+/** Palabras más largas del nombre (sin acentos, de 4 letras o más), con comodín `_` en lo que no sea letra o número, para ilike. */
+export function searchWords(name: string, count = 2): string[] {
   const words = name.normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^A-Za-z0-9]+/).filter((word) => word.length >= 4)
-  const best = words.sort((a, b) => b.length - a.length)[0]
-  return best ?? ''
+  return [...new Set(words)].sort((a, b) => b.length - a.length).slice(0, count)
 }
 
-/** Trae los comprobantes cuyo cliente contiene la palabra más característica del nombre; el emparejado fino se hace después. */
+/** Compatibilidad: la palabra más larga. */
+export const searchWord = (name: string): string => searchWords(name, 1)[0] ?? ''
+
+/** Si una consulta devuelve esta cantidad de filas puede haberse cortado: el resumen quedaría incompleto. */
+export const COMPROBANTES_LIMIT = 1000
+
+/**
+ * Trae los comprobantes cuyo cliente contiene las 2 palabras más características del nombre (si con 2 no hay nada, con 1);
+ * el emparejado fino se hace después con nameKey. Dos palabras evitan traer 1000 facturas de clientes distintos cuando el
+ * nombre tiene una palabra genérica ("distribuidora", "construcciones").
+ */
 export async function loadCustomerComprobantes(names: string[]): Promise<ComprobanteRow[]> {
-  const word = names.map(searchWord).filter(Boolean).sort((a, b) => b.length - a.length)[0]
-  if (!word) return []
-  const { data, error } = await supabase
-    .from('contabilium_comprobantes')
-    .select('company,tipo,fecha,cliente,total,neto:raw->>ImporteTotalNeto')
-    .ilike('cliente', `%${word}%`)
-    .order('fecha', { ascending: false })
-    .limit(1000)
-  if (error) throw error
-  return (data ?? []) as ComprobanteRow[]
+  const base = names.map((name) => name.trim()).filter((name) => searchWords(name).length > 0).sort((a, b) => b.length - a.length)[0]
+  if (!base) return []
+  const words = searchWords(base)
+  const run = async (used: string[]) => {
+    let query = supabase.from('contabilium_comprobantes').select('company,tipo,fecha,cliente,total,neto:raw->>ImporteTotalNeto')
+    for (const word of used) query = query.ilike('cliente', `%${word.replace(/[^A-Za-z0-9]/g, '_')}%`)
+    const { data, error } = await query.order('fecha', { ascending: false }).limit(COMPROBANTES_LIMIT)
+    if (error) throw error
+    return (data ?? []) as ComprobanteRow[]
+  }
+  const rows = await run(words)
+  return rows.length === 0 && words.length > 1 ? run(words.slice(0, 1)) : rows
 }
 
 /** Cotizaciones de este cotizador para el mismo cliente (por nombre). */

@@ -117,6 +117,14 @@ describe('paginateCatalog', () => {
   })
 })
 
+describe('búsqueda tolerante y códigos', () => {
+  it('no perdona errores en números ni SKU: 10010 no trae el producto 1001', () => {
+    const base = { family: 'todas', brand: 'todas', priceFilter: 'todos' as const }
+    const p = makeProduct({ id: 'pk', canonical_key: 'KT-1001', name: 'KIT 1001' })
+    expect(filterCatalog([p], { ...base, search: '10010' })).toHaveLength(0)
+  })
+})
+
 describe('withinOneEdit', () => {
   it('perdona una letra de diferencia, sobrante, faltante o cruzada', () => {
     expect(withinOneEdit('poliuretno', 'poliuretano')).toBe(true)
