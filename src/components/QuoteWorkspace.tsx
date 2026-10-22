@@ -180,7 +180,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [catalogForSuggestions, setCatalogForSuggestions] = useState<CatalogData | null>(null)
   const [templates, setTemplates] = useState<QuoteTemplate[]>(() => loadTemplates())
   const hasOpenQuotes = savedQuotes.some((quote) => quote.meta.status === 'borrador' || quote.meta.status === 'enviada')
-  const needsCatalog = (lines.length > 0 && savedQuotes.length > 1) || templates.length > 0 || hasOpenQuotes
+  const needsCatalog = (lines.length > 0 && savedQuotes.length > 1) || templates.length > 0 || hasOpenQuotes || (meta.client.trim().length >= 4 && savedQuotes.length > 0)
   useEffect(() => {
     if (!needsCatalog || catalogForSuggestions) return
     let cancelled = false
@@ -291,6 +291,13 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     setLines((current) => currentLines(current, catalogForSuggestions.products))
     setLastAdded('Precios actualizados con el catálogo de hoy')
     window.setTimeout(() => setLastAdded(''), 2400)
+  }
+  const repeatQuote = (quote: SavedQuote) => {
+    if (!catalogForSuggestions) return
+    const { items, missing } = resolveTemplate(templateFromLines(`Cotización ${quote.meta.number}`, quote.lines, quote.meta.number), catalogForSuggestions.products)
+    setLines((current) => items.reduce((acc, item) => addQuoteLine(acc, item.variant, item.product, item.quantity), current))
+    setLastAdded(missing.length ? `Cotización ${quote.meta.number}: se cargaron ${items.length}; ${missing.length} ya no están en el catálogo (${missing.map((item) => item.sku).join(', ')})` : `Se cargó la cotización ${quote.meta.number} con los precios de hoy`)
+    window.setTimeout(() => setLastAdded(''), 3600)
   }
   const saveTemplate = (name: string) => {
     const next = [templateFromLines(name, lines, crypto.randomUUID()), ...templates]
@@ -466,7 +473,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
                 <label>Email<input type="email" value={meta.email} onChange={(e) => updateMeta('email', e.target.value)} placeholder="cliente@empresa.com" /></label>
                 <label>Validez<select value={meta.validDays} onChange={(e) => updateMeta('validDays', Number(e.target.value))}><option value={3}>3 días</option><option value={7}>7 días</option><option value={10}>10 días</option><option value={15}>15 días</option><option value={30}>30 días</option></select></label>
               </div>}
-              {clientOpen && <CustomerHistoryCard names={[meta.client, matchingClient?.company ?? '', matchingClient?.legalName ?? '']} quotes={savedQuotes} currentNumber={meta.number} />}
+              {clientOpen && <CustomerHistoryCard names={[meta.client, matchingClient?.company ?? '', matchingClient?.legalName ?? '']} quotes={savedQuotes} currentNumber={meta.number} repeatReady={Boolean(catalogForSuggestions)} onRepeat={repeatQuote} />}
             </div>
             <QuoteTemplates templates={templates} canSave={lines.length > 0} ready={Boolean(catalogForSuggestions)} onSave={saveTemplate} onUse={useTemplate} onDelete={deleteTemplate} />
             {activePriceChanges.length > 0 && (

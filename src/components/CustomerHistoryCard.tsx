@@ -7,7 +7,7 @@ const pesos = (value: number) => `$ ${new Intl.NumberFormat('es-AR', { maximumFr
 const dateText = (value: string) => value.split('-').reverse().join('/')
 
 /** Ficha del cliente dentro de la cotización: facturación en Contabilium + cotizaciones anteriores + avisos útiles. */
-export function CustomerHistoryCard({ names, quotes, currentNumber }: { names: string[]; quotes: SavedQuote[]; currentNumber: string }) {
+export function CustomerHistoryCard({ names, quotes, currentNumber, repeatReady = false, onRepeat }: { names: string[]; quotes: SavedQuote[]; currentNumber: string; repeatReady?: boolean; onRepeat?: (quote: SavedQuote) => void }) {
   const key = names.filter(Boolean).join('|')
   const [state, setState] = useState<{ key: string; status: 'loading' | 'ready' | 'error'; rows: ComprobanteRow[] }>({ key: '', status: 'loading', rows: [] })
   useEffect(() => {
@@ -26,7 +26,9 @@ export function CustomerHistoryCard({ names, quotes, currentNumber }: { names: s
   const own = useMemo(() => ownQuotesFor(quotes, names, currentNumber), [quotes, names, currentNumber])
   const insights = customerInsights(history, own)
   if (!names.some((name) => name.trim().length >= 4)) return null
-  const lastOwn = [...own].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0]
+  const sortedOwn = [...own].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  const lastOwn = sortedOwn[0]
+  const repeatable = sortedOwn.filter((quote) => quote.lines.length > 0).slice(0, 3)
   return (
     <section className="customer-history" aria-label="Ficha del cliente">
       <header><span className="eyebrow">Ficha del cliente</span>{history?.status && <em className={`badge-status ${STATUS[history.status].tone}`}>{STATUS[history.status].label}</em>}</header>
@@ -42,6 +44,19 @@ export function CustomerHistoryCard({ names, quotes, currentNumber }: { names: s
         </dl>
       )}
       {own.length > 0 && <p className="small">En este cotizador: <strong>{own.length}</strong> cotización{own.length === 1 ? '' : 'es'} anterior{own.length === 1 ? '' : 'es'}{lastOwn && <> · la última N° {lastOwn.meta.number} ({lastOwn.meta.status})</>}.</p>}
+      {onRepeat && repeatable.length > 0 && (
+        <div className="customer-history-repeat">
+          <span className="eyebrow">Repetir una cotización anterior</span>
+          <div>
+            {repeatable.map((quote) => (
+              <button key={quote.meta.number} type="button" className="secondary-action" disabled={!repeatReady} onClick={() => onRepeat(quote)} title={quote.lines.map((line) => `${line.quantity} × ${line.productName}`).join('\n')}>
+                N° {quote.meta.number} · {new Date(quote.updatedAt).toLocaleDateString('es-AR')} · {quote.lines.length} producto{quote.lines.length === 1 ? '' : 's'}
+              </button>
+            ))}
+          </div>
+          <small className="muted">Carga los mismos productos y cantidades con los precios de hoy.</small>
+        </div>
+      )}
       {insights.length > 0 && <ul className="customer-history-insights">{insights.map((text) => <li key={text}>{text}</li>)}</ul>}
     </section>
   )

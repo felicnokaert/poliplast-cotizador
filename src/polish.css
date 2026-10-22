@@ -145,3 +145,8 @@ button.product-thumb:hover { transform: scale(1.08); border-color: #bd211d; box-
 .preview-product > div { min-width: 0; }
 @media print { .preview-photo { print-color-adjust: exact; -webkit-print-color-adjust: exact; } .price-banner, .price-alert { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { .price-banner { animation: none !important; } }
+
+/* ---- Repetir una cotización anterior ---- */
+.customer-history-repeat { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #d8dcd5; display: grid; gap: 6px; }
+.customer-history-repeat > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.customer-history-repeat .secondary-action { font-size: .76rem; }
