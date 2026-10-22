@@ -19,6 +19,8 @@ export interface QuoteLine {
   family: string
   variant: VariantWithPricing
   quantity: number
+  /** Foto del producto al agregarlo (ruta del bucket o URL completa); solo para mostrar. */
+  photoPath?: string | null
   /** Descuento comercial puntual de este renglón (0-100), aparte del descuento global de la cotización. */
   discountPercent?: number
 }
@@ -387,6 +389,7 @@ export function addQuoteLine(
       family: product.family,
       variant,
       quantity,
+      photoPath: product.photo_path ?? null,
     },
   ]
 }

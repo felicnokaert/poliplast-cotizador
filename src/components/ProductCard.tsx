@@ -4,6 +4,7 @@ import { commercialPrices } from '../lib/pricing'
 import { technicalDocumentUrl } from '../lib/catalog'
 import { unitsPerPack } from '../lib/packs'
 import { priceForQuantity } from '../lib/quote'
+import { ProductThumb } from './ProductThumb'
 
 type OnAdd = (variant: VariantWithPricing, product: ProductWithVariants, quantity?: number) => void
 
@@ -36,7 +37,7 @@ function ResinplastRow({ product, variant, onAdd }: { product: ProductWithVarian
   }
   return (
     <div className="catalog-row resinplast-row">
-      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.internal_note && <details className="note-toggle"><summary className="note-icon" aria-label="Ver consejo de uso">i</summary><p className="product-note">{variant.internal_note}</p></details>}{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
+      <div className="catalog-product" title={product.name}><ProductThumb photoPath={product.photo_path} name={product.name} /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.internal_note && <details className="note-toggle"><summary className="note-icon" aria-label="Ver consejo de uso">i</summary><p className="product-note">{variant.internal_note}</p></details>}{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
       <span className="variant-sku">{variant.sku}</span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
@@ -69,7 +70,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
   }
   return (
     <div className="catalog-row">
-      <div className="catalog-product" title={product.name}><i aria-hidden="true" /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.internal_note && <details className="note-toggle"><summary className="note-icon" aria-label="Ver consejo de uso">i</summary><p className="product-note">{variant.internal_note}</p></details>}{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
+      <div className="catalog-product" title={product.name}><ProductThumb photoPath={product.photo_path} name={product.name} /><span><strong>{product.name}</strong><small>{product.brand} · {product.family}{product.subfamily ? ` › ${product.subfamily}` : ''}</small>{variant.internal_note && <details className="note-toggle"><summary className="note-icon" aria-label="Ver consejo de uso">i</summary><p className="product-note">{variant.internal_note}</p></details>}{variant.hasTechnicalDoc && <button className="technical-link" onClick={openDocument}>Ficha técnica verificada</button>}</span></div>
       <span className="variant-sku">{variant.sku}<small className="pack-size">{pack > 1 ? `Caja x ${pack} — precio total de la caja` : 'Unidad'}</small><small className={variant.approvedStock ? 'stock-verified' : 'stock-unverified'}>{variant.approvedStock ? `Stock aprobado: ${new Intl.NumberFormat('es-AR').format(variant.approvedStock.quantity)} ${variant.approvedStock.unit}` : 'Stock sin verificar'}</small></span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>

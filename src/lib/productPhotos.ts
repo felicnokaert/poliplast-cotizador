@@ -17,6 +17,8 @@ export async function listBucketPhotos(): Promise<BucketPhoto[]> {
 
 export function productPhotoUrl(path: string | null | undefined): string | null {
   if (!path) return null
+  // Fotos aprobadas desde Mercado Libre en el CRM: ya vienen como URL completa.
+  if (/^https?:\/\//i.test(path)) return path
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
 }
 
@@ -63,4 +65,19 @@ export function photoRelevance(photo: BucketPhoto, productName: string): number 
   let shared = 0
   for (const word of productWords) if (photoWords.has(word)) shared += 1
   return shared
+}
+
+export interface ApprovedMlPhoto {
+  product_id: string
+  url: string
+}
+
+/**
+ * Fotos aprobadas en el CRM (tabla catalog_product_photos, origen Mercado Libre): se usan solo si el producto no
+ * tiene foto propia. No escribe nada en catalog_products: es un valor de lectura que se calcula al cargar el catálogo.
+ */
+export function applyApprovedPhotos<P extends { id: string; photo_path?: string | null }>(products: P[], photos: ApprovedMlPhoto[]): P[] {
+  if (!photos.length) return products
+  const byProduct = new Map(photos.filter((photo) => photo.url).map((photo) => [photo.product_id, photo.url]))
+  return products.map((product) => (!product.photo_path && byProduct.has(product.id) ? { ...product, photo_path: byProduct.get(product.id)! } : product))
 }

@@ -43,3 +43,43 @@ export function quoteInsights(quotes: SavedQuote[], rules: CommercialRule[] = []
     accepted,
   }
 }
+
+const DAY = 86_400_000
+
+export interface FollowUp { quote: SavedQuote; days: number; usd: number }
+
+/** Cotizaciones enviadas que llevan `minDays` o más sin movimiento: las más viejas primero. */
+export function followUps(quotes: SavedQuote[], rules: CommercialRule[] = [], today = new Date(), minDays = 3): FollowUp[] {
+  return quotes
+    .filter((quote) => quote.meta.status === 'enviada')
+    .map((quote) => ({ quote, days: Math.floor((today.getTime() - new Date(quote.updatedAt || quote.meta.createdAt).getTime()) / DAY), usd: quoteUsd(quote, rules) }))
+    .filter((item) => Number.isFinite(item.days) && item.days >= minDays)
+    .sort((a, b) => b.days - a.days)
+}
+
+export function followUpMessage(quote: SavedQuote): string {
+  const name = (quote.meta.contact || '').trim().split(/\s+/)[0]
+  const created = new Date(quote.meta.createdAt).toLocaleDateString('es-AR')
+  return `Hola${name ? ` ${name}` : ''}, ¿cómo estás? Te escribo por la cotización ${quote.meta.number} que te pasamos el ${created}. ¿Pudiste verla? Si querés ajustamos cantidades o armamos otra opción.`
+}
+
+const STATUS_ORDER: SavedQuote['meta']['status'][] = ['borrador', 'enviada', 'aceptada', 'rechazada']
+
+/** Cantidad de cotizaciones por estado, siempre en el mismo orden (para el gráfico de dona). */
+export function statusBreakdown(quotes: SavedQuote[]) {
+  return STATUS_ORDER.map((status) => ({ status, count: quotes.filter((quote) => quote.meta.status === status).length }))
+}
+
+/** Productos más cotizados (por cantidad de cotizaciones en que aparecen, no por unidades). */
+export function topProducts(quotes: SavedQuote[], limit = 5) {
+  const counts = new Map<string, { name: string; quotes: number }>()
+  for (const quote of quotes) {
+    for (const productId of new Set(quote.lines.map((line) => line.productId))) {
+      const line = quote.lines.find((item) => item.productId === productId)!
+      const entry = counts.get(productId) ?? { name: line.productName, quotes: 0 }
+      entry.quotes += 1
+      counts.set(productId, entry)
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.quotes - a.quotes || a.name.localeCompare(b.name)).slice(0, limit)
+}

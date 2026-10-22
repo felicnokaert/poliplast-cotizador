@@ -10,7 +10,7 @@ const { getPublicUrl, storageFrom } = vi.hoisted(() => {
 vi.mock('./supabase', () => ({ supabase: { from: vi.fn(), storage: { from: storageFrom } } }))
 
 import { supabase } from './supabase'
-import { photoRelevance, productPhotoUrl, setCatalogProductPhoto, uploadProductPhoto, type BucketPhoto } from './productPhotos'
+import { applyApprovedPhotos, photoRelevance, productPhotoUrl, setCatalogProductPhoto, uploadProductPhoto, type BucketPhoto } from './productPhotos'
 
 describe('productPhotoUrl', () => {
   it('devuelve null sin foto asignada', () => {
@@ -19,6 +19,21 @@ describe('productPhotoUrl', () => {
   })
   it('arma la URL pública del bucket', () => {
     expect(productPhotoUrl('balde-10l.png')).toBe('https://cdn.test/product-photos/balde-10l.png')
+  })
+  it('deja pasar una URL completa (foto aprobada desde Mercado Libre en el CRM)', () => {
+    expect(productPhotoUrl('https://http2.mlstatic.com/D_1-O.jpg')).toBe('https://http2.mlstatic.com/D_1-O.jpg')
+  })
+})
+
+describe('applyApprovedPhotos', () => {
+  const products = [{ id: 'p1', photo_path: null }, { id: 'p2', photo_path: 'propia.png' }, { id: 'p3' }]
+  it('completa solo los productos sin foto propia y no toca los demás', () => {
+    const result = applyApprovedPhotos(products, [{ product_id: 'p1', url: 'https://ml/1.jpg' }, { product_id: 'p2', url: 'https://ml/2.jpg' }])
+    expect(result.map((product) => product.photo_path ?? null)).toEqual(['https://ml/1.jpg', 'propia.png', null])
+  })
+  it('sin fotos aprobadas devuelve el mismo arreglo y no inventa nada', () => {
+    expect(applyApprovedPhotos(products, [])).toBe(products)
+    expect(applyApprovedPhotos(products, [{ product_id: 'p3', url: '' }]).map((product) => product.photo_path ?? null)).toEqual([null, 'propia.png', null])
   })
 })
 

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { applyApprovedPhotos, type ApprovedMlPhoto } from './productPhotos'
 import type {
   CatalogProduct,
   CatalogVariant,
@@ -137,7 +138,14 @@ export async function loadCatalog(): Promise<CatalogData> {
       return (data ?? []) as ProductDocumentLink[]
     } catch { return [] as ProductDocumentLink[] }
   })()
-  const [products, variants, priceListsRes, prices, docsRes, inventory, documentLinks] = await Promise.all([
+  // Fotos aprobadas desde Mercado Libre en el CRM: si la tabla no existe o falla, el cotizador sigue igual.
+  const approvedPhotosPromise = (async () => {
+    try {
+      const { data } = await supabase.from('catalog_product_photos').select('product_id,url')
+      return (data ?? []) as ApprovedMlPhoto[]
+    } catch { return [] as ApprovedMlPhoto[] }
+  })()
+  const [products, variants, priceListsRes, prices, docsRes, inventory, documentLinks, approvedPhotos] = await Promise.all([
     fetchAll<CatalogProduct>((from, to) =>
       supabase.from('catalog_products').select('*').order('family').order('name').range(from, to),
     ),
@@ -147,13 +155,14 @@ export async function loadCatalog(): Promise<CatalogData> {
     supabase.from('technical_documents').select('id, title, family, product, sku, status, source_url, storage_path'),
     fetchAll<InventoryBalance>((from, to) => supabase.from('inventory_balances').select('variant_id, approved_quantity, unit, approved_at').range(from, to)),
     linksPromise,
+    approvedPhotosPromise,
   ])
 
   if (priceListsRes.error) throw priceListsRes.error
   if (docsRes.error) throw docsRes.error
 
   return assembleCatalog({
-    products,
+    products: applyApprovedPhotos(products, approvedPhotos),
     variants,
     priceLists: (priceListsRes.data ?? []) as PriceList[],
     prices,

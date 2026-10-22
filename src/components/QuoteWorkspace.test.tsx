@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { QuoteWorkspace } from './QuoteWorkspace'
 import * as commercialRulesLib from '../lib/commercialRules'
@@ -84,8 +84,10 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
     const search = screen.getByRole('searchbox', { name: 'Buscar cotizaciones' })
     fireEvent.change(search, { target: { value: 'ALM-1' } })
-    expect(screen.getByText('Cliente Alfa')).toBeInTheDocument()
-    expect(screen.queryByText('Cliente Beta')).not.toBeInTheDocument()
+    // La tarjeta "Para seguir hoy" también nombra a los clientes con enviadas sin respuesta: se mira solo la lista del historial.
+    const list = within(document.querySelector('.history-list') as HTMLElement)
+    expect(list.getByText('Cliente Alfa')).toBeInTheDocument()
+    expect(list.queryByText('Cliente Beta')).not.toBeInTheDocument()
   })
 
   it('protege la cotización antes de abrir WhatsApp', async () => {
