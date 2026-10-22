@@ -322,12 +322,13 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   // El número se reserva recién acá, la primera vez que la cotización se guarda de verdad
   // (guardar, guardar-y-crear-otra o enviar por WhatsApp), no al abrir el borrador.
   const savingRef = useRef<Promise<SavedQuote> | null>(null)
-  const save = (): Promise<SavedQuote> => {
+  const save = (overrides: Partial<QuoteMeta> = {}): Promise<SavedQuote> => {
     if (savingRef.current) return savingRef.current
     const run = async (): Promise<SavedQuote> => {
       const number = meta.number || await reserveQuoteNumber(savedQuotes.map((quote) => quote.meta.number))
       if (!meta.number) setMeta((current) => ({ ...current, number }))
-      const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number } }
+      const quote: SavedQuote = { ...snapshot(), meta: { ...meta, number, ...overrides } }
+      if (Object.keys(overrides).length) setMeta((current) => ({ ...current, ...overrides }))
       setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
       setQuoteSyncStatus('guardando')
       // "Coticé hoy" en la ficha del CRM, solo si la empresa ya está en el CRM (si no, está el botón
@@ -375,7 +376,8 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     }
   }
   const sendWhatsApp = async (phone = whatsappPhone) => {
-    const quote = await save()
+    // Mandarla por WhatsApp la deja como "Enviada" (y dispara el seguimiento en el CRM); si ya tenía otro estado, se respeta.
+    const quote = await save(meta.status === 'borrador' ? { status: 'enviada' } : {})
     const message = serializeQuoteForWhatsApp(quote, rules, paymentPolicies.find((item) => item.id === meta.paymentMethod))
     window.open(whatsappUrl(phone, message), '_blank', 'noopener,noreferrer')
     setWhatsappOpen(false)
@@ -539,7 +541,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
             {stockWarnings.length > 0 && <p className="quote-warning">{stockWarnings.length} renglón/es superan el último stock aprobado. La cotización puede continuar, pero hay que confirmar disponibilidad.</p>}
             <div className="quote-totals"><div><span>Subtotal final</span><strong>{money(totals.subtotal, sourceCurrency)}</strong></div>{totals.discount > 0 && <div><span>Descuento</span><strong>− {money(totals.discount, sourceCurrency)}</strong></div>}{totals.surcharge > 0 && <div><span>Recargo</span><strong>{money(totals.surcharge, sourceCurrency)}</strong></div>}<div><span>IVA incluido</span><strong>{money(totals.vat, sourceCurrency)}</strong></div><div className="grand-total"><span>Total {meta.outputCurrency}</span><strong><AnimatedMoney amount={totals.convertedTotal} currency={meta.outputCurrency} /></strong></div>{sourceCurrency === 'USD' && meta.exchangeRate > 0 && <><div className="peso-equivalent"><span>Equivalente estimado en pesos</span><strong>{money(totals.total * meta.exchangeRate, 'ARS')}</strong></div><small className="exchange-legend">USD {money(totals.total, 'USD')} × {money(meta.exchangeRate, 'ARS')} por dólar. {exchangeInfo.loading ? 'Actualizando cotización…' : exchangeInfo.error || exchangeInfo.source}.</small></>}</div>
             <div className="autosave-note" aria-live="polite">✓ Borrador protegido automáticamente en este equipo · {quoteSyncStatus === 'compartido' ? 'historial compartido activo' : quoteSyncStatus === 'guardando' ? 'sincronizando…' : 'guardado compartido pendiente'}</div>
-            <div className="rail-actions"><button onClick={save}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear otra' : 'Guardar y crear otra'}</button><button className="secondary" onClick={closeWithoutSaving}>Cerrar sin guardar</button></div>
+            <div className="rail-actions"><button onClick={() => save()}>Solo guardar</button><button onClick={() => setPreviewOpen(true)} disabled={!canPreview}>Vista previa</button><button onClick={openWhatsApp} disabled={!canPreview}>WhatsApp</button><button className="primary-action" onClick={saveAndStartNew} disabled={lines.length === 0}>{editingSavedQuote ? 'Guardar cambios y crear otra' : 'Guardar y crear otra'}</button><button className="secondary" onClick={closeWithoutSaving}>Cerrar sin guardar</button></div>
           </section>
         </main>
       )}

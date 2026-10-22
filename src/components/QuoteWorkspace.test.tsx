@@ -109,6 +109,9 @@ describe('QuoteWorkspace — reglas comerciales conectadas', () => {
     // Cotizar marca "Coticé hoy" en la ficha del CRM (nunca una venta).
     await waitFor(() => expect(markQuoted).toHaveBeenCalledWith('u1', 'marketing@grupopoliplast.com.ar', expect.objectContaining({ id: 'c1', company: 'Cliente Alfa' })))
     expect(open).toHaveBeenCalledWith(expect.stringContaining('wa.me/5491155551234'), '_blank', 'noopener,noreferrer')
+    // Mandarla por WhatsApp la deja como "Enviada" y eso arma el seguimiento en el CRM.
+    expect(saveShared).toHaveBeenCalledWith(expect.objectContaining({ meta: expect.objectContaining({ status: 'enviada' }) }), 'u1', expect.anything())
+    expect(screen.getByLabelText('Estado')).toHaveValue('enviada')
   })
 
   it('en una cotización no despliega el catálogo hasta escribir tres caracteres', async () => {
