@@ -26,6 +26,8 @@ import { useCountUp } from '../lib/useCountUp'
 import { Calculator, ExternalLink, FileText, LayoutGrid, LogOut, Settings } from 'lucide-react'
 import { QuoteInsights } from './QuoteInsights'
 import { ProductThumb } from './ProductThumb'
+import { loadCatalog, type CatalogData } from '../lib/catalog'
+import { frequentlyTogether } from '../lib/suggestions'
 import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
 import { deleteSharedQuote, loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
@@ -169,6 +171,23 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [rulesStatus, setRulesStatus] = useState<'cargando' | 'ok' | 'error'>('cargando')
   const [quoteSyncStatus, setQuoteSyncStatus] = useState<'cargando' | 'compartido' | 'local' | 'guardando'>('cargando')
   const [paymentPolicies, setPaymentPolicies] = useState<PaymentPolicy[]>(DEFAULT_PAYMENT_POLICIES)
+  const [catalogForSuggestions, setCatalogForSuggestions] = useState<CatalogData | null>(null)
+  const needsCatalog = lines.length > 0 && savedQuotes.length > 1
+  useEffect(() => {
+    if (!needsCatalog || catalogForSuggestions) return
+    let cancelled = false
+    loadCatalog().then((result) => { if (!cancelled) setCatalogForSuggestions(result) }).catch(() => { /* sin catálogo no hay sugerencias, nada más */ })
+    return () => { cancelled = true }
+  }, [needsCatalog, catalogForSuggestions])
+  const togetherSuggestions = useMemo(() => {
+    if (!catalogForSuggestions) return []
+    const products = new Map(catalogForSuggestions.products.map((product) => [product.id, product]))
+    return frequentlyTogether(savedQuotes, lines, { excludeNumber: meta.number, limit: 6 }).flatMap((suggestion) => {
+      const product = products.get(suggestion.productId)
+      const variant = product?.variants.find((item) => item.id === suggestion.variantId) ?? product?.variants[0]
+      return product && variant ? [{ ...suggestion, product, variant }] : []
+    }).slice(0, 4)
+  }, [catalogForSuggestions, savedQuotes, lines, meta.number])
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
@@ -419,6 +438,20 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
               </section>
               )
             })}</div>}
+            {togetherSuggestions.length > 0 && (
+              <aside className="together-suggestions" aria-label="Se suele cotizar junto">
+                <div><span className="eyebrow">Sugerido por tu historial</span><h3>Se suele cotizar junto con esto</h3></div>
+                <ul>
+                  {togetherSuggestions.map((item) => (
+                    <li key={item.productId}>
+                      <ProductThumb photoPath={item.product.photo_path} name={item.product.name} size="sm" />
+                      <span><strong>{item.product.name}</strong><small>{item.variant.sku} · en {item.together} cotizaciones anteriores ({Math.round(item.share * 100)}%)</small></span>
+                      <button type="button" onClick={() => add(item.variant, item.product)}>+ Agregar</button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
           </section>
 
           <section className="quote-rail" id="quote-summary">

@@ -244,4 +244,23 @@ describe('QuoteWorkspace — link viejo del CRM', () => {
     expect(await screen.findByDisplayValue('Beta SRL')).toBeInTheDocument()
     expect(await screen.findByDisplayValue('5491100000000')).toBeInTheDocument()
   })
+
+  it('sugiere lo que se suele cotizar junto, según el historial, y lo agrega con un toque', async () => {
+    const fundaVariant: VariantWithPricing = { ...almohadaVariant, id: 'v-funda', product_id: 'p-funda', sku: 'FUN-1', name: 'Funda', prices: almohadaVariant.prices.map((price) => ({ ...price, id: 'vp2', variant_id: 'v-funda' })) }
+    const fundaProduct: ProductWithVariants = { ...almohadaProduct, id: 'p-funda', canonical_key: 'p-funda', name: 'Funda térmica', variants: [fundaVariant] }
+    vi.spyOn(clientsLib, 'loadCommercialClients').mockResolvedValue([])
+    vi.spyOn(exchangeLib, 'fetchOfficialDollar').mockRejectedValue(new Error('sin red'))
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    vi.spyOn(catalogLib, 'loadCatalog').mockResolvedValue({ products: [almohadaProduct, fundaProduct], families: ['Almohadas'], brands: ['Grupo Poliplast'] })
+    const meta = (number: string) => ({ number, client: 'X', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'aceptada', createdAt: '2026-09-14T10:00:00Z' })
+    const pair = (number: string) => ({ meta: meta(number), lines: [{ id: 'a', productId: 'p-almohada', productName: 'Almohada clásica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: almohadaVariant, quantity: 1 }, { id: 'b', productId: 'p-funda', productName: 'Funda térmica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: fundaVariant, quantity: 1 }], updatedAt: '2026-09-14T10:00:00Z' })
+    localStorage.setItem('poliplast-cotizador-quotes-v1', JSON.stringify([pair('0001'), pair('0002')]))
+    localStorage.setItem('poliplast-cotizador-working-draft-v1', JSON.stringify({ meta: { ...meta(''), status: 'borrador' }, lines: [pair('x').lines[0]], updatedAt: '2026-10-20T10:00:00Z' }))
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Cotización activa/ }))
+    const box = await screen.findByRole('complementary', { name: 'Se suele cotizar junto' })
+    expect(within(box).getByText('Funda térmica')).toBeInTheDocument()
+    fireEvent.click(within(box).getByRole('button', { name: '+ Agregar' }))
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Se suele cotizar junto' })).not.toBeInTheDocument())
+  })
 })

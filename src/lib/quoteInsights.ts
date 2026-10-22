@@ -83,3 +83,33 @@ export function topProducts(quotes: SavedQuote[], limit = 5) {
   }
   return [...counts.values()].sort((a, b) => b.quotes - a.quotes || a.name.localeCompare(b.name)).slice(0, limit)
 }
+
+export interface RepeatQuoter { client: string; quotes: number; lastDays: number; lastNumber: string; totalUsd: number }
+
+const clientKey = (name: string) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * Clientes que piden cotización seguido y nunca cierran: `minQuotes` o más cotizaciones (sin contar borradores)
+ * y ninguna aceptada. Una señal para llamar y entender qué frena (precio, plazo, cantidad), no una venta perdida segura.
+ */
+export function repeatQuoters(quotes: SavedQuote[], rules: CommercialRule[] = [], today = new Date(), minQuotes = 3): RepeatQuoter[] {
+  const byClient = new Map<string, SavedQuote[]>()
+  for (const quote of quotes) {
+    const key = clientKey(quote.meta.client || '')
+    if (!key || quote.meta.status === 'borrador') continue
+    byClient.set(key, [...(byClient.get(key) ?? []), quote])
+  }
+  const result: RepeatQuoter[] = []
+  for (const list of byClient.values()) {
+    if (list.length < minQuotes || list.some((quote) => quote.meta.status === 'aceptada')) continue
+    const last = [...list].sort((a, b) => new Date(b.updatedAt || b.meta.createdAt).getTime() - new Date(a.updatedAt || a.meta.createdAt).getTime())[0]
+    result.push({
+      client: last.meta.client,
+      quotes: list.length,
+      lastDays: Math.max(0, Math.floor((today.getTime() - new Date(last.updatedAt || last.meta.createdAt).getTime()) / DAY)),
+      lastNumber: last.meta.number,
+      totalUsd: list.reduce((sum, quote) => sum + quoteUsd(quote, rules), 0),
+    })
+  }
+  return result.sort((a, b) => b.quotes - a.quotes || b.totalUsd - a.totalUsd)
+}

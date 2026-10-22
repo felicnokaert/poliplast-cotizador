@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterCatalog, paginateCatalog } from './filters'
+import { filterCatalog, paginateCatalog, withinOneEdit } from './filters'
 import type { ProductWithVariants } from '../types/catalog'
 
 function makeProduct(overrides: Partial<ProductWithVariants> = {}): ProductWithVariants {
@@ -98,11 +98,31 @@ describe('filterCatalog', () => {
     const result = filterCatalog(catalog, { search: '', family: 'todas', brand: 'todas', priceFilter: 'precio_pendiente' })
     expect(result.map((p) => p.id)).toEqual(['p3'])
   })
+
+  it('la búsqueda ignora acentos, acepta las palabras en cualquier orden y perdona un error de tipeo', () => {
+    const espuma = makeProduct({ id: 'p9', canonical_key: 'KT-9', name: 'Poliuretano expandido ESPUMA - kit' })
+    const list = [...catalog, espuma]
+    const base = { family: 'todas', brand: 'todas', priceFilter: 'todos' as const }
+    expect(filterCatalog(list, { ...base, search: 'espuma poliuretano' }).map((p) => p.id)).toEqual(['p9'])
+    expect(filterCatalog(list, { ...base, search: 'poliuretno' }).map((p) => p.id)).toEqual(['p9'])
+    expect(filterCatalog(list, { ...base, search: 'ESPUMÁ' }).map((p) => p.id)).toEqual(['p9'])
+    expect(filterCatalog(list, { ...base, search: 'zzzzzzqq' })).toHaveLength(0)
+  })
 })
 
 describe('paginateCatalog', () => {
   it('renderiza solo la página solicitada y limita páginas fuera de rango', () => {
     expect(paginateCatalog([1, 2, 3, 4, 5], 2, 2)).toEqual({ items: [3, 4], page: 2, pageCount: 3, total: 5 })
     expect(paginateCatalog([1, 2, 3], 99, 2).items).toEqual([3])
+  })
+})
+
+describe('withinOneEdit', () => {
+  it('perdona una letra de diferencia, sobrante, faltante o cruzada', () => {
+    expect(withinOneEdit('poliuretno', 'poliuretano')).toBe(true)
+    expect(withinOneEdit('epoxi', 'epoxy')).toBe(true)
+    expect(withinOneEdit('resian', 'resina')).toBe(true)
+    expect(withinOneEdit('balde', 'valde')).toBe(true)
+    expect(withinOneEdit('balde', 'bolsa')).toBe(false)
   })
 })

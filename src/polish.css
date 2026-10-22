@@ -80,3 +80,19 @@ button.product-thumb:hover { transform: scale(1.08); border-color: #bd211d; box-
   .catalog-row, .quote-line-main, .history-list article, .modal-backdrop, .crm-bar rect, .crm-rank-bar i, .crm-donut-arc, .centered-page::after { animation: none !important; }
 }
 @media print { .product-thumb, .photo-lightbox { display: none !important; } }
+
+/* ---- Sugerencias del historial ---- */
+.together-suggestions { margin-top: 14px; padding: 14px 16px; border: 1px dashed #d6a3a1; border-radius: 12px; background: linear-gradient(180deg, #fff8f7, #fff); animation: pop-in .3s ease-out both; }
+.together-suggestions h3 { margin: 2px 0 8px; font: 700 .95rem 'Manrope', sans-serif; }
+.together-suggestions ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.together-suggestions li { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid #ecdcdb; border-radius: 10px; background: #fff; transition: transform .16s ease, box-shadow .16s ease; }
+.together-suggestions li:hover { transform: translateX(3px); box-shadow: 0 4px 14px rgba(189, 33, 29, .1); }
+.together-suggestions li > span { flex: 1; min-width: 0; }
+.together-suggestions strong, .together-suggestions small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.together-suggestions small { color: #7c857f; font-size: .68rem; margin-top: 1px; }
+.together-suggestions button:not(.product-thumb) { flex: 0 0 auto; min-height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid #bd211d; background: #fff; color: #bd211d; font-size: .74rem; font-weight: 750; cursor: pointer; transition: background-color .16s ease, color .16s ease, transform .12s ease; }
+.together-suggestions button:not(.product-thumb):hover { background: #bd211d; color: #fff; }
+.together-suggestions button:not(.product-thumb):active { transform: scale(.95); }
+@media (prefers-reduced-motion: reduce) { .together-suggestions { animation: none !important; } }
+.crm-repeaters li { border-color: #e6c3c1; border-left-color: #bd211d; background: #fff7f6; }
+.crm-repeaters li small { color: #8a5a58; }

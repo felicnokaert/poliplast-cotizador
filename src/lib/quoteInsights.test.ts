@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { followUpMessage, followUps, quoteInsights, statusBreakdown, topProducts } from './quoteInsights'
+import { followUpMessage, followUps, quoteInsights, repeatQuoters, statusBreakdown, topProducts } from './quoteInsights'
 import type { SavedQuote } from './quote'
 
 const list = { id: 'pl', name: 'USD', brand: 'X', currency: 'USD' as const, vat_rate: 0.21, valid_from: '2026-01-01', valid_until: null, status: 'vigente' as const }
@@ -50,5 +50,18 @@ describe('inteligencia de seguimiento', () => {
     const quotes = [quote('1', '2026-10-01T10:00:00Z', 'enviada', 1), quote('2', '2026-10-02T10:00:00Z', 'enviada', 1), quote('3', '2026-10-03T10:00:00Z', 'aceptada', 1)]
     expect(statusBreakdown(quotes)).toEqual([{ status: 'borrador', count: 0 }, { status: 'enviada', count: 2 }, { status: 'aceptada', count: 1 }, { status: 'rechazada', count: 0 }])
     expect(topProducts(quotes)).toEqual([{ name: 'P', quotes: 3 }])
+  })
+})
+
+describe('clientes que cotizan seguido y no cierran', () => {
+  const withClient = (number: string, client: string, status: SavedQuote['meta']['status']) => { const base = quote(number, '2026-10-10T10:00:00Z', status, 10); return { ...base, meta: { ...base.meta, client } } }
+  it('detecta 3 o más cotizaciones sin ninguna aceptada, ignorando acentos y borradores', () => {
+    const result = repeatQuoters([
+      withClient('1', 'Frío Sur SRL', 'enviada'), withClient('2', 'FRIO SUR srl', 'rechazada'), withClient('3', 'Frio Sur SRL', 'enviada'), withClient('4', 'Frio Sur SRL', 'borrador'),
+      withClient('5', 'Norte', 'enviada'), withClient('6', 'Norte', 'enviada'), withClient('7', 'Norte', 'aceptada'),
+      withClient('8', 'Poco', 'enviada'),
+    ], [], new Date('2026-10-20T12:00:00Z'))
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({ quotes: 3, lastDays: 10, totalUsd: 30 })
   })
 })

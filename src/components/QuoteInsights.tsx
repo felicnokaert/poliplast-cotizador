@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { BarChart3, MessageCircle } from 'lucide-react'
-import { followUpMessage, followUps, quoteInsights, statusBreakdown, topProducts } from '../lib/quoteInsights'
+import { followUpMessage, followUps, quoteInsights, repeatQuoters, statusBreakdown, topProducts } from '../lib/quoteInsights'
 import { whatsappUrl, type SavedQuote } from '../lib/quote'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -62,6 +62,7 @@ function TopProducts({ quotes }: { quotes: SavedQuote[] }) {
 export function QuoteInsights({ quotes, rules, onOpen }: { quotes: SavedQuote[]; rules: CommercialRule[]; onOpen?: (quote: SavedQuote) => void }) {
   const data = useMemo(() => quoteInsights(quotes, rules), [quotes, rules])
   const pending = useMemo(() => followUps(quotes, rules).slice(0, 5), [quotes, rules])
+  const repeaters = useMemo(() => repeatQuoters(quotes, rules).slice(0, 4), [quotes, rules])
   const W = 720, H = 170, left = 8, top = 22, plotH = H - top - 30
   const slot = (W - left * 2) / data.bars.length
   const barW = Math.min(46, slot * 0.62)
@@ -86,6 +87,20 @@ export function QuoteInsights({ quotes, rules, onOpen }: { quotes: SavedQuote[];
                   {onOpen && <button type="button" onClick={() => onOpen(quote)}>Abrir</button>}
                   <a className={quote.meta.phone ? '' : 'disabled'} href={quote.meta.phone ? whatsappUrl(quote.meta.phone, followUpMessage(quote)) : undefined} target="_blank" rel="noreferrer" aria-disabled={!quote.meta.phone} title={quote.meta.phone ? 'Abre WhatsApp con el mensaje listo' : 'Esta cotización no tiene WhatsApp cargado'}><MessageCircle size={14} /> Seguimiento</a>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {repeaters.length > 0 && (
+        <section className="crm-chart-card crm-followups crm-repeaters" aria-label="Cotizan seguido y no cierran">
+          <span className="eyebrow">Conviene llamar</span>
+          <h2>Cotizan seguido y todavía no compraron</h2>
+          <p>Tres o más cotizaciones y ninguna aceptada: puede ser precio, plazo o cantidad. Preguntales qué los frena.</p>
+          <ul>
+            {repeaters.map((item) => (
+              <li key={item.client}>
+                <div><strong>{item.client}</strong><small>{item.quotes} cotizaciones · última hace {item.lastDays} días · {usd(item.totalUsd)} cotizados en total</small></div>
               </li>
             ))}
           </ul>
