@@ -281,4 +281,37 @@ describe('QuoteWorkspace — link viejo del CRM', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
     expect(JSON.parse(localStorage.getItem('poliplast-cotizador-templates-v1') || '[]').map((item: { name: string }) => item.name)).toEqual(['Otra', 'Kit almohadas'])
   })
+
+  it('avisa los precios que cambiaron desde que se armó la cotización y los actualiza con un toque', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    const oldVariant: VariantWithPricing = { ...almohadaVariant, prices: almohadaVariant.prices.map((price) => ({ ...price, amount: 3 })) }
+    const meta = { number: '0009', client: 'Cliente Alfa', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'enviada', createdAt: '2026-09-14T10:00:00Z' }
+    const saved = { meta, lines: [{ id: 'a', productId: 'p-almohada', productName: 'Almohada clásica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: oldVariant, quantity: 1 }], updatedAt: '2026-09-14T10:00:00Z' }
+    localStorage.setItem('poliplast-cotizador-quotes-v1', JSON.stringify([saved]))
+    localStorage.setItem('poliplast-cotizador-working-draft-v1', JSON.stringify({ meta, lines: saved.lines, updatedAt: '2026-10-20T10:00:00Z' }))
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    expect(await screen.findByText(/Precios cambiaron: 1 subió/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Cotización activa/ }))
+    const alert = await screen.findByRole('alert', { name: 'Alertas de precio' })
+    expect(within(alert).getByText(/US\$\s?3,00 → US\$\s?4,00/)).toBeInTheDocument()
+    fireEvent.click(within(alert).getByRole('button', { name: 'Actualizar precios de hoy' }))
+    await waitFor(() => expect(screen.queryByRole('alert', { name: 'Alertas de precio' })).not.toBeInTheDocument())
+  })
+
+  it('la vista previa (PDF) muestra la foto de cada producto', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    const meta = { number: '', client: 'Cliente Alfa', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'borrador', createdAt: '2026-10-20T10:00:00Z' }
+    const line = { id: 'a', productId: 'p-almohada', productName: 'Almohada clásica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: almohadaVariant, quantity: 1, photoPath: 'https://cdn.shopify.com/almohada.png' }
+    localStorage.setItem('poliplast-cotizador-working-draft-v1', JSON.stringify({ meta, lines: [line], updatedAt: '2026-10-20T10:00:00Z' }))
+    const { baseElement } = render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Cotización activa/ }))
+    const preview = await screen.findByRole('button', { name: 'Vista previa' })
+    await waitFor(() => expect(preview).not.toBeDisabled())
+    fireEvent.click(preview)
+    const dialog = await screen.findByRole('dialog', { name: /Vista previa/ })
+    expect(dialog.querySelector('img.preview-photo')?.getAttribute('src')).toBe('https://cdn.shopify.com/almohada.png')
+    expect(baseElement).toBeTruthy()
+  })
 })
