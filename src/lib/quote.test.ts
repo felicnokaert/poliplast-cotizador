@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addQuoteLine, automaticPricingSummary, createQuoteNumber, groupLinesByFamily, groupSubtotalsByCurrency, lineDiscountPercent, lineUnitAmountAfterDiscount, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl } from './quote'
+import { addQuoteLine, automaticPricingSummary, createQuoteNumber, groupLinesByFamily, groupSubtotalsByCurrency, lineDiscountPercent, lineUnitAmountAfterDiscount, linePricingDetails, priceForQuantity, quoteExpiry, quoteTotals, resolvedLinePrice, serializeQuoteForWhatsApp, whatsappUrl, type QuoteMeta } from './quote'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import type { CommercialRule } from '../types/commercialRules'
 
@@ -241,5 +241,24 @@ describe('quote', () => {
     const lines = [{ ...withDiscount, discountPercent: 50 }, { ...sinDescuento, id: 'v-otro', variant: { ...variant, id: 'v-otro' } }]
     const totals = quoteTotals(lines, 0, 0, 1, 'USD', 'consumidor_final', [])
     expect(totals.subtotal).toBe(50 + 100)
+  })
+})
+
+describe('precio congelado al enviar', () => {
+  const base = { status: 'borrador' } as QuoteMeta
+  it('al pasar a enviada anota el día y no lo pisa después', async () => {
+    const { withPriceLock, isPriceLocked } = await import('./quote')
+    const sent = withPriceLock({ ...base, status: 'enviada' }, new Date('2026-10-23T12:00:00Z'))
+    expect(sent.priceLockedAt).toBe('2026-10-23T12:00:00.000Z')
+    expect(isPriceLocked(sent)).toBe(true)
+    expect(withPriceLock({ ...sent, status: 'aceptada' }, new Date('2026-11-01T00:00:00Z')).priceLockedAt).toBe(sent.priceLockedAt)
+  })
+  it('un borrador no está congelado y volver a borrador lo suelta', async () => {
+    const { withPriceLock, isPriceLocked } = await import('./quote')
+    const sent = withPriceLock({ ...base, status: 'enviada' })
+    const back = withPriceLock({ ...sent, status: 'borrador' })
+    expect(back.priceLockedAt).toBeUndefined()
+    expect(isPriceLocked(back)).toBe(false)
+    expect(isPriceLocked({ status: 'rechazada', priceLockedAt: 'x' })).toBe(false)
   })
 })

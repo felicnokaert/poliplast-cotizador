@@ -12,6 +12,8 @@ import {
   quoteTotals,
   serializeQuoteForWhatsApp,
   whatsappUrl,
+  isPriceLocked,
+  withPriceLock,
   type PaymentMethod,
   type PriceMode,
   type QuoteLine,
@@ -203,13 +205,13 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
     const result = new Map<string, PriceChange[]>()
     if (!catalogForSuggestions) return result
     for (const quote of savedQuotes) {
-      if (quote.meta.status !== 'borrador' && quote.meta.status !== 'enviada') continue
+      if ((quote.meta.status !== 'borrador' && quote.meta.status !== 'enviada') || isPriceLocked(quote.meta)) continue
       const changes = quotePriceChanges(quote, catalogForSuggestions.products, rules)
       if (changes.length) result.set(quote.meta.number, changes)
     }
     return result
   }, [catalogForSuggestions, savedQuotes, rules])
-  const activePriceChanges = useMemo(() => (catalogForSuggestions && lines.length > 0 ? quotePriceChanges({ meta, lines, updatedAt: '' }, catalogForSuggestions.products, rules) : []), [catalogForSuggestions, lines, meta, rules])
+  const activePriceChanges = useMemo(() => (catalogForSuggestions && lines.length > 0 && !isPriceLocked(meta) ? quotePriceChanges({ meta, lines, updatedAt: '' }, catalogForSuggestions.products, rules) : []), [catalogForSuggestions, lines, meta, rules])
   const totals = useMemo(() => quoteTotals(lines, meta.discountPercent, meta.surchargePercent, meta.exchangeRate, meta.outputCurrency, meta.priceMode, rules), [lines, meta, rules])
   const sourceCurrency = totals.currencies.size === 1 ? [...totals.currencies][0] : 'USD'
   const stockWarnings = lines.filter((line) => line.variant.approvedStock && line.quantity > line.variant.approvedStock.quantity)
@@ -289,6 +291,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   }
   const refreshPrices = () => {
     if (!catalogForSuggestions) return
+    if (isPriceLocked(meta) && !window.confirm('Esta cotización ya se envió con estos precios. Si los actualizás, ya no coincide con lo que vio el cliente. ¿Actualizar igual?')) return
     setLines((current) => currentLines(current, catalogForSuggestions.products))
     setLastAdded('Precios actualizados con el catálogo de hoy')
     window.setTimeout(() => setLastAdded(''), 2400)
@@ -324,7 +327,9 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   // (guardar, guardar-y-crear-otra o enviar por WhatsApp), no al abrir el borrador.
   const savingRef = useRef<Promise<SavedQuote> | null>(null)
   // Guarda una cotización ya armada (historial local, "Coticé hoy", seguimiento en el CRM y base compartida).
-  const persistQuote = async (quote: SavedQuote): Promise<SavedQuote> => {
+  const persistQuote = async (incoming: SavedQuote): Promise<SavedQuote> => {
+      const quote: SavedQuote = { ...incoming, meta: withPriceLock(incoming.meta) }
+      if (quote.meta.priceLockedAt !== meta.priceLockedAt) setMeta((current) => ({ ...current, priceLockedAt: quote.meta.priceLockedAt }))
       setSavedQuotes((current) => mergeQuoteHistories(current.filter((item) => item.meta.number !== quote.meta.number), [quote]))
       setQuoteSyncStatus('guardando')
       // "Coticé hoy" en la ficha del CRM, solo si la empresa ya está en el CRM (si no, está el botón
@@ -472,7 +477,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
           <div className="page-intro page-intro-actions"><div><span className="eyebrow">Seguimiento comercial</span><h1>Cotizaciones</h1><p className="muted">{quoteSyncStatus === 'compartido' ? 'Historial sincronizado en todas tus computadoras.' : quoteSyncStatus === 'guardando' ? 'Sincronizando…' : quoteSyncStatus === 'cargando' ? 'Buscando cotizaciones…' : 'Modo local: la sincronización todavía no está disponible.'}</p></div><div className="history-actions">{lines.length > 0 && <button className="secondary-action" onClick={() => setActiveSection('cotizacion')}>Continuar borrador {meta.number}</button>}<button className="primary-action inline" onClick={startNew}>+ Nueva cotización</button></div></div>
           {savedQuotes.length > 0 && <QuoteInsights quotes={savedQuotes} rules={rules} onOpen={loadQuote} />}
           {savedQuotes.length > 0 && <div className="history-toolbar"><input type="search" aria-label="Buscar cotizaciones" placeholder="Buscar número, cliente, contacto, producto o SKU" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} /><div className="history-filters" aria-label="Filtrar cotizaciones">{(['todas', 'borrador', 'enviada', 'aceptada', 'rechazada'] as const).map((status) => <button key={status} className={historyStatus === status ? 'active' : ''} onClick={() => setHistoryStatus(status)}>{status} <span>{status === 'todas' ? savedQuotes.length : savedQuotes.filter((quote) => quote.meta.status === status).length}</span></button>)}</div></div>}
-          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no hay cotizaciones guardadas. Tocá <strong>+ Nueva cotización</strong> para armar la primera.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span>{priceChangesByQuote.has(quote.meta.number) && <em className="price-alert" title="Abrí la cotización para ver los renglones y actualizar los precios">⚠ Precios cambiaron: {priceChangeSummary(priceChangesByQuote.get(quote.meta.number)!)}</em>}</div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button><button className="quote-cancel-x" title="Eliminar definitivamente" aria-label={`Eliminar cotización ${quote.meta.number} para siempre`} disabled={busyQuoteDelete === quote.meta.number} onClick={() => setDeleteConfirmQuote(quote)}>✕</button></article>)}</div>}
+          {savedQuotes.length === 0 ? <div className="empty-state">Todavía no hay cotizaciones guardadas. Tocá <strong>+ Nueva cotización</strong> para armar la primera.</div> : visibleQuotes.length === 0 ? <div className="empty-state">No hay cotizaciones que coincidan con la búsqueda y el estado.</div> : <div className="history-list">{visibleQuotes.map((quote) => <article key={quote.meta.number}><div><strong>{quote.meta.client || 'Sin cliente'}</strong><span>{quote.meta.number} · {quote.lines.length} renglones · {new Date(quote.updatedAt).toLocaleString('es-AR')}</span>{isPriceLocked(quote.meta) && <em className="muted small" title="Son los precios que vio el cliente al recibirla">🔒 Precios congelados desde el {new Date(quote.meta.priceLockedAt!).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</em>}{priceChangesByQuote.has(quote.meta.number) && <em className="price-alert" title="Abrí la cotización para ver los renglones y actualizar los precios">⚠ Precios cambiaron: {priceChangeSummary(priceChangesByQuote.get(quote.meta.number)!)}</em>}</div><span className={`status status-${quote.meta.status}`}>{quote.meta.status}</span><button onClick={() => loadQuote(quote)}>Continuar</button><button className="quote-cancel-x" title="Eliminar definitivamente" aria-label={`Eliminar cotización ${quote.meta.number} para siempre`} disabled={busyQuoteDelete === quote.meta.number} onClick={() => setDeleteConfirmQuote(quote)}>✕</button></article>)}</div>}
       {deleteConfirmQuote && <Modal label="Confirmar eliminación" onClose={() => setDeleteConfirmQuote(null)}><section className="admin-confirm"><h2>Eliminar cotización</h2><p className="muted">¿Confirmás que querés eliminar la cotización Nº {deleteConfirmQuote.meta.number} ({deleteConfirmQuote.meta.client || 'sin cliente'})? No se puede deshacer.</p><div className="admin-actions"><button onClick={() => setDeleteConfirmQuote(null)}>No</button><button className="danger-outline" onClick={confirmDeleteQuote}>Sí, eliminar</button></div></section></Modal>}
         </main>
       ) : activeSection === 'catalogo' ? (

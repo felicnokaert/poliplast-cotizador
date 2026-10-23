@@ -53,6 +53,17 @@ export interface QuoteMeta {
   outputCurrency: 'USD' | 'ARS'
   status: QuoteStatus
   createdAt: string
+  /** Día (ISO) en que la cotización pasó a Enviada o Aceptada: desde ahí los precios quedan congelados, son los que vio el cliente. */
+  priceLockedAt?: string
+}
+
+export const isPriceLocked = (meta: Pick<QuoteMeta, 'status' | 'priceLockedAt'>) => Boolean(meta.priceLockedAt) && (meta.status === 'enviada' || meta.status === 'aceptada')
+
+/** Al enviarse o aceptarse se anota cuándo; si vuelve a borrador (se rearma a propósito) se suelta el congelado. */
+export function withPriceLock(meta: QuoteMeta, now = new Date()): QuoteMeta {
+  if (meta.status === 'enviada' || meta.status === 'aceptada') return meta.priceLockedAt ? meta : { ...meta, priceLockedAt: now.toISOString() }
+  if (meta.status === 'borrador' && meta.priceLockedAt) { const { priceLockedAt: _released, ...rest } = meta; return rest }
+  return meta
 }
 
 export interface SavedQuote { meta: QuoteMeta; lines: QuoteLine[]; updatedAt: string }

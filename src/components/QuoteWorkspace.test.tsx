@@ -303,6 +303,18 @@ describe('QuoteWorkspace — link viejo del CRM', () => {
     await waitFor(() => expect(screen.queryByRole('alert', { name: 'Alertas de precio' })).not.toBeInTheDocument())
   })
 
+  it('una cotización enviada con precios congelados no avisa cambios y lo dice', async () => {
+    mockCommonLoaders()
+    vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
+    const oldVariant: VariantWithPricing = { ...almohadaVariant, prices: almohadaVariant.prices.map((price) => ({ ...price, amount: 3 })) }
+    const meta = { number: '0010', client: 'Cliente Beta', contact: '', phone: '', email: '', notes: '', paymentMethod: 'transferencia', priceMode: 'automatico', validDays: 7, discountPercent: 0, surchargePercent: 0, exchangeRate: 1, outputCurrency: 'USD', status: 'enviada', createdAt: '2026-09-14T10:00:00Z', priceLockedAt: '2026-09-15T15:00:00Z' }
+    const saved = { meta, lines: [{ id: 'a', productId: 'p-almohada', productName: 'Almohada clásica', brand: 'Grupo Poliplast', family: 'Almohadas', variant: oldVariant, quantity: 1 }], updatedAt: '2026-09-15T15:00:00Z' }
+    localStorage.setItem('poliplast-cotizador-quotes-v1', JSON.stringify([saved]))
+    render(<QuoteWorkspace userEmail="marketing@grupopoliplast.com.ar" userId="u1" />)
+    expect(await screen.findByText(/Precios congelados desde el 15\/9\/2026/)).toBeInTheDocument()
+    expect(screen.queryByText(/Precios cambiaron/)).not.toBeInTheDocument()
+  })
+
   it('la vista previa (PDF) muestra la foto de cada producto', async () => {
     mockCommonLoaders()
     vi.spyOn(commercialRulesLib, 'loadCommercialRules').mockResolvedValue([])
