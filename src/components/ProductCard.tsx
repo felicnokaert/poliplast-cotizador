@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { createContext, useContext, useState } from 'react'
+import { normSku, rarePriceWarning, type MlPrice } from '../lib/rarePrice'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
 import { technicalDocumentUrl } from '../lib/catalog'
@@ -7,6 +8,16 @@ import { priceForQuantity } from '../lib/quote'
 import { ProductThumb } from './ProductThumb'
 
 type OnAdd = (variant: VariantWithPricing, product: ProductWithVariants, quantity?: number) => void
+
+// 20/11: precios de Mercado Libre por SKU y dólar del día, para avisar «⚠ Precio raro» al lado del precio.
+export const MlPriceContext = createContext<{ prices: Map<string, MlPrice>; exchangeRate: number }>({ prices: new Map(), exchangeRate: 0 })
+
+function RarePrice({ sku, amount, currency }: { sku: string; amount?: number | null; currency?: string }) {
+  const { prices, exchangeRate } = useContext(MlPriceContext)
+  const text = rarePriceWarning(amount, currency || 'USD', prices.get(normSku(sku)), exchangeRate)
+  if (!text) return null
+  return <details className="rare-price"><summary title={text}>⚠ Precio raro</summary><p>{text}</p></details>
+}
 
 function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency }).format(amount)
@@ -42,7 +53,7 @@ function ResinplastRow({ product, variant, onAdd }: { product: ProductWithVarian
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
       <div className="catalog-price resinplast-price">
-        {tierPrice ? <><strong>{formatMoney(tierPrice.amount, tierPrice.price_list.currency)}</strong><small>IVA incluido{tierCount > 1 ? ` · desde ${formatQty(tierPrice.min_quantity)}` : ''}</small></> : <em>Consultar</em>}
+        {tierPrice ? <><strong>{formatMoney(tierPrice.amount, tierPrice.price_list.currency)}</strong><small>IVA incluido{tierCount > 1 ? ` · desde ${formatQty(tierPrice.min_quantity)}` : ''}</small><RarePrice sku={variant.sku} amount={prices.consumer?.amount} currency={prices.consumer?.price_list.currency} /></> : <em>Consultar</em>}
         <div className="quantity-stepper">
           <button type="button" aria-label="Restar" onClick={() => setQuantity((current) => Math.max(0.01, Number((current - 1).toFixed(2))))}>−</button>
           <input type="number" aria-label="Cantidad" min="0.01" step="0.01" value={quantity} onChange={(event) => setQuantity(Math.max(0.01, Number(event.target.value) || 0.01))} />
@@ -59,7 +70,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
   if (product.brand === 'Resinplast') return <ResinplastRow product={product} variant={variant} onAdd={onAdd} />
   const prices = commercialPrices(variant)
   const pack = unitsPerPack(variant)
-  const priceCell = (price: typeof prices.consumer, pending: string) => <span className="catalog-price">{price ? <><strong>{formatMoney(price.amount, price.price_list.currency)}</strong><small>IVA incluido</small></> : <em>{pending}</em>}</span>
+  const priceCell = (price: typeof prices.consumer, pending: string, warn = false) => <span className="catalog-price">{price ? <><strong>{formatMoney(price.amount, price.price_list.currency)}</strong><small>IVA incluido</small>{warn && pack === 1 && <RarePrice sku={variant.sku} amount={price.amount} currency={price.price_list.currency} />}</> : <em>{pending}</em>}</span>
   const openDocument = async () => {
     const document = variant.technicalDocuments?.[0]; if (!document) return
     const popup = window.open('about:blank', '_blank')
@@ -74,7 +85,7 @@ function CatalogRow({ product, variant, onAdd }: { product: ProductWithVariants;
       <span className="variant-sku">{variant.sku}<small className="pack-size">{pack > 1 ? `Caja x ${pack} — precio total de la caja` : 'Unidad'}</small><small className={variant.approvedStock ? 'stock-verified' : 'stock-unverified'}>{variant.approvedStock ? `Stock aprobado: ${new Intl.NumberFormat('es-AR').format(variant.approvedStock.quantity)} ${variant.approvedStock.unit}` : 'Stock sin verificar'}</small></span>
       <span className="catalog-family" title={product.family}>{product.family}</span>
       <span className="catalog-subfamily" title={product.subfamily || 'Sin subfamilia'}>{product.subfamily || 'Sin subfamilia'}</span>
-      {priceCell(prices.consumer, 'Precio pendiente')}
+      {priceCell(prices.consumer, 'Precio pendiente', true)}
       {priceCell(prices.wholesale, 'Mayorista pendiente')}
       {onAdd ? <button className="add-button" onClick={() => onAdd(variant, product)}>Agregar</button> : <span />}
     </div>

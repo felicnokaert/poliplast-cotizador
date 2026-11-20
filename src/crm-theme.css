@@ -171,3 +171,9 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
 .alto-auto .mobile-quote-bar { bottom: calc(100vh - var(--vista-top, 0px) - var(--vista-alto, 100vh) + 10px); }
 .alto-auto .active-quote-bar { bottom: calc(100vh - var(--vista-top, 0px) - var(--vista-alto, 100vh)); }
 .alto-auto .centered-page { min-height: 560px; }
+
+/* 20/11 Aviso «⚠ Precio raro» junto al precio (lib/rarePrice.ts): se toca para leer el porqué. */
+.rare-price { margin-top: 4px; font-size: .74rem; }
+.rare-price summary { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; padding: 2px 8px; border-radius: 999px; background: #fde2e2; color: #a01616; font-weight: 800; }
+.rare-price summary::-webkit-details-marker { display: none; }
+.rare-price p { margin: 6px 0 0; max-width: 260px; color: #7f1414; font-weight: 600; line-height: 1.3; white-space: normal; }
