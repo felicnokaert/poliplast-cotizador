@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { filterCatalog, paginateCatalog, type PriceFilter } from '../lib/filters'
-import { ProductCard } from './ProductCard'
+import { MlPriceContext, ProductCard } from './ProductCard'
+import { loadMlPrices, type MlPrice } from '../lib/rarePrice'
 import type { ProductWithVariants, VariantWithPricing } from '../types/catalog'
 import { commercialPrices } from '../lib/pricing'
 import { productPhotoUrl } from '../lib/productPhotos'
@@ -42,6 +43,10 @@ export function CatalogBrowser({
   const [subfamily, setSubfamily] = useState('todas')
   const [brand, setBrand] = useState('todas')
   const [priceFilter, setPriceFilter] = useState<PriceFilter>('todos')
+  // 20/11: precios de Mercado Libre por SKU para el aviso «⚠ Precio raro» (si no se pueden leer, no se avisa).
+  const [mlPrices, setMlPrices] = useState<Map<string, MlPrice>>(() => new Map())
+  useEffect(() => { let alive = true; loadMlPrices().then((map) => { if (alive) setMlPrices(map) }).catch(() => undefined); return () => { alive = false } }, [])
+  const mlContext = useMemo(() => ({ prices: mlPrices, exchangeRate }), [mlPrices, exchangeRate])
   const [page, setPage] = useState(1)
   const [printKind, setPrintKind] = useState<'consumer' | 'wholesale'>('consumer')
   const [printLayout, setPrintLayout] = useState<'lista' | 'fotos'>('lista')
@@ -254,7 +259,7 @@ export function CatalogBrowser({
           <p>{printKind === 'wholesale' ? 'No hay productos con precio mayorista para estos filtros.' : 'No se encontraron productos con esos filtros.'}</p>
         </div>
       ) : (
-        <div className="product-list">
+        <MlPriceContext.Provider value={mlContext}><div className="product-list">
           <div className="catalog-table-head">
             <span>Producto</span><span>SKU</span><span>Familia</span><span>Subfamilia</span><span>Consumidor final</span><span>Mayorista</span><span />
           </div>
@@ -262,7 +267,7 @@ export function CatalogBrowser({
             <ProductCard key={product.id} product={product} onAdd={onAdd} />
           ))}
           {paginated.pageCount > 1 && <nav className="catalog-pagination" aria-label="Páginas del catálogo"><span>{(paginated.page - 1) * pageSize + 1}–{Math.min(paginated.page * pageSize, paginated.total)} de {paginated.total}</span><button disabled={paginated.page === 1} onClick={() => setPage((value) => value - 1)}>Anterior</button><strong>{paginated.page} / {paginated.pageCount}</strong><button disabled={paginated.page === paginated.pageCount} onClick={() => setPage((value) => value + 1)}>Siguiente</button></nav>}
-        </div>
+        </div></MlPriceContext.Provider>
       )}
     </div>
   )

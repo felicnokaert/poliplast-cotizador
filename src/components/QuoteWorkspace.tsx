@@ -517,7 +517,7 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
               </aside>
             )}
             <div className="quote-items-heading"><div className="section-title products-title"><span>02</span><div><h2>Ítems a cotizar</h2><p>Productos, cantidades y precios aplicados.</p></div></div><button className="secondary-action" onClick={() => setProductPickerOpen((value) => !value)}>{productPickerOpen ? 'Cerrar buscador' : '+ Agregar productos'}</button></div>
-            {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} /></section>}
+            {productPickerOpen && <section className="quote-product-picker"><CatalogBrowser title="Buscar y agregar productos" onAdd={add} minimumSearchLength={3} exchangeRate={meta.exchangeRate} /></section>}
             {lines.length === 0 ? <button className="quote-empty quote-empty-action quote-empty-main" onClick={() => setProductPickerOpen(true)}><strong>+ Agregar el primer producto</strong><span>Buscá por nombre o SKU; los resultados aparecen desde 3 caracteres.</span></button> : <div className="quote-lines quote-lines-main">{groupLinesByFamily(lines).map((group) => {
               const subtotals = groupSubtotalsByCurrency(group.lines, meta.priceMode, rules, lines, meta.exchangeRate)
               return (
