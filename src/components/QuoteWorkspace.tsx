@@ -39,6 +39,7 @@ import { loadCatalog, type CatalogData } from '../lib/catalog'
 import { frequentlyTogether } from '../lib/suggestions'
 import { addCommercialClientPhone, loadCommercialClients, markQuotedInCrm, normalizeCompany, type CommercialClient } from '../lib/clients'
 import { loadCommercialRules } from '../lib/commercialRules'
+import { subirEnCrm } from '../lib/altoCrm'
 import { deleteSharedQuote, loadSharedQuotes, mergeQuoteHistories, saveSharedQuote } from '../lib/sharedQuotes'
 import { DEFAULT_PAYMENT_POLICIES, loadPaymentPolicies, reserveQuoteNumber, type PaymentPolicy } from '../lib/paymentPolicies'
 
@@ -160,6 +161,9 @@ export function QuoteWorkspace({ userEmail, userId, onSignOut }: { userEmail: st
   const [meta, setMeta] = useState<QuoteMeta>(() => initialDraft?.meta ?? newMeta())
   const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>(loadSavedQuotes)
   const [activeSection, setActiveSection] = useState<'catalogo' | 'cotizacion' | 'historial' | 'administracion'>('historial')
+  // Adentro del CRM con alto automático: al cambiar de sección, la página del CRM vuelve al principio del cotizador.
+  const primeraSeccion = useRef(true)
+  useEffect(() => { if (primeraSeccion.current) { primeraSeccion.current = false; return } subirEnCrm() }, [activeSection])
   const [productPickerOpen, setProductPickerOpen] = useState(false)
   const [lastAdded, setLastAdded] = useState('')
   const [busyQuoteDelete, setBusyQuoteDelete] = useState('')

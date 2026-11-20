@@ -159,3 +159,15 @@ input:focus, select:focus, textarea:focus { border-color: #b4b6b9; outline: none
 .cot-embedded .page-intro h1, .cot-embedded .quote-heading h1 { display: none; }
 .cot-embedded .page-intro .muted, .cot-embedded .quote-heading .muted { margin-top: 0; }
 .cot-embedded .page-intro-actions { align-items: center; }
+
+/* ---------- Adentro del CRM con alto automático (altoCrm.ts) ----------
+   El iframe toma el alto del cotizador y se desplaza con la página del CRM. Nada mide 100vh (el iframe ya no
+   es la pantalla) y lo fijo (ventanas, avisos, barra del total) va a la parte que se ve: --vista-top / --vista-alto. */
+.alto-auto body, .alto-auto #root, .alto-auto .app-shell, .alto-auto .crm-layout { min-height: 0; }
+.alto-auto .crm-sidebar { position: static; }
+.alto-auto .quote-rail, .alto-auto .quote-page .quote-rail { position: static; max-height: none; }
+.alto-auto .modal-backdrop, .alto-auto .admin-confirm-backdrop { inset: auto 0 auto 0; top: var(--vista-top, 0px); height: var(--vista-alto, 100vh); }
+.alto-auto .add-toast { bottom: calc(100vh - var(--vista-top, 0px) - var(--vista-alto, 100vh) + 22px); }
+.alto-auto .mobile-quote-bar { bottom: calc(100vh - var(--vista-top, 0px) - var(--vista-alto, 100vh) + 10px); }
+.alto-auto .active-quote-bar { bottom: calc(100vh - var(--vista-top, 0px) - var(--vista-alto, 100vh)); }
+.alto-auto .centered-page { min-height: 560px; }
